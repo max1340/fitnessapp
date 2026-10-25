@@ -502,8 +502,8 @@ export function openShareCard(session, meta) {
   ), { title: t("workout.shareTitle"), full: true });
 }
 
-/* ---------- Итоговая сводка ---------- */
-export function showSummary(session) {
+/* ---------- Итоговая сводка и прямой шаринг ---------- */
+export function computeSummaryMeta(session) {
   const stats = sessionStats(session);
   const done = doneSessions(session.programId).sort(byStart);
   const base = pickBaseline(done, getProgram(session.programId)?.baselineSessionId);
@@ -535,6 +535,30 @@ export function showSummary(session) {
     }
   }
 
+  const sMuscles = new Map();
+  for (const e of session.entries || []) {
+    const workSets = (e.sets || []).filter(s => s.done && !s.isWarmup && s.reps > 0).length;
+    if (!workSets) continue;
+    const ex = getExercise(e.exerciseId);
+    const mg = (ex?.muscleGroup || t("common.other")).trim();
+    if (!sMuscles.has(mg)) sMuscles.set(mg, { muscle: mg, sets: 0, exercises: new Set() });
+    const rec = sMuscles.get(mg);
+    rec.sets += workSets;
+    rec.exercises.add(e.exerciseName || ex?.name || "");
+  }
+  const mapItems = [...sMuscles.values()].map(x => ({ ...x, exercises: [...x.exercises] }));
+
+  return { stats, base, li, cmp, prItems, mapItems };
+}
+
+export function openSessionShare(session) {
+  const meta = computeSummaryMeta(session);
+  openShareCard(session, meta);
+}
+
+export function showSummary(session) {
+  const { stats, base, li, cmp, prItems, mapItems } = computeSummaryMeta(session);
+
   const program = getProgram(session.programId);
   const canSyncProgram = hasProgramChanged(session, program);
   const syncProgramBlock = canSyncProgram ? (() => {
@@ -563,19 +587,6 @@ export function showSummary(session) {
       h("small", { class: "muted" }, t("workout.templateDiffNote", { name: program.name })),
       btn);
   })() : null;
-
-  const sMuscles = new Map();
-  for (const e of session.entries || []) {
-    const workSets = (e.sets || []).filter(s => s.done && !s.isWarmup && s.reps > 0).length;
-    if (!workSets) continue;
-    const ex = getExercise(e.exerciseId);
-    const mg = (ex?.muscleGroup || t("common.other")).trim();
-    if (!sMuscles.has(mg)) sMuscles.set(mg, { muscle: mg, sets: 0, exercises: new Set() });
-    const rec = sMuscles.get(mg);
-    rec.sets += workSets;
-    rec.exercises.add(e.exerciseName || ex?.name || "");
-  }
-  const mapItems = [...sMuscles.values()].map(x => ({ ...x, exercises: [...x.exercises] }));
 
   const kg = unitLabel("kg");
   const cell = (label, val, sub = "") => h("div", { class: "stat" }, h("small", { class: "muted" }, label), h("strong", {}, val), sub ? h("small", { class: "muted" }, sub) : null);
@@ -677,30 +688,70 @@ export function mount(root) {
 
     const getSelectedProg = () => (selectedId === FREE_ID ? null : programs.find(p => p.id === selectedId) || null);
 
-    // 1. Пилюли выбора программы (создаются один раз, не пересоздаются при клике)
-    const pillBtns = new Map();
-    const pillsWrap = h("div", { class: "home-pills" });
-    for (const p of programs) {
-      const b = h("button", {
-        type: "button",
-        class: "btn tag home-pill" + (selectedId === p.id ? " on" : ""),
-        onclick: () => selectProg(p.id)
-      }, shortProgTitle(p.name));
-      pillBtns.set(p.id, b);
-      pillsWrap.append(b);
-    }
-    const freeBtn = h("button", {
-      type: "button",
-      class: "btn tag home-pill" + (selectedId === FREE_ID ? " on" : ""),
-      onclick: () => selectProg(FREE_ID)
-    }, t("workout.freeWorkout"));
-    pillBtns.set(FREE_ID, freeBtn);
-    pillsWrap.append(freeBtn);
-
-    // 2. Блок мета-информации фиксированной высоты (никогда не меняет высоту карточки)
+    // 1. Современное выпадающее меню (Dropdown) выбора тренировки
     const selTitleEl = h("strong", { class: "home-sel-title" });
     const selSubEl = h("small", { class: "muted home-sel-sub" });
-    const selMetaBox = h("div", { class: "home-sel-meta" }, selTitleEl, selSubEl);
+    const ddWrap = h("div", { class: "home-dd collapsed" });
+
+    const toggleDd = forceState => {
+      const nextCollapsed = typeof forceState === "boolean" ? !forceState : !ddWrap.classList.contains("collapsed");
+      ddWrap.classList.toggle("collapsed", nextCollapsed);
+      ddTrigger.setAttribute("aria-expanded", String(!nextCollapsed));
+    };
+
+    const ddTrigger = h("button", {
+      type: "button",
+      class: "home-dd-trigger",
+      "aria-expanded": "false",
+      onclick: () => toggleDd()
+    },
+      h("span", { class: "home-dd-ico" }, icon("dumbbell", 20)),
+      h("span", { class: "home-dd-text" }, selTitleEl, selSubEl),
+      h("span", { class: "fold-chevron home-dd-chev" }, icon("up", 18))
+    );
+
+    const ddItemsMap = new Map();
+    const ddList = h("div", { class: "home-dd-list" });
+
+    for (const p of programs) {
+      const pSets = (p.items || []).reduce((n, it) => n + (Number(it.sets) || 3), 0);
+      const pLast = doneSessions(p.id).sort(byStart).pop();
+      const pSub = t("workout.progMeta", { exCount: (p.items || []).length, setsCount: pSets }) +
+        (pLast ? t("workout.progMetaLast", { date: fmtDate(pLast.startedAt) }) : t("workout.progMetaNever"));
+      const itemBtn = h("button", {
+        type: "button",
+        class: "home-dd-item" + (selectedId === p.id ? " on" : ""),
+        onclick: () => { toggleDd(false); selectProg(p.id); }
+      },
+        h("span", { class: "home-dd-item-main" },
+          h("strong", { class: "home-dd-item-title" }, p.name),
+          h("small", { class: "muted home-dd-item-sub" }, pSub)),
+        h("span", { class: "home-dd-check" }, icon("check", 16))
+      );
+      ddItemsMap.set(p.id, itemBtn);
+      ddList.append(itemBtn);
+    }
+
+    if (programs.length) ddList.append(h("div", { class: "home-dd-divider" }));
+
+    const freeItemBtn = h("button", {
+      type: "button",
+      class: "home-dd-item" + (selectedId === FREE_ID ? " on" : ""),
+      onclick: () => { toggleDd(false); selectProg(FREE_ID); }
+    },
+      h("span", { class: "home-dd-item-main" },
+        h("strong", { class: "home-dd-item-title" }, t("workout.freeWorkout")),
+        h("small", { class: "muted home-dd-item-sub" }, t("workout.freeMetaSub"))),
+      h("span", { class: "home-dd-check" }, icon("check", 16))
+    );
+    ddItemsMap.set(FREE_ID, freeItemBtn);
+    ddList.append(freeItemBtn);
+
+    ddWrap.append(
+      ddTrigger,
+      h("div", { class: "fold-body home-dd-body" },
+        h("div", { class: "fold-inner" }, ddList))
+    );
 
     // 3. Центральная круглая кнопка-шайба (создаётся один раз — координаты и высота 100% стабильны)
     const orbSubEl = h("small", { class: "home-orb-sub" });
@@ -752,7 +803,7 @@ export function mount(root) {
       previewBody);
 
     function updateHomeContent(animateSwitch = false) {
-      for (const [id, b] of pillBtns) b.classList.toggle("on", id === selectedId);
+      for (const [id, b] of ddItemsMap) b.classList.toggle("on", id === selectedId);
 
       const prog = getSelectedProg();
       const totalSets = prog ? (prog.items || []).reduce((n, it) => n + (Number(it.sets) || 3), 0) : 0;
@@ -772,11 +823,11 @@ export function mount(root) {
       }
 
       if (animateSwitch) {
-        selMetaBox.classList.remove("swap-anim");
+        ddTrigger.classList.remove("swap-anim");
         orbBtnEl.classList.remove("orb-switch");
         previewBody.classList.remove("swap-anim");
         void orbBtnEl.offsetWidth;
-        selMetaBox.classList.add("swap-anim");
+        ddTrigger.classList.add("swap-anim");
         orbBtnEl.classList.add("orb-switch");
         previewBody.classList.add("swap-anim");
       }
@@ -823,9 +874,10 @@ export function mount(root) {
 
     view.append(
       h("section", { class: "panel home-selector-card" },
-        h("span", { class: "group", style: "margin:0" }, t("workout.selectWorkout")),
-        pillsWrap,
-        selMetaBox),
+        h("div", { class: "row gap", style: "justify-content:space-between" },
+          h("span", { class: "stg-sec-title", style: "padding:0" }, t("workout.selectWorkout")),
+          h("span", { class: "ex-group-badge" }, t("workout.programsCountBadge", { n: programs.length }))),
+        ddWrap),
       heroBox,
       previewBox
     );

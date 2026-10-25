@@ -3,7 +3,7 @@ import { state, saveSession, deleteSession, downloadCsv, unitLabel } from "../st
 import { sessionStats, formatNum } from "../metrics.js";
 import { entryCard } from "./entryCard.js";
 import { pickExercise } from "./exercises.js";
-import { buildEntry, showSummary } from "./workout.js";
+import { buildEntry, showSummary, openSessionShare } from "./workout.js";
 import { t } from "../i18n.js";
 
 function dayKey(ts) {
@@ -102,17 +102,37 @@ function openEditor(original) {
     })));
   };
   paint();
-  const save = () => {
+  const applyHeaderFields = () => {
     const tm = fromLocalInput(when.value);
     if (isFinite(tm)) s.startedAt = tm;
-    const d = parseNum(dur.value); s.durationMin = d !== null && d > 0 ? Math.round(d) : null;
+    const d = parseNum(dur.value);
+    s.durationMin = d !== null && d > 0 ? Math.round(d) : null;
     s.finishedAt = s.durationMin ? s.startedAt + s.durationMin * 60000 : s.finishedAt;
+  };
+  const save = () => {
+    applyHeaderFields();
     s.entries.forEach((e, i) => { e.order = i; delete e._key; delete e._expanded; });
     dirty = false;
     saveSession(s); haptic("success"); sh.close(); toast(t("history.savedToast"));
   };
   const sh = sheet(h("div", { class: "stack" },
-    h("p", { class: "muted" }, s.programName),
+    h("div", { class: "stg-card hist-open-head" },
+      h("div", { class: "hist-open-title-row" },
+        h("strong", { class: "hist-open-prog" }, s.programName),
+        h("span", { class: "ex-group-badge" }, `${formatNum(sessionStats(s).volume, 0)} ${unitLabel("kg")}`)),
+      h("div", { class: "row gap hist-open-actions" },
+        h("button", {
+          class: "btn primary small grow",
+          type: "button",
+          onclick: () => { applyHeaderFields(); openSessionShare(s); }
+        }, icon("share", 16), t("workout.shareBtn")),
+        h("button", {
+          class: "btn small grow",
+          type: "button",
+          onclick: () => { applyHeaderFields(); showSummary(s); }
+        }, t("history.openSummaryBtn"))
+      )
+    ),
     h("div", { class: "row gap" },
       h("label", { class: "field grow" }, h("span", {}, t("history.startLabel")), when),
       h("label", { class: "field" }, h("span", {}, t("history.minutesLabel")), dur)),

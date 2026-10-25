@@ -61,58 +61,216 @@ export function openExerciseHistory(exerciseId, fallbackName = t("exercises.defa
 
 export function openExerciseForm(ex, onSaved) {
   const isNew = !ex || !ex.id;
-  const e = ex && ex.id ? { ...ex } : { name: "", muscleGroup: ex?.muscleGroup || "", unit: state.settings.defaultUnit, defaultSets: 3, defaultRestSec: state.settings.restSec, trackRpe: false, note: "" };
+  const e = ex && ex.id ? { ...ex } : {
+    name: "",
+    muscleGroup: ex?.muscleGroup || "",
+    unit: state.settings.defaultUnit || "kg",
+    defaultSets: 3,
+    defaultRestSec: state.settings.restSec || 210,
+    trackRpe: false,
+    isBodyweight: false,
+    note: ""
+  };
+
+  let curUnit = e.unit === "lb" ? "lb" : "kg";
   const name = h("input", { type: "text", value: e.name, placeholder: t("exercises.namePlaceholder"), autocomplete: "off" });
-  const muscle = h("input", { type: "text", value: e.muscleGroup, list: "muscle-list", placeholder: t("exercises.musclePlaceholder"), autocomplete: "off" });
-  const dl = h("datalist", { id: "muscle-list" }, muscleOptions().map(m => h("option", { value: m })));
-  const unit = h("select", {}, h("option", { value: "kg", selected: e.unit === "kg" }, unitLabel("kg")), h("option", { value: "lb", selected: e.unit === "lb" }, "lb"));
-  const sets = h("input", { type: "text", inputmode: "numeric", value: e.defaultSets });
-  const rest = h("input", { type: "text", inputmode: "numeric", value: e.defaultRestSec });
-  const restHint = h("span", { class: "muted" }, "= " + fmtRest(e.defaultRestSec));
-  rest.addEventListener("input", () => (restHint.textContent = "= " + fmtRest(parseNum(rest.value) || 0)));
-  const rpe = h("input", { type: "checkbox", checked: e.trackRpe });
-  const isBw = h("input", { type: "checkbox", checked: !!e.isBodyweight });
+  const muscle = h("input", { type: "text", value: e.muscleGroup, placeholder: t("exercises.musclePlaceholder"), autocomplete: "off" });
+  const sets = h("input", { type: "text", inputmode: "numeric", value: String(e.defaultSets || 3) });
+  const rest = h("input", { type: "text", inputmode: "numeric", value: String(e.defaultRestSec ?? 210) });
+  const restBadge = h("strong", { class: "stg-val-badge" }, fmtRest(e.defaultRestSec ?? 210));
+  const rpe = h("input", { type: "checkbox", class: "ios-switch", checked: !!e.trackRpe });
+  const isBw = h("input", { type: "checkbox", class: "ios-switch", checked: !!e.isBodyweight });
   const note = h("textarea", { rows: 2, placeholder: t("exercises.notePlaceholder") }, e.note || "");
   const err = h("p", { class: "error", hidden: true });
 
   let dirty = false;
-  [name, muscle, unit, sets, rest, rpe, isBw, note].forEach(el => el.addEventListener("input", () => (dirty = true)));
+  [name, muscle, sets, rest, rpe, isBw, note].forEach(el => el.addEventListener("input", () => (dirty = true)));
+  [rpe, isBw].forEach(el => el.addEventListener("change", () => (dirty = true)));
+
+  // 1. Чипы быстрого выбора мышечной группы
+  const chipBtns = new Map();
+  const chipsWrap = h("div", { class: "ex-muscle-chips" });
+  const syncMuscleChips = () => {
+    const val = muscle.value.trim().toLowerCase();
+    for (const [m, b] of chipBtns) {
+      b.classList.toggle("on", m.toLowerCase() === val);
+    }
+  };
+  for (const m of muscleOptions().slice(0, 12)) {
+    const b = h("button", {
+      type: "button",
+      class: "btn small tag ex-mchip",
+      onclick: () => {
+        muscle.value = m;
+        dirty = true;
+        syncMuscleChips();
+      }
+    }, m);
+    chipBtns.set(m, b);
+    chipsWrap.append(b);
+  }
+  muscle.addEventListener("input", syncMuscleChips);
+  syncMuscleChips();
+
+  // 2. Сегментированный контрол единиц веса (кг / lb)
+  const unitKgBtn = h("button", {
+    type: "button",
+    class: "seg-btn" + (curUnit === "kg" ? " on" : ""),
+    onclick: () => { curUnit = "kg"; dirty = true; unitKgBtn.classList.add("on"); unitLbBtn.classList.remove("on"); }
+  }, unitLabel("kg"));
+  const unitLbBtn = h("button", {
+    type: "button",
+    class: "seg-btn" + (curUnit === "lb" ? " on" : ""),
+    onclick: () => { curUnit = "lb"; dirty = true; unitLbBtn.classList.add("on"); unitKgBtn.classList.remove("on"); }
+  }, "lb");
+  const unitSeg = h("div", { class: "seg-control" }, unitKgBtn, unitLbBtn);
+
+  // 3. Степпер количества рабочих подходов
+  const bumpSets = d => {
+    const cur = Math.round(parseNum(sets.value) || 3);
+    const next = Math.max(1, Math.min(15, cur + d));
+    sets.value = String(next);
+    dirty = true;
+  };
+  const setsStepper = h("div", { class: "stepper stg-stepper" },
+    h("button", { class: "btn step", type: "button", onclick: () => bumpSets(-1) }, icon("minus", 14)),
+    sets,
+    h("button", { class: "btn step", type: "button", onclick: () => bumpSets(1) }, icon("plus", 14))
+  );
+
+  // 4. Отдых: пресеты + степпер
+  const restPresetBtns = new Map();
+  const syncRestUI = () => {
+    const v = Math.max(0, Math.round(parseNum(rest.value) ?? 210));
+    restBadge.textContent = fmtRest(v);
+    for (const [sec, b] of restPresetBtns) {
+      b.classList.toggle("on", sec === v);
+    }
+  };
+  rest.addEventListener("input", syncRestUI);
+  const restPresetsWrap = h("div", { class: "stg-presets" });
+  for (const sec of [60, 90, 120, 180, 210]) {
+    const b = h("button", {
+      type: "button",
+      class: "btn small tag stg-preset",
+      onclick: () => { rest.value = String(sec); dirty = true; syncRestUI(); }
+    }, fmtRest(sec));
+    restPresetBtns.set(sec, b);
+    restPresetsWrap.append(b);
+  }
+  const bumpRest = d => {
+    const cur = Math.max(0, Math.round(parseNum(rest.value) ?? 210));
+    rest.value = String(Math.max(0, cur + d));
+    dirty = true;
+    syncRestUI();
+  };
+  const restStepper = h("div", { class: "stepper stg-stepper" },
+    h("button", { class: "btn step", type: "button", onclick: () => bumpRest(-15) }, icon("minus", 14)),
+    rest,
+    h("button", { class: "btn step", type: "button", onclick: () => bumpRest(15) }, icon("plus", 14))
+  );
+  syncRestUI();
 
   const save = () => {
     const nm = name.value.trim();
     if (!nm) { haptic("error"); err.textContent = t("common.enterName"); err.hidden = false; name.focus(); return; }
     const saved = saveExercise({
-      ...e, name: nm, muscleGroup: muscle.value.trim(), unit: unit.value,
+      ...e,
+      name: nm,
+      muscleGroup: muscle.value.trim(),
+      unit: curUnit,
       defaultSets: Math.max(1, Math.round(parseNum(sets.value) || 3)),
       defaultRestSec: Math.max(0, Math.round(parseNum(rest.value) ?? 210)),
-      trackRpe: rpe.checked, isBodyweight: isBw.checked, note: note.value.trim()
+      trackRpe: rpe.checked,
+      isBodyweight: isBw.checked,
+      note: note.value.trim()
     });
     dirty = false;
     haptic("success");
-    sh.close(); onSaved && onSaved(saved);
+    sh.close();
+    if (onSaved) onSaved(saved);
   };
+
   const archived = !!e.archived;
   const extra = [];
   if (!isNew) {
-    extra.push(h("button", { class: "btn", type: "button", onclick: () => { dirty = false; saveExercise({ ...e, archived: !archived }); sh.close(); toast(archived ? t("exercises.unarchivedToast") : t("exercises.archivedToast")); } }, archived ? t("exercises.unarchiveBtn") : t("exercises.archiveBtn")));
-    if (!isExerciseUsed(e.id)) extra.push(h("button", { class: "btn", type: "button", onclick: async () => { if (await confirmDialog(t("exercises.deleteConfirm", { name: e.name }), { ok: t("common.delete"), danger: true })) { dirty = false; deleteExercise(e.id); sh.close(); } } }, t("common.delete")));
-    else extra.push(h("p", { class: "muted small" }, t("exercises.cannotDelete")));
+    extra.push(h("button", {
+      class: "btn grow", type: "button",
+      onclick: () => {
+        dirty = false;
+        saveExercise({ ...e, archived: !archived });
+        sh.close();
+        toast(archived ? t("exercises.unarchivedToast") : t("exercises.archivedToast"));
+      }
+    }, archived ? t("exercises.unarchiveBtn") : t("exercises.archiveBtn")));
+    if (!isExerciseUsed(e.id)) {
+      extra.push(h("button", {
+        class: "btn grow", type: "button",
+        onclick: async () => {
+          if (await confirmDialog(t("exercises.deleteConfirm", { name: e.name }), { ok: t("common.delete"), danger: true })) {
+            dirty = false;
+            deleteExercise(e.id);
+            sh.close();
+          }
+        }
+      }, icon("trash", 16), t("common.delete")));
+    }
   }
-  const form = h("form", { class: "stack", onsubmit: ev => { ev.preventDefault(); save(); } },
-    h("label", { class: "field" }, h("span", {}, t("exercises.nameLabel")), name),
-    h("label", { class: "field" }, h("span", {}, t("exercises.muscleLabel")), muscle, dl),
-    h("div", { class: "row gap" },
-      h("label", { class: "field grow" }, h("span", {}, t("exercises.unitsLabel")), unit),
-      h("label", { class: "field grow" }, h("span", {}, t("exercises.defaultSetsLabel")), sets)),
-    h("label", { class: "field" }, h("span", {}, t("exercises.defaultRestLabel"), restHint), rest),
-    h("label", { class: "check" }, isBw, h("span", {}, t("exercises.isBwLabel"))),
-    h("label", { class: "check" }, rpe, h("span", {}, t("exercises.trackRpeLabel"))),
-    h("label", { class: "field" }, h("span", {}, t("exercises.noteLabel")), note),
+
+  const form = h("form", { class: "stack stg-wrap", onsubmit: ev => { ev.preventDefault(); save(); } },
+    h("div", { class: "stg-section" },
+      h("span", { class: "stg-sec-title" }, t("exercises.basicGroup")),
+      h("div", { class: "stg-card" },
+        h("label", { class: "field" }, h("span", {}, t("exercises.nameLabel")), name),
+        h("div", { class: "field" },
+          h("span", {}, t("exercises.muscleLabel")),
+          chipsWrap,
+          muscle))
+    ),
+
+    h("div", { class: "stg-section" },
+      h("span", { class: "stg-sec-title" }, t("exercises.defaultsGroup")),
+      h("div", { class: "stg-card" },
+        h("div", { class: "row gap", style: "align-items:flex-end" },
+          h("div", { class: "field grow" }, h("span", {}, t("exercises.unitsLabel")), unitSeg),
+          h("div", { class: "field grow" }, h("span", {}, t("exercises.defaultSetsLabel")), setsStepper)),
+        h("div", { class: "stg-rest-block" },
+          h("div", { class: "row gap", style: "justify-content:space-between" },
+            h("span", { class: "stg-row-label" }, t("exercises.defaultRestShort")),
+            restBadge),
+          restPresetsWrap,
+          restStepper))
+    ),
+
+    h("div", { class: "stg-section" },
+      h("span", { class: "stg-sec-title" }, t("exercises.optionsGroup")),
+      h("div", { class: "stg-card stg-list-card" },
+        h("label", { class: "stg-toggle-row" },
+          h("span", { class: "stg-toggle-text" },
+            h("span", { class: "stg-toggle-title" }, t("exercises.isBwLabel")),
+            h("small", { class: "muted stg-toggle-sub" }, t("exercises.isBwSub"))),
+          isBw),
+        h("label", { class: "stg-toggle-row last" },
+          h("span", { class: "stg-toggle-text" },
+            h("span", { class: "stg-toggle-title" }, t("exercises.trackRpeLabel")),
+            h("small", { class: "muted stg-toggle-sub" }, t("exercises.trackRpeSub"))),
+          rpe))
+    ),
+
+    h("div", { class: "stg-section" },
+      h("span", { class: "stg-sec-title" }, t("exercises.noteLabel")),
+      h("div", { class: "stg-card" }, note)
+    ),
+
     err,
-    h("div", { class: "row gap" }, extra),
-    h("button", { class: "btn primary block", type: "submit" }, t("common.save")));
+    !isNew && isExerciseUsed(e.id) ? h("p", { class: "muted small", style: "margin:0 4px" }, t("exercises.cannotDelete")) : null,
+    extra.length ? h("div", { class: "row gap" }, extra) : null,
+    h("button", { class: "btn primary block", type: "submit" }, t("common.save"))
+  );
+
   const sh = sheet(form, {
     title: isNew ? t("exercises.newTitle") : t("exercises.editTitle"),
+    full: true,
     beforeClose: () => (!dirty ? true : confirmDialog(t("common.unsavedConfirm"), { ok: t("common.close"), cancel: t("common.stay"), danger: true }))
   });
   if (isNew) name.focus();
@@ -120,19 +278,42 @@ export function openExerciseForm(ex, onSaved) {
 
 /** Выбор упражнения из библиотеки. onPick(exercise). */
 export function pickExercise(onPick, { exclude = [], inSessionIds = [], preferMuscle = "", title = t("exercises.pickTitle"), multi = false } = {}) {
-  const list = h("div", { class: "list" });
+  const list = h("div", { class: "stack ex-pick-groups" });
   const search = h("input", { type: "search", placeholder: t("common.search"), "aria-label": t("common.searchAria") });
-  const filter = h("select", { "aria-label": t("exercises.filterMuscleAria") },
-    h("option", { value: "" }, t("exercises.allMuscles")),
-    ...[...new Set(state.exercises.filter(x => !x.archived).map(e => e.muscleGroup).filter(Boolean))].sort().map(m =>
-      h("option", { value: m }, m)));
+  let curMuscle = "";
+
+  const allMuscles = [...new Set(state.exercises.filter(x => !x.archived).map(e => e.muscleGroup).filter(Boolean))].sort((a, b) => {
+    if (preferMuscle) {
+      if (a === preferMuscle) return -1;
+      if (b === preferMuscle) return 1;
+    }
+    return a.localeCompare(b);
+  });
+
+  const filterBar = h("div", { class: "ex-filter-pills" });
+  const filterBtns = new Map();
+  const addFilterPill = (val, label) => {
+    const b = h("button", {
+      type: "button",
+      class: "btn small tag ex-filter-pill" + (curMuscle === val ? " on" : ""),
+      onclick: () => {
+        curMuscle = val;
+        for (const [k, btn] of filterBtns) btn.classList.toggle("on", k === curMuscle);
+        paint();
+      }
+    }, label);
+    filterBtns.set(val, b);
+    filterBar.append(b);
+  };
+  addFilterPill("", t("exercises.allMuscles"));
+  for (const m of allMuscles) addFilterPill(m, m);
 
   const paint = () => {
     const q = search.value.trim().toLowerCase();
-    const f = filter.value;
+    const f = curMuscle;
     clear(list);
     const items = state.exercises
-      .filter(x => !x.archived && !exclude.includes(x.id) && (!f || x.muscleGroup === f) && (!q || (x.name + " " + x.muscleGroup).toLowerCase().includes(q)))
+      .filter(x => !x.archived && !exclude.includes(x.id) && (!f || x.muscleGroup === f) && (!q || (x.name + " " + (x.muscleGroup || "")).toLowerCase().includes(q)))
       .sort((a, b) => {
         if (preferMuscle && !f) {
           const aPref = a.muscleGroup === preferMuscle ? 0 : 1;
@@ -145,32 +326,62 @@ export function pickExercise(onPick, { exclude = [], inSessionIds = [], preferMu
         return (a.muscleGroup || "").localeCompare(b.muscleGroup || "") || a.name.localeCompare(b.name);
       });
 
-    if (!items.length) list.append(h("p", { class: "empty" }, t("exercises.nothingFoundCreate")));
-    let lastGroup = null;
+    if (!items.length) {
+      list.append(h("p", { class: "empty" }, t("exercises.nothingFoundCreate")));
+      return;
+    }
+
+    const byGrp = new Map();
     for (const x of items) {
       const grp = preferMuscle && !f && x.muscleGroup === preferMuscle
         ? t("exercises.sameMuscleGroup", { muscle: x.muscleGroup })
         : (x.muscleGroup || t("common.uncategorized"));
-      if (grp !== lastGroup) {
-        lastGroup = grp;
-        list.append(h("h3", { class: "group" }, grp));
+      if (!byGrp.has(grp)) byGrp.set(grp, []);
+      byGrp.get(grp).push(x);
+    }
+
+    for (const [grp, grpItems] of byGrp) {
+      const grpBox = h("div", { class: "ex-pick-group" },
+        h("div", { class: "ex-pick-group-head" },
+          h("span", { class: "stg-sec-title" }, grp),
+          h("span", { class: "ex-group-badge" }, String(grpItems.length)))
+      );
+      const grpList = h("div", { class: "ex-pick-list" });
+      for (const x of grpItems) {
+        const inCurrent = inSessionIds.includes(x.id);
+        grpList.append(h("button", {
+          class: "ex-pick-item" + (inCurrent ? " in-workout" : ""),
+          type: "button",
+          onclick: () => {
+            onPick(x);
+            if (!multi) sh.close();
+            else toast(t("exercises.addedToast", { name: x.name }));
+          }
+        },
+          h("span", { class: "ex-item-main" },
+            h("span", { class: "ex-item-head" },
+              h("strong", { class: "ex-item-name" }, x.name),
+              x.isBodyweight ? h("span", { class: "muscle-tag" }, t("exercises.bwBadge")) : null),
+            h("small", { class: "muted ex-item-sub" },
+              `${x.defaultSets || 3} × · ${fmtRest(x.defaultRestSec ?? 210)} · ${unitLabel(x.unit)}` +
+              (inCurrent ? t("exercises.alreadyInWorkout") : ""))),
+          h("span", { class: "ex-pick-plus" }, icon("plus", 18))
+        ));
       }
-      const inCurrent = inSessionIds.includes(x.id);
-      list.append(h("button", {
-        class: "list-item", type: "button",
-        onclick: () => { onPick(x); if (!multi) sh.close(); else toast(t("exercises.addedToast", { name: x.name })); }
-      },
-        h("span", { class: "grow" },
-          h("strong", {}, x.name),
-          h("small", { class: "muted" }, (x.muscleGroup || "—") + (inCurrent ? t("exercises.alreadyInWorkout") : ""))),
-        icon("plus", 20)));
+      grpBox.append(grpList);
+      list.append(grpBox);
     }
   };
+
   search.addEventListener("input", paint);
-  filter.addEventListener("change", paint);
   const sh = sheet(h("div", { class: "stack" },
-    h("div", { class: "toolbar" }, search, filter),
-    h("button", { class: "btn block", type: "button", onclick: () => openExerciseForm(null, x => { onPick(x); sh.close(); }) }, t("exercises.createCustomBtn")),
+    search,
+    filterBar,
+    h("button", {
+      class: "btn block ex-create-custom-btn",
+      type: "button",
+      onclick: () => openExerciseForm(preferMuscle ? { muscleGroup: preferMuscle } : null, x => { onPick(x); sh.close(); })
+    }, icon("plus", 18), t("exercises.createCustomBtn").replace(/^\+\s*/, "")),
     list), { title, full: true });
   paint();
 }
@@ -179,8 +390,9 @@ export function mount(root) {
   const search = h("input", { type: "search", placeholder: t("common.search"), "aria-label": t("common.searchAria") });
   const filter = h("select", { "aria-label": t("exercises.filterMuscleAria") });
   const showArchived = h("input", { type: "checkbox" });
-  const groupsWrap = h("div", { class: "stack ex-groups-grid" });
-  const collapsedGroups = new Set();
+  const groupsWrap = h("div", { class: "stack ex-groups-wrap" });
+  // По дефолту все папки упражнений свёрнуты (открываются по клику или при поиске/фильтре)
+  const expandedGroups = new Set();
 
   const paintFilter = () => {
     const cur = filter.value;
@@ -209,18 +421,19 @@ export function mount(root) {
 
     for (const [grpName, grpItems] of byGroup) {
       const forceOpen = !!q || !!filter.value;
-      const isCol = !forceOpen && collapsedGroups.has(grpName);
+      const isExpanded = forceOpen || expandedGroups.has(grpName);
+      const isCol = !isExpanded;
       const previewNames = grpItems.slice(0, 4).map(x => x.name).join(", ") + (grpItems.length > 4 ? "…" : "");
 
       const innerList = h("div", { class: "ex-group-items" });
       for (const e of grpItems) {
         const weightInfo = e.startWeight != null ? `${fmtNum(e.startWeight)} ${unitLabel(e.unit)} · ` : "";
         innerList.append(h("div", { class: "ex-group-item" + (e.archived ? " archived" : "") },
-          h("button", { class: "card-main grow", type: "button", onclick: () => openExerciseForm(e) },
-            h("div", { class: "row gap", style: "flex-wrap:wrap" },
-              h("strong", {}, e.name),
+          h("button", { class: "ex-item-main", type: "button", onclick: () => openExerciseForm(e) },
+            h("span", { class: "ex-item-head" },
+              h("strong", { class: "ex-item-name" }, e.name),
               e.isBodyweight ? h("span", { class: "muscle-tag" }, t("exercises.bwBadge")) : null),
-            h("small", { class: "muted" }, t("exercises.cardSub", {
+            h("small", { class: "muted ex-item-sub" }, t("exercises.cardSub", {
               weight: weightInfo,
               sets: e.defaultSets,
               rest: fmtRest(e.defaultRestSec),
@@ -229,8 +442,10 @@ export function mount(root) {
               rpe: e.trackRpe ? " · RPE" : "",
               arch: e.archived ? t("exercises.cardArch") : ""
             }))),
-          iconBtn("clock", t("exercises.historyBtnAria"), () => openExerciseHistory(e.id, e.name, e.unit)),
-          iconBtn("edit", t("common.edit"), () => openExerciseForm(e))));
+          h("div", { class: "ex-item-actions" },
+            iconBtn("clock", t("exercises.historyBtnAria"), () => openExerciseHistory(e.id, e.name, e.unit)),
+            iconBtn("edit", t("common.edit"), () => openExerciseForm(e)))
+        ));
       }
 
       const cardEl = h("section", { class: "ex-group-card" + (isCol ? " collapsed" : "") },
@@ -240,12 +455,12 @@ export function mount(root) {
           onclick: () => {
             const nowCollapsed = !cardEl.classList.contains("collapsed");
             cardEl.classList.toggle("collapsed", nowCollapsed);
-            if (nowCollapsed) collapsedGroups.add(grpName);
-            else collapsedGroups.delete(grpName);
+            if (nowCollapsed) expandedGroups.delete(grpName);
+            else expandedGroups.add(grpName);
           }
         },
-          h("div", { class: "grow ex-group-title-box" },
-            h("div", { class: "row gap" },
+          h("div", { class: "ex-group-title-box" },
+            h("div", { class: "ex-group-title-row" },
               h("strong", { class: "ex-group-title" }, grpName),
               h("span", { class: "ex-group-badge" }, t("exercises.groupCount", { n: grpItems.length }))),
             h("small", { class: "muted ex-group-preview" }, previewNames)),

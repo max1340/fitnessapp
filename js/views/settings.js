@@ -77,13 +77,13 @@ export function openSettings() {
       return { stepperEl, badgeEl, applyVal };
     };
 
-    const toggleRow = (title, sub, checked, onChange) => {
+    const toggleRow = (title, sub, checked, onChange, isLast = false) => {
       const inp = h("input", { type: "checkbox", class: "ios-switch", checked: !!checked });
       inp.addEventListener("change", () => onChange(inp.checked, inp));
-      return h("label", { class: "stg-toggle-row" },
-        h("div", { class: "grow" },
-          h("strong", { class: "stg-row-title" }, title),
-          sub ? h("small", { class: "muted stg-row-sub" }, sub) : null),
+      return h("label", { class: "stg-toggle-row" + (isLast ? " last" : "") },
+        h("span", { class: "stg-toggle-text" },
+          h("span", { class: "stg-toggle-title" }, title),
+          sub ? h("small", { class: "muted stg-toggle-sub" }, sub) : null),
         inp
       );
     };
@@ -106,14 +106,16 @@ export function openSettings() {
     const initials = curUsername.replace(/[^a-zA-Zа-яА-Я0-9]/g, "").slice(0, 2).toUpperCase() || "U";
     const doneCnt = doneSessions().length;
     const progCnt = state.programs.filter(p => !p.archived).length;
+    const exCnt = state.exercises.filter(e => !e.archived).length;
 
     const profileBox = h("div", { class: "stg-card stg-profile-card" },
-      h("div", { class: "stg-avatar" }, initials),
-      h("div", { class: "grow" },
-        h("strong", { class: "stg-profile-name" }, `@${curUsername}`),
-        h("small", { class: "muted" }, t("settings.profileStats", { s: doneCnt, p: progCnt }))),
+      h("div", { class: "stg-profile-left" },
+        h("div", { class: "stg-avatar" }, initials),
+        h("div", { class: "stg-profile-meta" },
+          h("strong", { class: "stg-profile-name" }, `@${curUsername}`),
+          h("small", { class: "muted" }, t("settings.profileStats", { workouts: doneCnt, programs: progCnt, exercises: exCnt })))),
       h("button", {
-        class: "btn small",
+        class: "btn small stg-logout-btn",
         type: "button",
         onclick: async () => {
           if (!(await confirmDialog(t("settings.logoutConfirm", { user: curUsername }), { ok: t("settings.logoutOk") }))) return;
@@ -125,10 +127,10 @@ export function openSettings() {
 
     const restCtrl = stepField("restSec", 15, 15, v => fmtRest(v));
     const restPresets = h("div", { class: "stg-presets" },
-      ...[90, 120, 180, 210, 240].map(sec =>
+      ...[60, 90, 120, 180, 210].map(sec =>
         h("button", {
           type: "button",
-          class: "btn small tag" + (Number(st.restSec) === sec ? " on" : ""),
+          class: "btn small tag stg-preset" + (Number(st.restSec) === sec ? " on" : ""),
           onclick: () => {
             updateSettings({ restSec: sec });
             renderContent();
@@ -139,14 +141,14 @@ export function openSettings() {
     const kgCtrl = stepField("stepKg", 0.5, 0.25);
     const lbCtrl = stepField("stepLb", 1, 0.5);
 
-    const actionRow = (ico, title, sub, onclick) => h("button", {
+    const actionRow = (ico, title, sub, onclick, isLast = false) => h("button", {
       type: "button",
-      class: "stg-action-row",
+      class: "stg-action-row" + (isLast ? " last" : ""),
       onclick
     },
       h("span", { class: "stg-action-ico" }, icon(ico, 18)),
-      h("span", { class: "grow stg-action-text" },
-        h("strong", {}, title),
+      h("span", { class: "stg-action-text" },
+        h("span", { class: "stg-action-title" }, title),
         h("small", { class: "muted" }, sub)),
       h("span", { class: "stg-action-arr" }, "→")
     );
@@ -185,7 +187,7 @@ export function openSettings() {
       ),
 
       h("div", { class: "stg-section" },
-        h("span", { class: "group" }, t("settings.feedbackGroup")),
+        h("span", { class: "stg-sec-title" }, t("settings.feedbackGroup")),
         h("div", { class: "stg-card stg-list-card" },
           toggleRow(t("settings.sound"), t("settings.soundSub"), st.sound, val => updateSettings({ sound: val })),
           toggleRow(t("settings.vibration"), t("settings.vibrationSub"), st.vibration, val => {
@@ -197,12 +199,12 @@ export function openSettings() {
               await Notification.requestPermission().catch(() => {});
             }
             updateSettings({ notifications: val });
-          })
+          }, true)
         )
       ),
 
       h("div", { class: "stg-section" },
-        h("span", { class: "group" }, t("settings.dataGroup")),
+        h("span", { class: "stg-sec-title" }, t("settings.dataGroup")),
         h("div", { class: "stg-card stg-list-card" },
           actionRow("download", t("settings.exportCsvBtn"), t("settings.exportCsvSub"), () => {
             downloadCsv(); toast(t("settings.csvExportedToast"));
@@ -212,7 +214,7 @@ export function openSettings() {
             const a = h("a", { href: URL.createObjectURL(blob), download: `fitness-backup-${curUsername}-${new Date().toISOString().slice(0, 10)}.json` });
             document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
           }),
-          actionRow("plus", t("settings.importJsonBtn"), t("settings.importJsonSub"), () => file.click()),
+          actionRow("plus", t("settings.importJsonBtn"), t("settings.importJsonSub"), () => file.click(), true),
           file
         )
       )

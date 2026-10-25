@@ -329,12 +329,18 @@ export function mount(root) {
           class: "pr-card",
           onclick: () => openExerciseHistory(exerciseId, pr.name, pr.unit)
         },
-          h("div", { class: "row gap", style: "justify-content:space-between" },
-            h("strong", {}, pr.name),
+          h("div", { class: "pr-card-top" },
+            h("strong", { class: "pr-card-title" }, pr.name),
             h("span", { class: "pr-badge" }, "PR")),
           h("div", { class: "pr-card-metrics" },
-            h("span", { class: "muted small" }, t("progress.prWeight", { val: wVal }) + (pr.weightDate ? ` (${fmtDate(pr.weightDate)})` : "")),
-            h("span", { class: "muted small" }, `e1RM ${e1Val}` + (pr.e1rmDate ? ` (${fmtDate(pr.e1rmDate)})` : "")))
+            h("div", { class: "pr-metric-box" },
+              h("small", { class: "muted" }, t("exercises.weightPR")),
+              h("strong", {}, wVal),
+              pr.weightDate ? h("small", { class: "muted" }, fmtDate(pr.weightDate)) : null),
+            h("div", { class: "pr-metric-box" },
+              h("small", { class: "muted" }, t("exercises.bestE1rm")),
+              h("strong", {}, e1Val),
+              pr.e1rmDate ? h("small", { class: "muted" }, fmtDate(pr.e1rmDate)) : null))
         ));
       }
     }
@@ -351,6 +357,7 @@ export function mount(root) {
     const exMap = new Map();
     done.forEach(s => (s.entries || []).forEach(e => exMap.set(e.exerciseId, { name: getExercise(e.exerciseId)?.name || e.exerciseName, unit: e.unit })));
     const exList = [...exMap.entries()];
+    const exPreview = exList.slice(0, 3).map(([, v]) => v.name).join(", ") + (exList.length > 3 ? "…" : "");
     if (!exList.find(([id]) => id === exId)) exId = exList[0]?.[0] || null;
     if (exId) {
       const exSel = h("select", { "aria-label": t("progress.exerciseAria") }, exList.map(([id, v]) => h("option", { value: id, selected: id === exId }, v.name)));
@@ -381,7 +388,7 @@ export function mount(root) {
         "byEx",
         t("progress.byExercise"),
         String(exList.length),
-        t("progress.byExerciseSub"),
+        exPreview || t("progress.byExerciseSub", { n: exList.length }),
         h("div", { class: "stack" }, exSel, exChartsBox),
         false
       ));
