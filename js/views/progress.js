@@ -175,6 +175,9 @@ export function mount(root) {
       h("p", { class: "muted small" }, `База индекса: ${base ? fmtDate(base.startedAt) : "—"}`),
       h("button", { class: "btn block", type: "button", onclick: () => resetBaseline(program, done) }, "Сбросить базу индекса")));
 
+    /* Баланс по мышцам (силуэт человека) */
+    content.append(buildMuscleBalance(paint));
+
     /* Графики по упражнению */
     const exMap = new Map();
     done.forEach(s => (s.entries || []).forEach(e => exMap.set(e.exerciseId, { name: e.exerciseName, unit: e.unit })));
@@ -211,7 +214,7 @@ export function mount(root) {
         h("span", { class: "muted small" }, `вес ${pr.weightKg !== null ? formatNum(fromKg(pr.weightKg, pr.unit), 1) + " " + unitLabel(pr.unit) + " (" + fmtDate(pr.weightDate) + ")" : "—"}`),
         h("span", { class: "muted small" }, `e1RM ${pr.e1rmKg !== null ? formatNum(fromKg(pr.e1rmKg, pr.unit), 1) + " " + unitLabel(pr.unit) + " (" + fmtDate(pr.e1rmDate) + ")" : "—"}`)));
     }
-    content.append(prBox, buildMuscleBalance(paint), buildBodyweightPanel());
+    content.append(prBox, buildBodyweightPanel());
   }
 
   function resetBaseline(program, done) {

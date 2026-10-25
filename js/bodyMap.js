@@ -1,5 +1,6 @@
 // Векторная анатомическая карта мышц человека (Спереди + Сзади) на чистом SVG.
-// Строго монохромная палитра: интенсивность нагрузки передаётся плотностью заливки и контуром.
+// Все стили и цвета заданы напрямую через inline-стили с переменными CSS (var(--fg), var(--s2), var(--line)),
+// поэтому силуэт ВСЕГДА рендерится корректно в тёмной и светлой теме и никогда не заливается сплошным чёрным.
 import { h } from "./ui.js";
 
 const NS = "http://www.w3.org/2000/svg";
@@ -13,26 +14,25 @@ const svgEl = (tag, attrs = {}, children = []) => {
 };
 
 /**
- * Описания анатомических зон и их зеркальных контуров вокруг оси X = 0 (масштаб Y: 0..245).
- * Каждая фигура рендерится со смещением translate(cx, 18).
+ * Анатомические мышечные группы: координаты вокруг оси X=0.
+ * Фигуры спереди и сзади имеют высоту ~240px.
  */
 export const ZONES = [
+  // === СПЕРЕДИ ===
   {
     id: "chest",
     label: "Грудь",
     side: "front",
     paths: [
-      // Левая и правая грудные мышцы
-      "M -3,50 L -26,48 C -31,54 -31,66 -25,72 C -17,75 -6,73 -2,68 Z",
-      "M 3,50 L 26,48 C 31,54 31,66 25,72 C 17,75 6,73 2,68 Z"
+      "M -3,50 L -25,48 C -31,54 -31,66 -25,72 C -17,75 -6,73 -2,68 Z",
+      "M 3,50 L 25,48 C 31,54 31,66 25,72 C 17,75 6,73 2,68 Z"
     ]
   },
   {
-    id: "delts",
+    id: "delts_front",
     label: "Дельты (передняя / средняя)",
     side: "front",
     paths: [
-      // Плечевые шапки спереди/сбоку
       "M -26,45 C -36,46 -42,54 -41,65 C -37,67 -31,64 -27,56 Z",
       "M 26,45 C 36,46 42,54 41,65 C 37,67 31,64 27,56 Z"
     ]
@@ -42,8 +42,8 @@ export const ZONES = [
     label: "Бицепс",
     side: "front",
     paths: [
-      "M -40,67 C -44,75 -45,87 -41,94 C -36,95 -32,89 -31,79 C -31,72 -35,68 -40,67 Z",
-      "M 40,67 C 44,75 45,87 41,94 C 36,95 32,89 31,79 C 31,72 35,68 40,67 Z"
+      "M -40,67 C -44,75 -45,86 -41,93 C -36,94 -32,88 -31,79 C -31,72 -35,68 -40,67 Z",
+      "M 40,67 C 44,75 45,86 41,93 C 36,94 32,88 31,79 C 31,72 35,68 40,67 Z"
     ]
   },
   {
@@ -51,8 +51,8 @@ export const ZONES = [
     label: "Предплечья",
     side: "front",
     paths: [
-      "M -42,96 C -47,104 -49,117 -46,125 L -40,125 C -36,116 -34,105 -33,96 Z",
-      "M 42,96 C 47,104 49,117 46,125 L 40,125 C 36,116 34,105 33,96 Z"
+      "M -41,96 C -46,104 -48,116 -45,124 L -39,124 C -35,115 -33,105 -32,96 Z",
+      "M 41,96 C 46,104 48,116 45,124 L 39,124 C 35,115 33,105 32,96 Z"
     ]
   },
   {
@@ -60,13 +60,12 @@ export const ZONES = [
     label: "Пресс и кор",
     side: "front",
     paths: [
-      // Верхние, средние и нижние кубики пресса + косые
-      "M -15,74 L -2,74 L -2,86 L -15,86 Z",
-      "M 2,74 L 15,74 L 15,86 L 2,86 Z",
-      "M -15,89 L -2,89 L -2,101 L -14,101 Z",
-      "M 2,89 L 15,89 L 14,101 L 2,101 Z",
-      "M -14,104 L -2,104 L -2,118 L -11,117 Z",
-      "M 2,104 L 14,104 L 11,117 L 2,118 Z"
+      "M -14,74 L -2,74 L -2,85 L -14,85 Z",
+      "M 2,74 L 14,74 L 14,85 L 2,85 Z",
+      "M -14,88 L -2,88 L -2,99 L -13,99 Z",
+      "M 2,88 L 14,88 L 13,99 L 2,99 Z",
+      "M -13,102 L -2,102 L -2,116 L -10,115 Z",
+      "M 2,102 L 13,102 L 10,115 L 2,116 Z"
     ]
   },
   {
@@ -74,8 +73,8 @@ export const ZONES = [
     label: "Квадрицепс (Ноги)",
     side: "front",
     paths: [
-      "M -24,122 L -6,124 C -4,142 -6,162 -10,174 L -24,173 C -29,158 -29,138 -24,122 Z",
-      "M 24,122 L 6,124 C 4,142 6,162 10,174 L 24,173 C 29,158 29,138 24,122 Z"
+      "M -23,122 L -5,124 C -3,142 -5,162 -9,173 L -23,172 C -28,157 -28,138 -23,122 Z",
+      "M 23,122 L 5,124 C 3,142 5,162 9,173 L 23,172 C 28,157 28,138 23,122 Z"
     ]
   },
   {
@@ -83,28 +82,27 @@ export const ZONES = [
     label: "Икры",
     side: "front",
     paths: [
-      "M -23,182 L -11,182 C -9,196 -11,213 -14,224 L -20,224 C -24,212 -25,196 -23,182 Z",
-      "M 23,182 L 11,182 C 9,196 11,213 14,224 L 20,224 C 24,212 25,196 23,182 Z"
+      "M -22,182 L -10,182 C -8,196 -10,212 -13,223 L -19,223 C -23,211 -24,196 -22,182 Z",
+      "M 22,182 L 10,182 C 8,196 10,212 13,223 L 19,223 C 23,211 24,196 22,182 Z"
     ]
   },
 
-  // --- ВИД СЗАДИ ---
+  // === СЗАДИ ===
   {
     id: "traps",
     label: "Трапеции",
     side: "back",
     paths: [
-      "M 0,36 L -22,44 L -12,66 L 0,72 L 12,66 L 22,44 Z"
+      "M 0,36 L -20,44 L -11,64 L 0,70 L 11,64 L 20,44 Z"
     ]
   },
   {
     id: "back",
-    label: "Спина (широчайшие и верх)",
+    label: "Спина (широчайшие)",
     side: "back",
     paths: [
-      // Левая и правая широчайшие + разгибатели спины
-      "M -25,50 L -13,68 L -3,74 L -3,112 L -17,108 C -24,92 -29,72 -25,50 Z",
-      "M 25,50 L 13,68 L 3,74 L 3,112 L 17,108 C 24,92 29,72 25,50 Z"
+      "M -24,49 L -12,66 L -3,72 L -3,110 L -16,106 C -23,90 -28,70 -24,49 Z",
+      "M 24,49 L 12,66 L 3,72 L 3,110 L 16,106 C 23,90 28,70 24,49 Z"
     ]
   },
   {
@@ -112,8 +110,8 @@ export const ZONES = [
     label: "Дельты (задняя / средняя)",
     side: "back",
     paths: [
-      "M -24,45 C -35,46 -41,54 -40,64 C -35,66 -29,62 -25,53 Z",
-      "M 24,45 C 35,46 41,54 40,64 C 35,66 29,62 25,53 Z"
+      "M -23,45 C -34,46 -40,54 -39,64 C -34,66 -28,62 -24,53 Z",
+      "M 23,45 C 34,46 40,54 39,64 C 34,66 28,62 24,53 Z"
     ]
   },
   {
@@ -121,8 +119,8 @@ export const ZONES = [
     label: "Трицепс",
     side: "back",
     paths: [
-      "M -40,66 C -45,75 -45,88 -41,95 L -32,93 C -30,84 -31,72 -40,66 Z",
-      "M 40,66 C 45,75 45,88 41,95 L 32,93 C 30,84 31,72 40,66 Z"
+      "M -39,66 C -44,75 -44,87 -40,94 L -31,92 C -29,83 -30,72 -39,66 Z",
+      "M 39,66 C 44,75 44,87 40,94 L 31,92 C 29,83 30,72 39,66 Z"
     ]
   },
   {
@@ -130,8 +128,8 @@ export const ZONES = [
     label: "Предплечья",
     side: "back",
     paths: [
-      "M -42,97 C -47,105 -49,117 -46,125 L -40,125 C -36,116 -34,105 -33,97 Z",
-      "M 42,97 C 47,105 49,117 46,125 L 40,125 C 36,116 34,105 33,97 Z"
+      "M -41,96 C -46,104 -48,116 -45,124 L -39,124 C -35,115 -33,105 -32,96 Z",
+      "M 41,96 C 46,104 48,116 45,124 L 39,124 C 35,115 33,105 32,96 Z"
     ]
   },
   {
@@ -139,17 +137,17 @@ export const ZONES = [
     label: "Ягодицы",
     side: "back",
     paths: [
-      "M -18,112 L -2,114 L -2,136 C -12,139 -23,135 -25,125 C -25,118 -22,114 -18,112 Z",
-      "M 18,112 L 2,114 L 2,136 C 12,139 23,135 25,125 C 25,118 22,114 18,112 Z"
+      "M -17,111 L -2,113 L -2,134 C -11,137 -22,133 -24,123 C -24,117 -21,113 -17,111 Z",
+      "M 17,111 L 2,113 L 2,134 C 11,137 22,133 24,123 C 24,117 21,113 17,111 Z"
     ]
   },
   {
     id: "hamstrings",
-    label: "Бицепс бедра (Ноги)",
+    label: "Бицепс бедра",
     side: "back",
     paths: [
-      "M -24,138 L -5,139 C -5,154 -7,166 -10,175 L -23,174 C -27,162 -27,148 -24,138 Z",
-      "M 24,138 L 5,139 C 5,154 7,166 10,175 L 23,174 C 27,162 27,148 24,138 Z"
+      "M -23,136 L -5,137 C -5,152 -7,164 -10,173 L -22,172 C -26,160 -26,146 -23,136 Z",
+      "M 23,136 L 5,137 C 5,152 7,164 10,173 L 22,172 C 26,160 26,146 23,136 Z"
     ]
   },
   {
@@ -157,13 +155,12 @@ export const ZONES = [
     label: "Икры",
     side: "back",
     paths: [
-      "M -23,181 L -10,181 C -8,195 -10,213 -14,224 L -20,224 C -24,212 -25,195 -23,181 Z",
-      "M 23,181 L 10,181 C 8,195 10,213 14,224 L 20,224 C 24,212 25,195 23,181 Z"
+      "M -22,180 L -9,180 C -7,194 -9,212 -13,223 L -19,223 C -23,211 -24,194 -22,180 Z",
+      "M 22,180 L 9,180 C 7,194 9,212 13,223 L 19,223 C 23,211 24,194 22,180 Z"
     ]
   }
 ];
 
-/** Сопоставление пользовательского названия мышцы с анатомическими зонами на силуэте. */
 export function mapMuscleToZones(muscleGroup) {
   const m = String(muscleGroup || "").toLowerCase().trim();
   if (!m) return [];
@@ -174,7 +171,7 @@ export function mapMuscleToZones(muscleGroup) {
   if (m.includes("бицепс") || m.includes("bicep")) return ["biceps"];
   if (m.includes("трицепс") || m.includes("tricep")) return ["triceps"];
   if (m.includes("задняя дельт") || m.includes("задние дельт") || m.includes("rear")) return ["rear_delts"];
-  if (m.includes("средняя дельт") || m.includes("дельт") || m.includes("плеч") || m.includes("delt")) return ["delts", "rear_delts"];
+  if (m.includes("средняя дельт") || m.includes("дельт") || m.includes("плеч") || m.includes("delt")) return ["delts_front", "rear_delts"];
   if (m.includes("предплеч")) return ["forearms_f", "forearms_b"];
   if (m.includes("пресс") || m.includes("кор") || m.includes("abs")) return ["abs"];
   if (m.includes("ягодиц") || m.includes("glute")) return ["glutes"];
@@ -184,34 +181,44 @@ export function mapMuscleToZones(muscleGroup) {
   return [];
 }
 
-/** Базовый контур тела (голова, шея, силуэт торса, кистей и стоп). */
+/** Нейтральный контур силуэта (голова, шея, кисти, стопы, внешняя граница). */
 function buildBodyOutline() {
-  return svgEl("g", { class: "bm-outline" }, [
-    // Голова и шея
-    svgEl("circle", { cx: 0, cy: 18, r: 12 }),
-    svgEl("path", { d: "M -6,29 L -7,39 M 6,29 L 7,39" }),
-    // Внешний контур торса, рук и ног для читаемости фигуры
-    svgEl("path", {
-      d: [
-        "M -7,39 L -28,44 C -39,46 -44,56 -42,67",
-        "C -46,77 -46,89 -43,96 C -48,106 -50,118 -47,128 L -39,128",
-        "C -35,116 -33,102 -30,82 L -25,72 L -19,116",
-        "C -28,132 -29,156 -24,176 C -25,194 -25,212 -20,228 L -12,228",
-        "C -9,210 -8,192 -10,176 C -6,158 -4,140 -3,125",
-        "L 3,125 C 4,140 6,158 10,176 C 8,192 9,210 12,228 L 20,228",
-        "C 25,212 25,194 24,176 C 29,156 28,132 19,116",
-        "L 25,72 L 30,82 C 33,102 35,116 39,128 L 47,128",
-        "C 50,118 48,106 43,96 C 46,89 46,77 42,67",
-        "C 44,56 39,46 28,44 L 7,39"
-      ].join(" ")
-    })
-  ]);
+  const g = svgEl("g", { class: "bm-outline" });
+  // Голова
+  g.append(svgEl("circle", {
+    cx: "0", cy: "18", r: "11",
+    fill: "var(--s2, #ececee)", stroke: "var(--line, #d6d6da)", "stroke-width": "1.3"
+  }));
+  // Шея
+  g.append(svgEl("path", {
+    d: "M -6,28 L -7,38 M 6,28 L 7,38",
+    fill: "none", stroke: "var(--line, #d6d6da)", "stroke-width": "1.3"
+  }));
+  // Внешний контур тела (fill: none гарантирует, что тело никогда не зальётся чёрным!)
+  g.append(svgEl("path", {
+    d: [
+      "M -7,38 L -28,43 C -38,45 -43,55 -41,66",
+      "C -45,76 -45,88 -42,95 C -47,105 -49,117 -46,127 L -38,127",
+      "C -34,115 -32,101 -29,81 L -24,71 L -18,115",
+      "C -27,131 -28,155 -23,175 C -24,193 -24,211 -19,227 L -11,227",
+      "C -8,209 -7,191 -9,175 C -5,157 -3,139 -2,124",
+      "L 2,124 C 3,139 5,157 9,175 C 7,191 8,209 11,227 L 19,227",
+      "C 24,211 24,193 23,175 C 28,155 27,131 18,115",
+      "L 24,71 L 29,81 C 32,101 34,115 38,127 L 46,127",
+      "C 49,117 47,105 42,95 C 45,88 45,76 41,66",
+      "C 43,55 38,45 28,43 L 7,38"
+    ].join(" "),
+    fill: "var(--s2, #ececee)",
+    "fill-opacity": "0.4",
+    stroke: "var(--line, #d6d6da)",
+    "stroke-width": "1.3"
+  }));
+  return g;
 }
 
 /**
- * Рендерит SVG-карту мышц человека (Спереди + Сзади).
- * muscleItems: массив [{ muscle: "Спина", sets: 6, exercises: ["Подтягивания", "Т-гриф"] }, ...]
- * opts: { compact: false }
+ * Рендерит SVG-карту мышц человека.
+ * muscleItems: [{ muscle: "Спина", sets: 6, exercises: ["Подтягивания", ...] }, ...]
  */
 export function renderBodyMap(muscleItems = [], opts = {}) {
   const zoneStats = new Map();
@@ -222,9 +229,8 @@ export function renderBodyMap(muscleItems = [], opts = {}) {
     if (sets <= 0) continue;
     const zIds = mapMuscleToZones(item.muscle);
     for (const zid of zIds) {
-      const prev = zoneStats.get(zid) || { sets: 0, muscles: new Set(), exercises: new Set() };
+      const prev = zoneStats.get(zid) || { sets: 0, exercises: new Set() };
       prev.sets += sets;
-      prev.muscles.add(item.muscle);
       for (const ex of item.exercises || []) if (ex) prev.exercises.add(ex);
       zoneStats.set(zid, prev);
       if (prev.sets > maxSets) maxSets = prev.sets;
@@ -232,16 +238,16 @@ export function renderBodyMap(muscleItems = [], opts = {}) {
   }
 
   const svg = svgEl("svg", {
-    viewBox: "0 0 340 268",
+    viewBox: "0 0 340 264",
     class: "bm-svg" + (opts.compact ? " compact" : ""),
     role: "img",
-    "aria-label": "Анатомическая карта мышц: вид спереди и вид сзади"
+    "aria-label": "Карта мышц: вид спереди и вид сзади"
   });
 
   const caption = h("div", { class: "bm-caption muted small" },
-    maxSets > 0 ? "Нажмите на мышцу на силуэте для деталей" : "Нет активных мышечных групп");
+    maxSets > 0 ? "Нажмите на мышцу на силуэте для деталей" : "Мышцы пока не нагружены");
 
-  const zoneEls = new Map();
+  const zoneGroups = new Map();
   let selectedZoneId = null;
 
   function buildFigure(side, cx, title) {
@@ -252,41 +258,82 @@ export function renderBodyMap(muscleItems = [], opts = {}) {
       const st = zoneStats.get(z.id);
       const sets = st ? st.sets : 0;
       const ratio = maxSets > 0 && sets > 0 ? sets / maxSets : 0;
-      // 4 ступени интенсивности для чёткого монохромного контраста
-      const tier = sets === 0 ? 0 : ratio >= 0.75 ? 4 : ratio >= 0.45 ? 3 : ratio >= 0.2 ? 2 : 1;
+
+      // Точные инлайн-стили: не зависят от внешнего CSS!
+      let fill, fillOpacity, stroke, strokeWidth;
+      if (sets === 0) {
+        fill = "var(--s1, #ffffff)";
+        fillOpacity = "0.7";
+        stroke = "var(--line, #d6d6da)";
+        strokeWidth = "1";
+      } else {
+        fill = "var(--fg, #0b0b0c)";
+        stroke = "var(--fg, #0b0b0c)";
+        strokeWidth = "1.2";
+        // Градации плотности от 0.35 до 1.0
+        fillOpacity = String(Math.max(0.35, Math.min(1.0, 0.35 + ratio * 0.65)));
+      }
 
       const zg = svgEl("g", {
-        class: `bm-zone tier-${tier}`,
+        class: "bm-zone" + (sets > 0 ? " active" : ""),
         "data-zone": z.id,
+        cursor: "pointer",
         tabindex: "0",
         role: "button",
         "aria-label": `${z.label}: ${sets} сетов`
       });
+
       for (const d of z.paths) {
-        zg.append(svgEl("path", { d }));
+        zg.append(svgEl("path", {
+          d,
+          fill,
+          "fill-opacity": fillOpacity,
+          stroke,
+          "stroke-width": strokeWidth,
+          "stroke-linejoin": "round"
+        }));
       }
+
       const selectZone = () => {
-        if (selectedZoneId && zoneEls.get(selectedZoneId)) {
-          zoneEls.get(selectedZoneId).classList.remove("sel");
+        if (selectedZoneId && zoneGroups.has(selectedZoneId)) {
+          const prev = zoneGroups.get(selectedZoneId);
+          prev.querySelectorAll("path").forEach(p => {
+            p.removeAttribute("stroke-dasharray");
+            p.setAttribute("stroke-width", prev.classList.contains("active") ? "1.2" : "1");
+          });
         }
         selectedZoneId = z.id;
-        zg.classList.add("sel");
+        zg.querySelectorAll("path").forEach(p => {
+          p.setAttribute("stroke-dasharray", "3 2");
+          p.setAttribute("stroke-width", "2.2");
+          p.setAttribute("stroke", "var(--fg, #0b0b0c)");
+        });
+
         if (sets > 0) {
           const exList = [...st.exercises].slice(0, 4).join(", ");
-          caption.textContent = `${z.label}: ${sets} раб. сет.${exList ? " · " + exList : ""}`;
+          caption.textContent = `${z.label}: ${sets} раб. сет.${exList ? " (" + exList + ")" : ""}`;
         } else {
           caption.textContent = `${z.label}: 0 рабочих сетов`;
         }
       };
+
       zg.addEventListener("click", selectZone);
       zg.addEventListener("keydown", e => {
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectZone(); }
       });
-      zoneEls.set(z.id, zg);
+
+      zoneGroups.set(z.id, zg);
       g.append(zg);
     }
 
-    const lbl = svgEl("text", { x: cx, y: 260, class: "bm-side-label", "text-anchor": "middle" });
+    const lbl = svgEl("text", {
+      x: String(cx), y: "256",
+      fill: "var(--mut, #8b8b92)",
+      "font-size": "10",
+      "font-weight": "700",
+      "letter-spacing": "0.1em",
+      "text-anchor": "middle"
+    });
     lbl.textContent = title;
     svg.append(g, lbl);
   }
