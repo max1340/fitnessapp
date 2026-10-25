@@ -10,54 +10,72 @@ import {
 const LS_KEY = "fitness.progress.program";
 let muscleDays = 30;
 
-function buildMuscleBalance(onChangePeriod) {
-  const allDone = doneSessions();
-  const now = Date.now();
-  const cutoff = muscleDays > 0 ? now - muscleDays * 864e5 : 0;
-  const counts = new Map();
-  const exByMuscle = new Map();
-  let totalSets = 0;
+function buildMuscleBalance() {
+  const bodyBox = h("div", { class: "stack" });
+  const btns = new Map();
 
-  for (const s of allDone) {
-    if (s.startedAt < cutoff) continue;
-    for (const e of s.entries || []) {
-      const workSets = (e.sets || []).filter(x => x.done && !x.isWarmup && x.reps > 0).length;
-      if (!workSets) continue;
-      const ex = getExercise(e.exerciseId);
-      const mg = (ex?.muscleGroup || e.muscleGroup || "Другое").trim();
-      counts.set(mg, (counts.get(mg) || 0) + workSets);
-      if (!exByMuscle.has(mg)) exByMuscle.set(mg, new Set());
-      exByMuscle.get(mg).add(e.exerciseName || ex?.name || "");
-      totalSets += workSets;
+  const periodBtn = (days, label) => {
+    const b = h("button", {
+      class: "btn small tag" + (muscleDays === days ? " on" : ""),
+      type: "button",
+      onclick: () => {
+        muscleDays = days;
+        for (const [d, el] of btns) el.classList.toggle("on", d === muscleDays);
+        renderBody();
+      }
+    }, label);
+    btns.set(days, b);
+    return b;
+  };
+
+  function renderBody() {
+    clear(bodyBox);
+    const allDone = doneSessions();
+    const now = Date.now();
+    const cutoff = muscleDays > 0 ? now - muscleDays * 864e5 : 0;
+    const counts = new Map();
+    const exByMuscle = new Map();
+    let totalSets = 0;
+
+    for (const s of allDone) {
+      if (s.startedAt < cutoff) continue;
+      for (const e of s.entries || []) {
+        const workSets = (e.sets || []).filter(x => x.done && !x.isWarmup && x.reps > 0).length;
+        if (!workSets) continue;
+        const ex = getExercise(e.exerciseId);
+        const mg = (ex?.muscleGroup || e.muscleGroup || "Другое").trim();
+        counts.set(mg, (counts.get(mg) || 0) + workSets);
+        if (!exByMuscle.has(mg)) exByMuscle.set(mg, new Set());
+        exByMuscle.get(mg).add(e.exerciseName || ex?.name || "");
+        totalSets += workSets;
+      }
     }
+
+    const rows = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    const maxVal = rows[0]?.[1] || 1;
+    const mapData = rows.map(([mg, cnt]) => ({
+      muscle: mg,
+      sets: cnt,
+      exercises: [...(exByMuscle.get(mg) || [])]
+    }));
+
+    const bars = rows.length
+      ? h("div", { class: "muscle-bars" }, ...rows.map(([mg, cnt]) => {
+          const pct = Math.round((cnt / totalSets) * 100);
+          const wPct = Math.max(6, Math.round((cnt / maxVal) * 100));
+          return h("div", { class: "muscle-row" },
+            h("div", { class: "muscle-head" },
+              h("strong", {}, mg),
+              h("small", { class: "muted" }, `${cnt} сет. (${pct}%)`)),
+            h("div", { class: "muscle-track" },
+              h("div", { class: "muscle-fill", style: `width:${wPct}%` })));
+        }))
+      : h("p", { class: "muted small" }, "За выбранный период нет выполненных рабочих сетов.");
+
+    bodyBox.append(renderBodyMap(mapData), bars);
   }
 
-  const rows = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-  const maxVal = rows[0]?.[1] || 1;
-  const mapData = rows.map(([mg, cnt]) => ({
-    muscle: mg,
-    sets: cnt,
-    exercises: [...(exByMuscle.get(mg) || [])]
-  }));
-
-  const periodBtn = (days, label) => h("button", {
-    class: "btn small tag" + (muscleDays === days ? " on" : ""),
-    type: "button",
-    onclick: () => { muscleDays = days; onChangePeriod(); }
-  }, label);
-
-  const bars = rows.length
-    ? h("div", { class: "muscle-bars" }, ...rows.map(([mg, cnt]) => {
-        const pct = Math.round((cnt / totalSets) * 100);
-        const wPct = Math.max(6, Math.round((cnt / maxVal) * 100));
-        return h("div", { class: "muscle-row" },
-          h("div", { class: "muscle-head" },
-            h("strong", {}, mg),
-            h("small", { class: "muted" }, `${cnt} сет. (${pct}%)`)),
-          h("div", { class: "muscle-track" },
-            h("div", { class: "muscle-fill", style: `width:${wPct}%` })));
-      }))
-    : h("p", { class: "muted small" }, "За выбранный период нет выполненных рабочих сетов.");
+  renderBody();
 
   return h("section", { class: "panel" },
     h("div", { class: "panel-head" },
@@ -66,8 +84,7 @@ function buildMuscleBalance(onChangePeriod) {
         periodBtn(7, "7 дн."),
         periodBtn(30, "30 дн."),
         periodBtn(0, "Все"))),
-    renderBodyMap(mapData),
-    bars);
+    bodyBox);
 }
 
 function buildBodyweightPanel() {
@@ -133,13 +150,13 @@ export function mount(root) {
     progs.forEach(p => select.append(h("option", { value: p.id, selected: p.id === programId }, p.name)));
     clear(content);
     if (!programId) {
-      content.append(h("p", { class: "empty" }, "Нет программ. Создайте программу и проведите первую тренировку."), buildMuscleBalance(paint), buildBodyweightPanel());
+      content.append(h("p", { class: "empty" }, "Нет программ. Создайте программу и проведите первую тренировку."), buildMuscleBalance(), buildBodyweightPanel());
       return;
     }
     const program = getProgram(programId);
     const done = doneSessions(programId).sort(byStart);
     if (!done.length) {
-      content.append(h("p", { class: "empty" }, "У этой программы ещё нет завершённых тренировок."), buildMuscleBalance(paint), buildBodyweightPanel());
+      content.append(h("p", { class: "empty" }, "У этой программы ещё нет завершённых тренировок."), buildMuscleBalance(), buildBodyweightPanel());
       return;
     }
 
@@ -176,7 +193,7 @@ export function mount(root) {
       h("button", { class: "btn block", type: "button", onclick: () => resetBaseline(program, done) }, "Сбросить базу индекса")));
 
     /* Баланс по мышцам (силуэт человека) */
-    content.append(buildMuscleBalance(paint));
+    content.append(buildMuscleBalance());
 
     /* Графики по упражнению */
     const exMap = new Map();
@@ -184,25 +201,31 @@ export function mount(root) {
     const exList = [...exMap.entries()];
     if (!exList.find(([id]) => id === exId)) exId = exList[0]?.[0] || null;
     if (exId) {
-      const info = exMap.get(exId);
       const exSel = h("select", { "aria-label": "Упражнение" }, exList.map(([id, v]) => h("option", { value: id, selected: id === exId }, v.name)));
-      exSel.addEventListener("change", () => { exId = exSel.value; paint(); });
-      const rows = [];
-      done.forEach(s => {
-        const entries = (s.entries || []).filter(e => e.exerciseId === exId);
-        if (!entries.length) return;
-        const w = Math.max(...entries.map(e => entryTopWeight(e) ?? -1)), e1 = Math.max(...entries.map(e => entryE1rm(e) ?? -1));
-        const v = entries.reduce((a, e) => a + entryVolume(e), 0);
-        if (w < 0 && v <= 0) return;
-        rows.push({ t: s.startedAt, w: w >= 0 ? fromKg(w, info.unit) : null, e1: e1 >= 0 ? fromKg(e1, info.unit) : null, v: fromKg(v, info.unit) });
-      });
-      const u = unitLabel(info.unit);
-      const mk = (title, key, unitText) => {
-        const p = rows.filter(r => r[key] !== null).map(r => ({ t: r.t, y: r[key], label: `${formatNum(r[key], 1)} ${unitText}` }));
-        return h("div", {}, h("h3", { class: "group" }, title), lineChart(p, { height: 150, fmt: v => formatNum(v, key === "v" ? 0 : 1), label: title }));
+      const exChartsBox = h("div", { class: "stack" });
+      const renderExCharts = () => {
+        clear(exChartsBox);
+        const info = exMap.get(exId);
+        if (!info) return;
+        const rows = [];
+        done.forEach(s => {
+          const entries = (s.entries || []).filter(e => e.exerciseId === exId);
+          if (!entries.length) return;
+          const w = Math.max(...entries.map(e => entryTopWeight(e) ?? -1)), e1 = Math.max(...entries.map(e => entryE1rm(e) ?? -1));
+          const v = entries.reduce((a, e) => a + entryVolume(e), 0);
+          if (w < 0 && v <= 0) return;
+          rows.push({ t: s.startedAt, w: w >= 0 ? fromKg(w, info.unit) : null, e1: e1 >= 0 ? fromKg(e1, info.unit) : null, v: fromKg(v, info.unit) });
+        });
+        const u = unitLabel(info.unit);
+        const mk = (title, key, unitText) => {
+          const p = rows.filter(r => r[key] !== null).map(r => ({ t: r.t, y: r[key], label: `${formatNum(r[key], 1)} ${unitText}` }));
+          return h("div", {}, h("h3", { class: "group" }, title), lineChart(p, { height: 150, fmt: v => formatNum(v, key === "v" ? 0 : 1), label: title }));
+        };
+        exChartsBox.append(mk("Рабочий вес", "w", u), mk("e1RM", "e1", u), mk("Объём", "v", u));
       };
-      content.append(h("section", { class: "panel" }, h("h2", { class: "section" }, "По упражнению"), exSel,
-        mk("Рабочий вес", "w", u), mk("e1RM", "e1", u), mk("Объём", "v", u)));
+      exSel.addEventListener("change", () => { exId = exSel.value; renderExCharts(); });
+      renderExCharts();
+      content.append(h("section", { class: "panel" }, h("h2", { class: "section" }, "По упражнению"), exSel, exChartsBox));
     }
 
     /* Рекорды */

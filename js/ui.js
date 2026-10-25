@@ -24,7 +24,31 @@ function append(el, children) {
 }
 
 export const $ = (sel, root = document) => root.querySelector(sel);
-export const clear = el => { while (el.firstChild) el.firstChild.remove(); return el; };
+export function clear(el) {
+  const isLayout = el && el.isConnected && el.tagName !== "SELECT" && el.id !== "view";
+  const sheetScroller = isLayout ? el.closest(".sheet-body") : null;
+  const winY = isLayout ? window.scrollY : 0;
+  const winX = isLayout ? window.scrollX : 0;
+  const sheetY = sheetScroller ? sheetScroller.scrollTop : 0;
+  if (isLayout) {
+    const h = el.offsetHeight;
+    if (h > 0) el.style.minHeight = h + "px";
+  }
+  while (el.firstChild) el.firstChild.remove();
+  if (isLayout) {
+    const restore = () => {
+      el.style.minHeight = "";
+      if (sheetScroller) {
+        if (Math.abs(sheetScroller.scrollTop - sheetY) > 2) sheetScroller.scrollTop = sheetY;
+      } else if (Math.abs(window.scrollY - winY) > 2) {
+        window.scrollTo(winX, winY);
+      }
+    };
+    queueMicrotask(restore);
+    requestAnimationFrame(restore);
+  }
+  return el;
+}
 
 /** Иконки (монохромные, currentColor). */
 const ICONS = {
