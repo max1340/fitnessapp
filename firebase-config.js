@@ -10,11 +10,11 @@
  * API key по HTTP-referrer (см. README).
  */
 export const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "YOUR_PROJECT_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyA9v1_hBG8QHAxn46TeNP_CHifx-N4Gcsw",
+  authDomain: "fitness-app-ea2b0.firebaseapp.com",
+  databaseURL: "https://fitness-app-ea2b0-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "fitness-app-ea2b0",
+  appId: "1:322863183231:web:52056a81fb62011b19d64a"
 };
 
 /** true, если плейсхолдеры заменены реальными значениями. */
