@@ -121,12 +121,13 @@ export function mount(root) {
     view.append(
       h("div", { class: "active-head" },
         h("div", { class: "grow" }, h("h2", { class: "section" }, session.programName), clockEl),
-        h("button", { class: "btn small", type: "button", onclick: cancel }, "Отменить")),
+        h("button", { class: "btn small", type: "button", onclick: cancel }, "Отменить"),
+        h("button", { class: "btn small primary", type: "button", onclick: finish }, "Завершить")),
       entriesBox,
       h("button", { class: "btn block", type: "button", onclick: () => pickExercise(ex => {
         session.entries.push({ ...buildEntry(ex, session.programId, session.entries.length), extra: true }); persistNow(); paintEntries();
       }, { multi: true }) }, "+ Добавить упражнение"),
-      h("div", { class: "bottom-actions" }, h("button", { class: "btn primary block", type: "button", onclick: finish }, "Завершить тренировку")));
+      h("button", { class: "btn primary block", type: "button", onclick: finish }, "Завершить тренировку"));
     paintEntries();
   }
 

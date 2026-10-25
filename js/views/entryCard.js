@@ -49,9 +49,9 @@ export function entryCard(entry, ctx) {
       ctx.onChange();
     };
     return h("div", { class: "stepper" },
-      h("button", { class: "btn step", type: "button", "aria-label": label + " минус", onclick: () => bump(-stepSize) }, icon("minus", 18)),
+      h("button", { class: "btn step", type: "button", "aria-label": label + " минус", onclick: () => bump(-stepSize) }, icon("minus", 14)),
       inp,
-      h("button", { class: "btn step", type: "button", "aria-label": label + " плюс", onclick: () => bump(stepSize) }, icon("plus", 18)));
+      h("button", { class: "btn step", type: "button", "aria-label": label + " плюс", onclick: () => bump(stepSize) }, icon("plus", 14)));
   }
 
   function paintSets() {
@@ -59,24 +59,31 @@ export function entryCard(entry, ctx) {
     let n = 0;
     entry.sets.forEach((set, i) => {
       if (!set.isWarmup) n++;
-      const repsInput = { el: null };
+      const toggleWarm = () => { set.isWarmup = !set.isWarmup; ctx.onChange(); paintSets(); };
+      const idxBtn = h("button", {
+        class: "set-idx" + (set.isWarmup ? " warm" : ""), type: "button",
+        title: "Нажмите: разминочный / рабочий сет", "aria-label": set.isWarmup ? "Разминочный сет" : `Сет ${n}`,
+        onclick: toggleWarm
+      }, set.isWarmup ? "Р" : String(n));
+      const doneBtn = h("button", {
+        class: "btn done-btn", type: "button", "aria-pressed": String(!!set.done), "aria-label": "Сет выполнен",
+        onclick: () => toggleDone(set, row, doneBtn, rowA)
+      }, icon("check", 20));
       const rowA = h("div", { class: "set-main" },
-        h("span", { class: "set-idx" }, set.isWarmup ? "Р" : String(n)),
-        h("div", { class: "set-field" }, stepper(set, "weight", step, unitLabel(unit), "Вес"), h("small", { class: "unit" }, unitLabel(unit))),
-        h("div", { class: "set-field" }, stepper(set, "reps", 1, "повт.", "Повторы"), h("small", { class: "unit" }, "повт.")));
+        idxBtn,
+        stepper(set, "weight", step, "0", "Вес"),
+        stepper(set, "reps", 1, "0", "Повторы"),
+        doneBtn);
       const rpeEl = entry.trackRpe ? (() => {
         const inp = h("input", { type: "text", inputmode: "decimal", value: fmtNum(set.rpe), placeholder: "RPE", "aria-label": "RPE", class: "rpe" });
         inp.addEventListener("input", () => { const v = parseNum(inp.value); set.rpe = v !== null && v >= 1 && v <= 10 ? v : null; ctx.onChange(); });
         return inp;
       })() : null;
-      const doneBtn = h("button", { class: "btn done-btn", type: "button", "aria-pressed": String(!!set.done), "aria-label": "Сет выполнен", onclick: () => toggleDone(set, row, doneBtn, rowA) },
-        icon("check", 22), h("span", {}, "Готово"));
-      const rowB = h("div", { class: "set-actions" },
+      const rowB = h("div", { class: "set-sub" },
         h("small", { class: "hint grow" }, set.hint || ""),
         rpeEl,
-        h("button", { class: "btn small tag" + (set.isWarmup ? " on" : ""), type: "button", "aria-pressed": String(!!set.isWarmup), title: "Разминочный сет", onclick: () => { set.isWarmup = !set.isWarmup; ctx.onChange(); paintSets(); } }, "Разм."),
-        iconBtn("x", "Удалить сет", () => { entry.sets.splice(i, 1); ctx.onChange(); paintSets(); }, "small"),
-        doneBtn);
+        h("button", { class: "sub-act" + (set.isWarmup ? " on" : ""), type: "button", "aria-pressed": String(!!set.isWarmup), onclick: toggleWarm }, "Разм."),
+        h("button", { class: "sub-act del", type: "button", "aria-label": "Удалить сет", title: "Удалить сет", onclick: () => { entry.sets.splice(i, 1); ctx.onChange(); paintSets(); } }, "✕"));
       const row = h("div", { class: "set" + (set.done ? " done" : "") + (set.isWarmup ? " warm" : "") }, rowA, rowB);
       setsBox.append(row);
     });
@@ -95,23 +102,24 @@ export function entryCard(entry, ctx) {
   }
 
   paintSets();
-  const note = h("input", { type: "text", class: "entry-note", value: entry.note || "", placeholder: "Заметка к упражнению", "aria-label": "Заметка к упражнению" });
+  const note = h("input", { type: "text", class: "entry-note", value: entry.note || "", placeholder: "Заметка к упражнению…", "aria-label": "Заметка к упражнению" });
   note.addEventListener("input", () => { entry.note = note.value; ctx.onChange(); });
 
   return h("article", { class: "entry" },
     h("div", { class: "entry-head" },
       h("div", { class: "grow" },
         h("strong", {}, `${ctx.index + 1}. ${entry.exerciseName}`),
-        h("small", { class: "muted" }, [entry.targetReps ? "цель: " + entry.targetReps : "", entry.programNote || ""].filter(Boolean).join(" · "))),
+        (entry.targetReps || entry.programNote) ? h("small", { class: "muted" }, [entry.targetReps ? "цель: " + entry.targetReps : "", entry.programNote || ""].filter(Boolean).join(" · ")) : null),
       ctx.reorder ? [iconBtn("up", "Выше", () => ctx.onMove(-1)), iconBtn("down", "Ниже", () => ctx.onMove(1))] : null,
       ctx.onSkip ? iconBtn("skip", "Пропустить упражнение", ctx.onSkip) : null,
       ctx.onRemove ? iconBtn("trash", "Убрать упражнение", ctx.onRemove) : null),
+    h("div", { class: "set-cols" }, h("span", {}, "#"), h("span", {}, "Вес, " + unitLabel(unit)), h("span", {}, "Повторы"), h("span", {}, "✓")),
     setsBox,
-    h("div", { class: "row gap" },
-      h("button", { class: "btn small", type: "button", onclick: () => {
+    h("div", { class: "entry-foot" },
+      h("button", { class: "btn small add-set-btn", type: "button", onclick: () => {
         const prev = entry.sets[entry.sets.length - 1];
         entry.sets.push({ reps: prev ? prev.reps : null, weight: prev ? prev.weight : null, rpe: null, done: false, isWarmup: false, completedAt: null, hint: "" });
         ctx.onChange(); paintSets();
-      } }, "+ Сет")),
-    note);
+      } }, "+ Сет"),
+      note));
 }
