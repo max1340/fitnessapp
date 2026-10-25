@@ -2,14 +2,97 @@ import { h, clear, sheet, toast, fmtDate, fmtNum, parseNum, icon, haptic } from 
 import { state, doneSessions, getExercise, getProgram, saveProgram, logBodyweight, unitLabel } from "../store.js";
 import { lineChart } from "../chart.js";
 import { renderBodyMap } from "../bodyMap.js";
+import { openExerciseHistory } from "./exercises.js";
 import { t, tMuscle } from "../i18n.js";
 import {
   liSeries, movingAverage, changeOverWeeks, personalRecords, pickBaseline, byStart, formatNum,
-  entryTopWeight, entryE1rm, entryVolume, fromKg, LI_WEIGHTS
+  entryTopWeight, entryE1rm, entryVolume, sessionStats, fromKg, LI_WEIGHTS
 } from "../metrics.js";
 
 const LS_KEY = "fitness.progress.program";
 let muscleDays = 30;
+let muscleBarsOpen = false;
+const openFolds = new Set();
+
+function makeFoldCard(id, title, badgeText, subText, bodyContent, defaultOpen = false) {
+  if (defaultOpen && !openFolds.has(id + ":init")) {
+    openFolds.add(id + ":init");
+    openFolds.add(id);
+  }
+  const isCol = !openFolds.has(id);
+  const card = h("section", { class: "ex-group-card fold-card" + (isCol ? " collapsed" : "") },
+    h("button", {
+      type: "button",
+      class: "ex-group-head",
+      onclick: () => {
+        const nowCollapsed = !card.classList.contains("collapsed");
+        card.classList.toggle("collapsed", nowCollapsed);
+        if (nowCollapsed) openFolds.delete(id);
+        else openFolds.add(id);
+      }
+    },
+      h("div", { class: "grow ex-group-title-box" },
+        h("div", { class: "row gap" },
+          h("strong", { class: "ex-group-title" }, title),
+          badgeText ? h("span", { class: "ex-group-badge" }, badgeText) : null),
+        subText ? h("small", { class: "muted ex-group-preview" }, subText) : null),
+      h("span", { class: "fold-chevron" }, icon("up", 18))
+    ),
+    h("div", { class: "fold-body" },
+      h("div", { class: "fold-inner stack", style: "padding:12px 14px 14px" }, bodyContent))
+  );
+  return card;
+}
+
+function buildOverviewDashboard() {
+  const allDone = doneSessions();
+  const now = Date.now();
+  const cutoff30 = now - 30 * 864e5;
+  let count30 = 0, totalVolKg = 0, totalSets = 0, totalReps = 0, totalMin = 0, durCount = 0;
+
+  for (const s of allDone) {
+    if (s.startedAt >= cutoff30) count30++;
+    const st = sessionStats(s);
+    totalVolKg += st.volume || 0;
+    if (s.durationMin && s.durationMin > 0) { totalMin += s.durationMin; durCount++; }
+    for (const e of s.entries || []) {
+      for (const set of e.sets || []) {
+        if (set.done && !set.isWarmup && (set.reps ?? 0) > 0) {
+          totalSets++;
+          totalReps += Number(set.reps) || 0;
+        }
+      }
+    }
+  }
+
+  const u = unitLabel(state.settings.defaultUnit || "kg");
+  const totalVolConv = fromKg(totalVolKg, state.settings.defaultUnit || "kg");
+  const avgVolConv = allDone.length ? totalVolConv / allDone.length : 0;
+  const avgMin = durCount ? Math.round(totalMin / durCount) : 0;
+  const allPrs = personalRecords(allDone);
+
+  const volStr = totalVolConv >= 10000
+    ? `${formatNum(totalVolConv / 1000, 1)} ${t("progress.tonUnit")}`
+    : `${formatNum(totalVolConv, 0)} ${u}`;
+
+  const kpi = (label, val, sub) => h("div", { class: "stat prog-kpi" },
+    h("small", { class: "muted" }, label),
+    h("strong", {}, val),
+    sub ? h("small", { class: "muted" }, sub) : null
+  );
+
+  return h("section", { class: "panel prog-overview-card" },
+    h("div", { class: "panel-head" },
+      h("h2", { class: "section" }, t("progress.overviewTitle")),
+      h("span", { class: "ex-group-badge" }, t("progress.periodAll"))),
+    h("div", { class: "stats prog-kpi-grid" },
+      kpi(t("progress.ovWorkouts"), String(allDone.length), t("progress.ovLast30d", { n: count30 })),
+      kpi(t("progress.ovTotalVol"), volStr, allDone.length ? t("progress.ovAvgVol", { v: formatNum(avgVolConv, 0), u }) : "—"),
+      kpi(t("progress.ovWorkSets"), String(totalSets), t("progress.ovTotalReps", { n: totalReps })),
+      kpi(t("progress.ovRecords"), String(allPrs.size), avgMin ? t("progress.ovAvgDur", { m: avgMin }) : "—")
+    )
+  );
+}
 
 function buildMuscleBalance() {
   const bodyBox = h("div", { class: "stack" });
@@ -60,7 +143,7 @@ function buildMuscleBalance() {
       exercises: [...(exByMuscle.get(mg) || [])]
     }));
 
-    const bars = rows.length
+    const barsContent = rows.length
       ? h("div", { class: "muscle-bars" }, ...rows.map(([mg, cnt]) => {
           const pct = Math.round((cnt / totalSets) * 100);
           const wPct = Math.max(6, Math.round((cnt / maxVal) * 100));
@@ -71,9 +154,26 @@ function buildMuscleBalance() {
             h("div", { class: "muscle-track" },
               h("div", { class: "muscle-fill", style: `width:${wPct}%` })));
         }))
-      : h("p", { class: "muted small" }, t("progress.noSetsInPeriod"));
+      : null;
 
-    bodyBox.append(renderBodyMap(mapData), bars);
+    const barsFold = barsContent ? (() => {
+      const wrap = h("div", { class: "prog-subfold" + (muscleBarsOpen ? "" : " collapsed") });
+      const toggleBtn = h("button", {
+        type: "button",
+        class: "prog-subfold-btn",
+        onclick: () => {
+          muscleBarsOpen = !muscleBarsOpen;
+          wrap.classList.toggle("collapsed", !muscleBarsOpen);
+        }
+      },
+        h("span", {}, t("progress.muscleBreakdownBtn", { n: rows.length, sets: totalSets })),
+        h("span", { class: "fold-chevron" }, icon("up", 16))
+      );
+      wrap.append(toggleBtn, h("div", { class: "fold-body" }, h("div", { class: "fold-inner", style: "padding-top:10px" }, barsContent)));
+      return wrap;
+    })() : h("p", { class: "muted small" }, t("progress.noSetsInPeriod"));
+
+    bodyBox.append(renderBodyMap(mapData), barsFold);
   }
 
   renderBody();
@@ -88,11 +188,11 @@ function buildMuscleBalance() {
     bodyBox);
 }
 
-function buildBodyweightPanel() {
+function buildBodyweightFold() {
   const log = state.bodyweightLog || [];
   const cur = state.settings.bodyweightKg ?? (log[log.length - 1]?.weight ?? null);
   const inp = h("input", {
-    type: "text", inputmode: "decimal", class: "bw-inline-input",
+    type: "text", inputmode: "decimal", class: "bw-inline-input grow",
     placeholder: t("progress.bwPlaceholder"), value: fmtNum(cur ?? ""),
     "aria-label": t("progress.bwAria")
   });
@@ -112,15 +212,17 @@ function buildBodyweightPanel() {
   }
 
   const pts = log.map(x => ({ t: x.t, y: x.weight, label: t("progress.bwLabel", { w: formatNum(x.weight, 1) }) }));
-  return h("section", { class: "panel" },
-    h("div", { class: "panel-head" },
-      h("div", {},
-        h("h2", { class: "section" }, t("progress.bwTitle")),
-        h("small", { class: "muted" }, (cur ? t("progress.bwCurrent", { w: formatNum(cur, 1) }) : t("progress.bwNotSet")) + deltaText)),
-      h("div", { class: "row gap" },
-        inp,
-        h("button", { class: "btn small primary", type: "button", onclick: save }, t("progress.bwSaveBtn")))),
-    pts.length >= 2 ? lineChart(pts, { height: 140, fmt: v => formatNum(v, 1), label: t("progress.bwChartLabel") }) : null);
+  const badgeTxt = cur ? `${formatNum(cur, 1)} ${unitLabel("kg")}` : t("progress.bwNotSet");
+  const subTxt = (cur ? t("progress.bwCurrent", { w: formatNum(cur, 1) }) : t("progress.bwNotSet")) + deltaText;
+
+  const inner = h("div", { class: "stack" },
+    h("div", { class: "row gap" },
+      inp,
+      h("button", { class: "btn small primary", type: "button", onclick: save }, t("progress.bwSaveBtn"))),
+    pts.length >= 2 ? lineChart(pts, { height: 140, fmt: v => formatNum(v, 1), label: t("progress.bwChartLabel") }) : null
+  );
+
+  return makeFoldCard("bw", t("progress.bwTitle"), badgeTxt, subTxt, inner, false);
 }
 
 export function showFormula() {
@@ -142,7 +244,7 @@ export function mount(root) {
   const select = h("select", { "aria-label": t("progress.programAria") });
   const content = h("div", { class: "stack" });
   select.addEventListener("change", () => { programId = select.value; localStorage.setItem(LS_KEY, programId); exId = null; paint(); });
-  root.append(h("div", { class: "toolbar" }, select), content);
+  root.append(content);
 
   function paint() {
     const progs = programs();
@@ -150,21 +252,31 @@ export function mount(root) {
     clear(select);
     progs.forEach(p => select.append(h("option", { value: p.id, selected: p.id === programId }, p.name)));
     clear(content);
+
+    // 1. Красивая общая сводка (Overview Dashboard) и баланс по мышцам
+    content.append(buildOverviewDashboard(), buildMuscleBalance());
+
     if (!programId) {
-      content.append(h("p", { class: "empty" }, t("progress.noPrograms")), buildMuscleBalance(), buildBodyweightPanel());
+      content.append(h("p", { class: "empty" }, t("progress.noPrograms")), buildBodyweightFold());
       return;
     }
     const program = getProgram(programId);
     const done = doneSessions(programId).sort(byStart);
     if (!done.length) {
-      content.append(h("p", { class: "empty" }, t("progress.noDoneSessions")), buildMuscleBalance(), buildBodyweightPanel());
+      content.append(
+        h("section", { class: "panel" },
+          h("h2", { class: "section" }, t("progress.loadIndex")),
+          select,
+          h("p", { class: "empty" }, t("progress.noDoneSessions"))),
+        buildBodyweightFold()
+      );
       return;
     }
 
     const series = liSeries(done, program.baselineSessionId);
     const base = pickBaseline(done, program.baselineSessionId);
 
-    /* Главный график */
+    /* 2. Главный график Индекса нагрузки + сводка по программе */
     const detail = h("div", { class: "muted small" });
     const pts = series.map(p => ({ t: p.session.startedAt, y: p.li, label: `LI ${formatNum(p.li, 1)}` }));
     const smooth = movingAverage(series.map(p => p.li), 4);
@@ -178,27 +290,64 @@ export function mount(root) {
         });
       }
     });
-    content.append(h("section", { class: "panel" },
-      h("div", { class: "panel-head" }, h("h2", { class: "section" }, t("progress.loadIndex")),
-        h("button", { class: "btn icon", type: "button", "aria-label": t("progress.formulaTitle"), title: t("progress.formulaTitle"), onclick: showFormula }, icon("help"))),
-      chart, detail,
-      h("p", { class: "legend muted small" }, h("span", { class: "key solid" }), t("progress.legendIndex"), h("span", { class: "key dashed" }), t("progress.legendSmooth"), h("span", { class: "key dotted" }), t("progress.legendRef"))));
-
-    /* Сводка */
     const d4 = changeOverWeeks(series, 4), d12 = changeOverWeeks(series, 12);
     const sign = n => (n === null ? "—" : (n > 0 ? "+" : "") + formatNum(n, 1));
+
     content.append(h("section", { class: "panel" },
+      h("div", { class: "panel-head" },
+        h("h2", { class: "section" }, t("progress.loadIndex")),
+        h("button", { class: "btn icon", type: "button", "aria-label": t("progress.formulaTitle"), title: t("progress.formulaTitle"), onclick: showFormula }, icon("help"))),
+      select,
+      chart, detail,
+      h("p", { class: "legend muted small" }, h("span", { class: "key solid" }), t("progress.legendIndex"), h("span", { class: "key dashed" }), t("progress.legendSmooth"), h("span", { class: "key dotted" }), t("progress.legendRef")),
       h("div", { class: "stats stats-3" },
         h("div", { class: "stat" }, h("small", { class: "muted" }, t("progress.stat4w")), h("strong", {}, sign(d4))),
         h("div", { class: "stat" }, h("small", { class: "muted" }, t("progress.stat12w")), h("strong", {}, sign(d12))),
         h("div", { class: "stat" }, h("small", { class: "muted" }, t("progress.statWorkouts")), h("strong", {}, String(done.length)))),
-      h("p", { class: "muted small" }, t("progress.baselineDate", { date: base ? fmtDate(base.startedAt) : "—" })),
-      h("button", { class: "btn block", type: "button", onclick: () => resetBaseline(program, done) }, t("progress.resetBaselineBtn"))));
+      h("div", { class: "row gap", style: "justify-content:space-between;padding-top:4px;border-top:1px solid var(--line)" },
+        h("small", { class: "muted" }, t("progress.baselineDate", { date: base ? fmtDate(base.startedAt) : "—" })),
+        h("button", { class: "btn small", type: "button", onclick: () => resetBaseline(program, done) }, t("progress.changeBaselineShort")))
+    ));
 
-    /* Баланс по мышцам (силуэт человека) */
-    content.append(buildMuscleBalance());
+    /* 3. Раздел «Подробная статистика» (сворачиваемые карточки) */
+    content.append(h("h3", { class: "group" }, t("progress.detailedGroup")));
 
-    /* Графики по упражнению */
+    /* 3а. Личные рекорды (сворачиваемая карточка) */
+    const allPrs = personalRecords(doneSessions().sort(byStart));
+    const prEntries = [...allPrs.entries()];
+    const prPreview = prEntries.slice(0, 3).map(([, p]) => p.name).join(", ") + (prEntries.length > 3 ? "…" : "");
+    const prListEl = h("div", { class: "pr-grid" });
+    if (!prEntries.length) {
+      prListEl.append(h("p", { class: "muted small" }, t("exercises.noPRs")));
+    } else {
+      for (const [exerciseId, pr] of prEntries) {
+        const u = unitLabel(pr.unit);
+        const wVal = pr.weightKg !== null ? `${formatNum(fromKg(pr.weightKg, pr.unit), 1)} ${u}` : "—";
+        const e1Val = pr.e1rmKg !== null ? `${formatNum(fromKg(pr.e1rmKg, pr.unit), 1)} ${u}` : "—";
+        prListEl.append(h("button", {
+          type: "button",
+          class: "pr-card",
+          onclick: () => openExerciseHistory(exerciseId, pr.name, pr.unit)
+        },
+          h("div", { class: "row gap", style: "justify-content:space-between" },
+            h("strong", {}, pr.name),
+            h("span", { class: "pr-badge" }, "PR")),
+          h("div", { class: "pr-card-metrics" },
+            h("span", { class: "muted small" }, t("progress.prWeight", { val: wVal }) + (pr.weightDate ? ` (${fmtDate(pr.weightDate)})` : "")),
+            h("span", { class: "muted small" }, `e1RM ${e1Val}` + (pr.e1rmDate ? ` (${fmtDate(pr.e1rmDate)})` : "")))
+        ));
+      }
+    }
+    content.append(makeFoldCard(
+      "prs",
+      t("progress.personalRecords"),
+      String(prEntries.length),
+      prPreview || t("exercises.noPRs"),
+      prListEl,
+      false
+    ));
+
+    /* 3б. Графики по упражнению (сворачиваемая карточка) */
     const exMap = new Map();
     done.forEach(s => (s.entries || []).forEach(e => exMap.set(e.exerciseId, { name: getExercise(e.exerciseId)?.name || e.exerciseName, unit: e.unit })));
     const exList = [...exMap.entries()];
@@ -228,20 +377,18 @@ export function mount(root) {
       };
       exSel.addEventListener("change", () => { exId = exSel.value; renderExCharts(); });
       renderExCharts();
-      content.append(h("section", { class: "panel" }, h("h2", { class: "section" }, t("progress.byExercise")), exSel, exChartsBox));
+      content.append(makeFoldCard(
+        "byEx",
+        t("progress.byExercise"),
+        String(exList.length),
+        t("progress.byExerciseSub"),
+        h("div", { class: "stack" }, exSel, exChartsBox),
+        false
+      ));
     }
 
-    /* Рекорды */
-    const prs = personalRecords(done);
-    const prBox = h("section", { class: "panel" }, h("h2", { class: "section" }, t("progress.personalRecords")));
-    for (const [, pr] of prs) {
-      const wVal = pr.weightKg !== null ? formatNum(fromKg(pr.weightKg, pr.unit), 1) + " " + unitLabel(pr.unit) + " (" + fmtDate(pr.weightDate) + ")" : "—";
-      prBox.append(h("div", { class: "pr" },
-        h("strong", {}, pr.name),
-        h("span", { class: "muted small" }, t("progress.prWeight", { val: wVal })),
-        h("span", { class: "muted small" }, `e1RM ${pr.e1rmKg !== null ? formatNum(fromKg(pr.e1rmKg, pr.unit), 1) + " " + unitLabel(pr.unit) + " (" + fmtDate(pr.e1rmDate) + ")" : "—"}`)));
-    }
-    content.append(prBox, buildBodyweightPanel());
+    /* 3в. Собственный вес тела (сворачиваемая карточка) */
+    content.append(buildBodyweightFold());
   }
 
   function resetBaseline(program, done) {

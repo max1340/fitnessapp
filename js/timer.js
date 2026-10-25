@@ -4,7 +4,7 @@ import { h, fmtRest } from "./ui.js";
 import { state } from "./store.js";
 import { t } from "./i18n.js";
 
-let endAt = 0, total = 0, label = "", ticking = null, fired = false, bar, audioCtx;
+let endAt = 0, pausedLeftMs = 0, total = 0, label = "", ticking = null, fired = false, bar, audioCtx;
 const els = {};
 
 function ensureAudio() {
@@ -71,11 +71,12 @@ function finish() {
 
 function render() {
   if (!bar) return;
-  const left = Math.ceil((endAt - Date.now()) / 1000);
-  if (!endAt) { bar.hidden = true; document.body.classList.remove("timer-on"); return; }
+  if (!endAt && !pausedLeftMs) { bar.hidden = true; document.body.classList.remove("timer-on"); return; }
   bar.hidden = false; document.body.classList.add("timer-on");
-  if (left <= 0 && !fired) finish();
-  const over = left <= 0;
+  const remMs = pausedLeftMs > 0 ? pausedLeftMs : (endAt - Date.now());
+  const left = Math.ceil(remMs / 1000);
+  if (pausedLeftMs <= 0 && left <= 0 && !fired) finish();
+  const over = pausedLeftMs <= 0 && left <= 0;
   bar.classList.toggle("over", over);
   els.time.textContent = over ? t("timer.restOver") : fmtRest(left);
   els.label.textContent = label;
@@ -90,12 +91,36 @@ export function startRest(sec, lbl = "") {
   ensureAudio();
   askNotifyPermission();
   clearNotifications();
+  pausedLeftMs = 0;
   endAt = Date.now() + sec * 1000; total = sec; label = lbl; fired = false;
   loop();
 }
 
+export function pauseRest() {
+  if (!endAt || pausedLeftMs > 0 || fired) return;
+  const rem = endAt - Date.now();
+  if (rem > 0) {
+    pausedLeftMs = rem;
+    clearInterval(ticking); ticking = null;
+    render();
+  }
+}
+
+export function resumeRest() {
+  if (pausedLeftMs <= 0) return;
+  endAt = Date.now() + pausedLeftMs;
+  pausedLeftMs = 0;
+  loop();
+}
+
 export function addRest(sec) {
-  if (!endAt) return;
+  if (!endAt && !pausedLeftMs) return;
+  if (pausedLeftMs > 0) {
+    pausedLeftMs = Math.max(1000, pausedLeftMs + sec * 1000);
+    total = Math.max(1, total + sec);
+    render();
+    return;
+  }
   if (fired && sec > 0) {
     endAt = Date.now() + sec * 1000; total = sec; fired = false;
     clearNotifications();
@@ -108,7 +133,7 @@ export function addRest(sec) {
 }
 
 export function stopRest() {
-  endAt = 0; clearInterval(ticking); ticking = null;
+  endAt = 0; pausedLeftMs = 0; clearInterval(ticking); ticking = null;
   clearNotifications();
   render();
 }

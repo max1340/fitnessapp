@@ -304,6 +304,7 @@ export function init(onProgress) {
           } else if (state.exercises.length <= 8) {
             seedExtraExercises();
           }
+          ensureMaxCalisthenicsProgram();
         } else {
           if (state.exercises.length < COMMON_LIBRARY_EXERCISES.length) {
             seedCommonExercises();
@@ -497,32 +498,38 @@ export const EXTRA_LIBRARY_EXERCISES = [
   mkEx("ex-bb-row", "Тяга штанги в наклоне", "Спина"),
   mkEx("ex-db-row", "Тяга гантели одной рукой", "Спина"),
   mkEx("ex-pullover", "Пулловер в кроссовере", "Спина"),
+  mkEx("ex-aust-pullups", "Австралийские подтягивания", "Спина", null, [], { isBodyweight: true, note: "Горизонтальная тяга на низкой перекладине" }),
   // Грудь
   mkEx("ex-bench-press", "Жим штанги лёжа", "Грудь"),
   mkEx("ex-incline-db", "Жим гантелей на наклонной (30°)", "Грудь"),
   mkEx("ex-chest-press", "Жим в тренажёре (Хаммер)", "Грудь"),
   mkEx("ex-cable-fly", "Сведение рук в кроссовере / Бабочка", "Грудь"),
   mkEx("ex-dips", "Отжимания на брусьях", "Грудь", null, [], { isBodyweight: true }),
+  mkEx("ex-pushups", "Отжимания от пола на упорах", "Грудь", null, [], { isBodyweight: true }),
   // Бицепс
   mkEx("ex-bb-curl", "Подъём EZ-штанги на бицепс", "Бицепс"),
   mkEx("ex-hammer-curl", "Молотки с гантелями", "Бицепс"),
   mkEx("ex-preacher-curl", "Бицепс на скамье Скотта", "Бицепс"),
   mkEx("ex-cable-curl", "Сгибания на бицепс в блоке", "Бицепс"),
+  mkEx("ex-chinups", "Подтягивания обратным хватом", "Бицепс", null, [], { isBodyweight: true }),
   // Трицепс
   mkEx("ex-skullcrusher", "Французский жим с EZ-штангой", "Трицепс"),
   mkEx("ex-rope-pushdown", "Разгибания с канатом в блоке", "Трицепс (Lateral)"),
   mkEx("ex-db-overhead-tri", "Французский жим гантели из-за головы", "Трицепс (Long)"),
+  mkEx("ex-diamond-pushups", "Алмазные отжимания", "Трицепс", null, [], { isBodyweight: true }),
   // Дельты
   mkEx("ex-db-lat-raise", "Махи гантелями в стороны", "Средняя дельта"),
   mkEx("ex-ohp-db", "Жим гантелей сидя", "Дельты"),
   mkEx("ex-rear-delt", "Обратная бабочка / Задняя дельта", "Задняя дельта"),
+  mkEx("ex-pike-pushups", "Пайк-отжимания углом", "Дельты", null, [], { isBodyweight: true }),
   // Ноги и Пресс
   mkEx("ex-squat", "Приседания со штангой", "Ноги"),
   mkEx("ex-leg-press", "Жим ногами в тренажёре", "Ноги"),
   mkEx("ex-rdl", "Румынская тяга", "Ноги"),
   mkEx("ex-leg-ext", "Разгибания ног сидя", "Ноги"),
   mkEx("ex-leg-curl", "Сгибания ног лёжа", "Ноги"),
-  mkEx("ex-cable-crunch", "Скручивания на пресс в блоке", "Пресс")
+  mkEx("ex-cable-crunch", "Скручивания на пресс в блоке", "Пресс"),
+  mkEx("ex-hanging-leg-raise", "Подъём ног в висе", "Пресс", null, [], { isBodyweight: true })
 ];
 
 export const COMMON_LIBRARY_EXERCISES = [...BASE_7_EXERCISES_CLEAN, ...EXTRA_LIBRARY_EXERCISES];
@@ -586,6 +593,45 @@ export function seedExtraExercises() {
     emit();
   }
   return items.length;
+}
+
+export function ensureMaxCalisthenicsProgram() {
+  const caliIds = ["seed-pullups", "ex-aust-pullups", "ex-dips", "ex-pushups", "ex-chinups", "ex-diamond-pushups", "ex-pike-pushups", "ex-hanging-leg-raise"];
+  const items = [];
+  for (const id of caliIds) {
+    if (!getExercise(id)) {
+      const raw = COMMON_LIBRARY_EXERCISES.find(x => x.id === id);
+      if (raw) {
+        const e = localizeExercise(raw);
+        items.push(["exercises", e]);
+        state.exercises.push(e);
+      }
+    }
+  }
+  if (!getProgram("seed-calisthenics")) {
+    const rest = state.settings.restSec || 150;
+    const caliProgram = localizeProgram({
+      id: "seed-calisthenics",
+      name: "КАЛИСТЕНИКА — работа со своим весом",
+      archived: false,
+      items: [
+        { exerciseId: "seed-pullups", sets: 3, targetReps: "8-12", restSec: rest, note: "Вертикальная тяга" },
+        { exerciseId: "ex-aust-pullups", sets: 3, targetReps: "10-15", restSec: rest, note: "Горизонтальная тяга (аналог Т-грифа)" },
+        { exerciseId: "ex-dips", sets: 3, targetReps: "8-12", restSec: rest, note: "Наклон вперёд на грудь" },
+        { exerciseId: "ex-pushups", sets: 3, targetReps: "12-15", restSec: 120, note: "Глубокая амплитуда" },
+        { exerciseId: "ex-chinups", sets: 3, targetReps: "8-10", restSec: 120, note: "Супинированный хват на бицепс" },
+        { exerciseId: "ex-diamond-pushups", sets: 3, targetReps: "10-15", restSec: 120, note: "Акцент на трицепс" },
+        { exerciseId: "ex-pike-pushups", sets: 3, targetReps: "8-12", restSec: 120, note: "Жим углом на дельты" },
+        { exerciseId: "ex-hanging-leg-raise", sets: 3, targetReps: "10-15", restSec: 90, note: "Без раскачки" }
+      ]
+    });
+    items.push(["programs", caliProgram]);
+    state.programs.push(caliProgram);
+  }
+  if (items.length) {
+    bulkSave(items).catch(console.error);
+    emit();
+  }
 }
 
 export function seedStarterData() {

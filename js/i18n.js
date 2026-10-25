@@ -116,13 +116,24 @@ export const BUILTIN_EXERCISES = {
   "ex-rdl": { ru: "Румынская тяга", en: "Romanian Deadlift (RDL)", muscleRu: "Ноги", muscleEn: "Legs" },
   "ex-leg-ext": { ru: "Разгибания ног сидя", en: "Seated Leg Extension", muscleRu: "Ноги", muscleEn: "Legs" },
   "ex-leg-curl": { ru: "Сгибания ног лёжа", en: "Lying Leg Curl", muscleRu: "Ноги", muscleEn: "Legs" },
-  "ex-cable-crunch": { ru: "Скручивания на пресс в блоке", en: "Cable Crunch", muscleRu: "Пресс", muscleEn: "Abs" }
+  "ex-cable-crunch": { ru: "Скручивания на пресс в блоке", en: "Cable Crunch", muscleRu: "Пресс", muscleEn: "Abs" },
+
+  "ex-aust-pullups": { ru: "Австралийские подтягивания", en: "Australian Pull-Ups (Bodyweight Row)", muscleRu: "Спина", muscleEn: "Back", noteRu: "Горизонтальная тяга на низкой перекладине", noteEn: "Horizontal row on a low bar" },
+  "ex-pushups": { ru: "Отжимания от пола на упорах", en: "Deficit Push-Ups", muscleRu: "Грудь", muscleEn: "Chest" },
+  "ex-chinups": { ru: "Подтягивания обратным хватом", en: "Chin-Ups (Underhand)", muscleRu: "Бицепс", muscleEn: "Biceps" },
+  "ex-diamond-pushups": { ru: "Алмазные отжимания", en: "Diamond Push-Ups", muscleRu: "Трицепс", muscleEn: "Triceps" },
+  "ex-pike-pushups": { ru: "Пайк-отжимания углом", en: "Pike Push-Ups", muscleRu: "Дельты", muscleEn: "Shoulders" },
+  "ex-hanging-leg-raise": { ru: "Подъём ног в висе", en: "Hanging Leg Raises", muscleRu: "Пресс", muscleEn: "Abs" }
 };
 
 export const BUILTIN_PROGRAMS = {
   "seed-fullbody": {
     ru: "FULLBODY — классические сеты",
     en: "FULLBODY — Classic Sets"
+  },
+  "seed-calisthenics": {
+    ru: "КАЛИСТЕНИКА — работа со своим весом",
+    en: "CALISTHENICS — Bodyweight"
   }
 };
 
@@ -359,6 +370,9 @@ const DICT = {
     "workout.shareExercises": "Выполненные упражнения",
     "workout.shareBestSet": "лучш. {w} {u} × {r}",
     "workout.shareSetsOnly": "{n} сет.",
+    "workout.pauseBtn": "Пауза",
+    "workout.resumeBtn": "Продолжить",
+    "workout.pausedBadge": "НА ПАУЗЕ",
     "history.summaryBtnAria": "Итог и карточка тренировки",
 
     "entry.dragAria": "Перетащить",
@@ -478,7 +492,23 @@ const DICT = {
     "exercises.historyBtnAria": "История упражнения",
     "exercises.addShortBtn": "+ Упражнение",
     "exercises.addNewBtn": "+ Новое упражнение",
+    "exercises.bwBadge": "Свой вес",
+    "exercises.groupCount": "{n} упр.",
 
+    "progress.overviewTitle": "Общая сводка",
+    "progress.tonUnit": "т",
+    "progress.ovWorkouts": "Тренировок",
+    "progress.ovLast30d": "за 30 дн.: {n}",
+    "progress.ovTotalVol": "Общий тоннаж",
+    "progress.ovAvgVol": "средний: {avg} кг",
+    "progress.ovWorkSets": "Рабочих сетов",
+    "progress.ovTotalReps": "{reps} повторов",
+    "progress.ovRecords": "Рекордов (PR)",
+    "progress.ovAvgDur": "ср. время: {min} мин",
+    "progress.muscleBreakdownBtn": "Подробная разбивка по мышцам ({n})",
+    "progress.changeBaselineShort": "База",
+    "progress.detailedGroup": "Подробная статистика",
+    "progress.byExerciseSub": "{n} упр.",
     "progress.muscleRowSets": "{cnt} сет. ({pct}%)",
     "progress.noSetsInPeriod": "За выбранный период нет выполненных рабочих сетов.",
     "progress.muscleBalance": "Баланс по мышцам",
@@ -629,9 +659,20 @@ const DICT = {
 
     "settings.profileGroup": "Профиль",
     "settings.currentProfile": "Аккаунт: {user}",
+    "settings.profileStats": "{workouts} трен. · {programs} прогр. · {exercises} упр.",
     "settings.logoutBtn": "Сменить профиль / Выйти",
+    "settings.logoutShort": "Выйти",
     "settings.logoutConfirm": "Выйти из профиля «{user}»? Вы сможете снова войти по своему логину и PIN-коду.",
-    "settings.logoutOk": "Выйти"
+    "settings.logoutOk": "Выйти",
+    "settings.appearanceGroup": "Оформление и интерфейс",
+    "settings.workoutGroup": "Параметры тренировки",
+    "settings.feedbackGroup": "Таймер и отклик",
+    "settings.soundSub": "Звуковой сигнал по окончании отдыха",
+    "settings.vibrationSub": "Тактильный отклик при нажатиях и таймере",
+    "settings.notificationsSub": "Push-уведомление, когда приложение свёрнуто",
+    "settings.exportCsvSub": "Таблица для Excel / Google Sheets",
+    "settings.exportJsonSub": "Полный слепок всех программ и истории (JSON)",
+    "settings.importJsonSub": "Загрузить ранее сохранённый JSON-файл"
   },
 
   en: {
@@ -779,6 +820,9 @@ const DICT = {
     "workout.shareExercises": "Completed Exercises",
     "workout.shareBestSet": "best {w} {u} × {r}",
     "workout.shareSetsOnly": "{n} sets",
+    "workout.pauseBtn": "Pause",
+    "workout.resumeBtn": "Resume",
+    "workout.pausedBadge": "PAUSED",
     "history.summaryBtnAria": "Workout summary & share card",
 
     "entry.dragAria": "Drag",
@@ -898,7 +942,23 @@ const DICT = {
     "exercises.historyBtnAria": "Exercise history",
     "exercises.addShortBtn": "+ Exercise",
     "exercises.addNewBtn": "+ New Exercise",
+    "exercises.bwBadge": "Bodyweight",
+    "exercises.groupCount": "{n} ex.",
 
+    "progress.overviewTitle": "Overview",
+    "progress.tonUnit": "t",
+    "progress.ovWorkouts": "Workouts",
+    "progress.ovLast30d": "last 30d: {n}",
+    "progress.ovTotalVol": "Total Volume",
+    "progress.ovAvgVol": "avg: {avg} kg",
+    "progress.ovWorkSets": "Working Sets",
+    "progress.ovTotalReps": "{reps} reps",
+    "progress.ovRecords": "Records (PR)",
+    "progress.ovAvgDur": "avg time: {min} min",
+    "progress.muscleBreakdownBtn": "Detailed muscle breakdown ({n})",
+    "progress.changeBaselineShort": "Baseline",
+    "progress.detailedGroup": "Detailed Statistics",
+    "progress.byExerciseSub": "{n} ex.",
     "progress.muscleRowSets": "{cnt} sets ({pct}%)",
     "progress.noSetsInPeriod": "No completed working sets in the selected period.",
     "progress.muscleBalance": "Muscle Balance",
@@ -1049,9 +1109,20 @@ const DICT = {
 
     "settings.profileGroup": "Profile",
     "settings.currentProfile": "Account: {user}",
+    "settings.profileStats": "{workouts} wk. · {programs} prog. · {exercises} ex.",
     "settings.logoutBtn": "Switch Profile / Log Out",
+    "settings.logoutShort": "Log Out",
     "settings.logoutConfirm": "Log out of profile \"{user}\"? You can sign back in anytime with your username and PIN.",
-    "settings.logoutOk": "Log Out"
+    "settings.logoutOk": "Log Out",
+    "settings.appearanceGroup": "Appearance & Interface",
+    "settings.workoutGroup": "Workout Defaults",
+    "settings.feedbackGroup": "Timer & Haptics",
+    "settings.soundSub": "Audio chime when rest timer finishes",
+    "settings.vibrationSub": "Tactile feedback on taps and timer completion",
+    "settings.notificationsSub": "System notification when app is in background",
+    "settings.exportCsvSub": "Spreadsheet for Excel / Google Sheets",
+    "settings.exportJsonSub": "Full snapshot of programs & workout history (JSON)",
+    "settings.importJsonSub": "Restore from a previously saved JSON backup"
   }
 };
 

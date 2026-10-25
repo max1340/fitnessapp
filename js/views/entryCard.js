@@ -34,28 +34,7 @@ export function entryCard(entry, ctx) {
   }
 
   const unit = entry.unit, step = stepFor(unit);
-  const allDone = ctx.collapsible !== false && entry.sets.length > 0 && entry.sets.every(s => s.done);
-  const hasEntryPR = entry.sets.some(s => checkSetPR(s, unit, ctx.prBaseline));
-
-  // Автосвёрнутый вид, когда все сеты упражнения выполнены
-  if (allDone && !entry._expanded) {
-    const workSets = entry.sets.filter(s => !s.isWarmup && s.done);
-    const weights = [...new Set(workSets.map(s => fmtNum(s.weight ?? 0)))].join("/");
-    const reps = workSets.map(s => s.reps ?? 0).join("/");
-    const summary = workSets.length
-      ? t("entry.summaryWork", { count: workSets.length, weights, u: unitLabel(unit), reps })
-      : t("entry.summarySets", { count: entry.sets.length });
-    return h("article", { class: "entry collapsed", dataset: { key: cardKey } },
-      h("div", { class: "entry-head" },
-        ctx.reorder ? h("button", { class: "btn icon drag-handle", type: "button", "aria-label": t("entry.dragAria") }, icon("drag", 18)) : null,
-        h("button", { class: "entry-summary grow", type: "button", onclick: () => { entry._expanded = true; ctx.rerender(); } },
-          h("span", { class: "entry-summary-title" },
-            icon("check", 16),
-            h("strong", {}, `${ctx.index + 1}. ${entry.exerciseName}`),
-            hasEntryPR ? h("span", { class: "pr-badge" }, "PR") : null),
-          h("small", { class: "muted" }, summary)),
-        iconBtn("down", t("entry.expand"), () => { entry._expanded = true; ctx.rerender(); })));
-  }
+  const initialAllDone = ctx.collapsible !== false && entry.sets.length > 0 && entry.sets.every(s => s.done);
 
   const setsBox = h("div", { class: "sets" });
   const weightInputs = new Map();
@@ -225,7 +204,7 @@ export function entryCard(entry, ctx) {
 
       const showSub = !!(hintEl || hasPr || rpeEl);
       const rowB = h("div", { class: "set-sub", hidden: !showSub }, hintEl, prSlot, rpeEl);
-      const delSet = () => { entry.sets.splice(i, 1); ctx.onChange(); paintSets(); };
+      const delSet = () => { entry.sets.splice(i, 1); ctx.onChange(); paintSets(); setCollapsed(!entry._expanded); };
       const row = h("div", { class: "set" + (set.done ? " done" : "") + (set.isWarmup ? " warm" : "") }, rowA, rowB);
       const bgIcon = h("span", { class: "set-swipe-icon" }, icon("trash", 18));
       const bg = h("div", { class: "set-swipe-bg", "aria-hidden": "true" }, bgIcon);
@@ -235,11 +214,13 @@ export function entryCard(entry, ctx) {
     });
   }
 
+  let collapseTimer = null;
   function toggleDone(set, row, btn, rowA, prSlot) {
     if (!set.done && !(set.reps > 0)) { // нельзя отметить пустой сет — подсказываем куда ввести
       haptic("error");
       const inputs = rowA.querySelectorAll("input"); inputs[1] && inputs[1].focus(); return;
     }
+    clearTimeout(collapseTimer);
     set.done = !set.done;
     set.completedAt = set.done ? Date.now() : null;
     row.classList.toggle("done", set.done);
@@ -248,19 +229,20 @@ export function entryCard(entry, ctx) {
     prSlot.replaceChildren(pr ? h("span", { class: "pr-badge", title: t("entry.prTitle") }, "PR") : "");
     const sub = row.querySelector(".set-sub");
     if (sub) sub.hidden = !pr && !entry.trackRpe;
-    const allCompleted = entry.sets.every(s => s.done);
+    const allCompleted = entry.sets.length > 0 && entry.sets.every(s => s.done);
     if (!set.done) {
       haptic("light");
-      entry._expanded = true; // если сняли галочку — оставляем карточку открытой
+      setCollapsed(false);
     } else {
       haptic(pr ? "pr" : allCompleted ? "success" : "medium");
-      if (allCompleted) entry._expanded = false; // все сеты готовы — свернётся
+      if (ctx.collapsible !== false && allCompleted) {
+        collapseTimer = setTimeout(() => setCollapsed(true), 220);
+      } else {
+        setCollapsed(false);
+      }
     }
     ctx.onChange();
     if (set.done && ctx.onSetDone) ctx.onSetDone(entry, set, pr);
-    if (ctx.collapsible !== false && allCompleted) {
-      setTimeout(() => ctx.rerender(), 260);
-    }
   }
 
   paintSets();
@@ -276,6 +258,15 @@ export function entryCard(entry, ctx) {
   if (entry.targetReps) subParts.push(t("entry.targetSub", { target: entry.targetReps }));
   if (entry.programNote) subParts.push(entry.programNote);
   else if (firstHint) subParts.push(firstHint);
+
+  function buildSummaryText() {
+    const workSets = entry.sets.filter(s => !s.isWarmup && s.done);
+    const weights = [...new Set(workSets.map(s => fmtNum(s.weight ?? 0)))].join("/");
+    const reps = workSets.map(s => s.reps ?? 0).join("/");
+    return workSets.length
+      ? t("entry.summaryWork", { count: workSets.length, weights, u: unitLabel(unit), reps })
+      : t("entry.summarySets", { count: entry.sets.length });
+  }
 
   const progBanner = entry.progression && !entry.sets.some(s => s.done)
     ? h("button", {
@@ -302,40 +293,91 @@ export function entryCard(entry, ctx) {
       }))
     : null;
 
-  return h("article", { class: "entry", dataset: { key: cardKey } },
+  const doneCheckEl = h("span", { class: "entry-done-check" }, icon("check", 16));
+  const headPrBadge = h("span", { class: "pr-badge", hidden: true }, "PR");
+  const muscleTagEl = muscle ? h("span", { class: "muscle-tag" }, muscle) : null;
+  const clockIconEl = h("span", { class: "entry-clock-ico" }, icon("clock", 13));
+  const subEl = h("small", { class: "muted" });
+
+  const foldBtn = h("button", {
+    class: "btn icon entry-fold-btn",
+    type: "button",
+    hidden: !initialAllDone,
+    onclick: () => setCollapsed(!article.classList.contains("collapsed"))
+  }, icon("up", 20));
+
+  const extraActions = h("div", { class: "entry-extra-actions" },
+    ctx.onSwap ? iconBtn("swap", t("entry.swapEx"), ctx.onSwap) : null,
+    ctx.onSkip ? iconBtn("skip", t("entry.skipEx"), ctx.onSkip) : null,
+    ctx.onRemove ? iconBtn("trash", t("entry.removeEx"), ctx.onRemove) : null
+  );
+
+  const bodyCollapse = h("div", { class: "entry-body-collapse" },
+    h("div", { class: "entry-body-inner" },
+      progBanner,
+      h("div", { class: "set-cols" },
+        h("span", { title: t("entry.colNumTitle") }, t("entry.colNum")),
+        h("span", {}, t(isBw ? "entry.colWeightAdded" : "entry.colWeight", { u: unitLabel(unit) })),
+        h("span", {}, t("entry.colReps")),
+        h("span", {}, t("entry.colDone"))),
+      setsBox,
+      h("div", { class: "entry-foot" },
+        h("button", { class: "btn small add-set-btn", type: "button", onclick: () => {
+          const prev = entry.sets[entry.sets.length - 1];
+          entry.sets.push({ reps: prev ? prev.reps : null, weight: prev ? prev.weight : null, rpe: null, done: false, isWarmup: false, completedAt: null, hint: "", hintWeight: prev ? prev.weight : null, hintReps: prev ? prev.reps : null });
+          setCollapsed(false);
+          ctx.onChange(); paintSets();
+        } }, t("entry.addSet")),
+        h("button", { class: "btn small add-set-btn", type: "button", title: t("entry.removeSetTitle"), onclick: () => {
+          if (entry.sets.length <= 1) return;
+          entry.sets.pop();
+          ctx.onChange(); paintSets();
+          setCollapsed(!entry._expanded);
+        } }, t("entry.removeSet")),
+        note)
+    )
+  );
+
+  const article = h("article", { class: "entry", dataset: { key: cardKey } },
     h("div", { class: "entry-head" },
       ctx.reorder ? h("button", { class: "btn icon drag-handle", type: "button", "aria-label": t("entry.dragExAria"), title: t("entry.dragExTitle") }, icon("drag", 18)) : null,
       h("button", {
         class: "entry-title-btn grow", type: "button", title: t("entry.historyTitle"),
-        onclick: () => openExerciseHistory(entry.exerciseId, entry.exerciseName, entry.unit)
+        onclick: () => {
+          if (article.classList.contains("collapsed")) {
+            setCollapsed(false);
+          } else {
+            openExerciseHistory(entry.exerciseId, entry.exerciseName, entry.unit);
+          }
+        }
       },
         h("span", { class: "entry-title-row" },
+          doneCheckEl,
           h("strong", {}, `${ctx.index + 1}. ${entry.exerciseName}`),
-          muscle ? h("span", { class: "muscle-tag" }, muscle) : null,
-          icon("clock", 13)),
-        subParts.length ? h("small", { class: "muted" }, subParts.join(" · ")) : null),
-      allDone ? iconBtn("up", t("entry.collapse"), () => { entry._expanded = false; ctx.rerender(); }) : null,
-      ctx.onSwap ? iconBtn("swap", t("entry.swapEx"), ctx.onSwap) : null,
-      ctx.onSkip ? iconBtn("skip", t("entry.skipEx"), ctx.onSkip) : null,
-      ctx.onRemove ? iconBtn("trash", t("entry.removeEx"), ctx.onRemove) : null),
-    progBanner,
-    h("div", { class: "set-cols" },
-      h("span", { title: t("entry.colNumTitle") }, t("entry.colNum")),
-      h("span", {}, t(isBw ? "entry.colWeightAdded" : "entry.colWeight", { u: unitLabel(unit) })),
-      h("span", {}, t("entry.colReps")),
-      h("span", {}, t("entry.colDone"))),
-    setsBox,
-    h("div", { class: "entry-foot" },
-      h("button", { class: "btn small add-set-btn", type: "button", onclick: () => {
-        const prev = entry.sets[entry.sets.length - 1];
-        entry.sets.push({ reps: prev ? prev.reps : null, weight: prev ? prev.weight : null, rpe: null, done: false, isWarmup: false, completedAt: null, hint: "", hintWeight: prev ? prev.weight : null, hintReps: prev ? prev.reps : null });
-        entry._expanded = true;
-        ctx.onChange(); paintSets();
-      } }, t("entry.addSet")),
-      h("button", { class: "btn small add-set-btn", type: "button", title: t("entry.removeSetTitle"), onclick: () => {
-        if (entry.sets.length <= 1) return;
-        entry.sets.pop();
-        ctx.onChange(); paintSets();
-      } }, t("entry.removeSet")),
-      note));
+          headPrBadge,
+          muscleTagEl,
+          clockIconEl),
+        subEl),
+      foldBtn,
+      extraActions),
+    bodyCollapse
+  );
+
+  function setCollapsed(collapsed) {
+    const canCollapse = ctx.collapsible !== false && entry.sets.length > 0 && entry.sets.every(s => s.done);
+    const isCol = canCollapse && !!collapsed;
+    entry._expanded = !isCol;
+    article.classList.toggle("collapsed", isCol);
+    foldBtn.hidden = !canCollapse;
+    const lbl = isCol ? t("entry.expand") : t("entry.collapse");
+    foldBtn.setAttribute("aria-label", lbl);
+    foldBtn.setAttribute("title", lbl);
+    const hasEntryPR = entry.sets.some(s => checkSetPR(s, unit, ctx.prBaseline));
+    headPrBadge.hidden = !(isCol && hasEntryPR);
+    subEl.textContent = isCol ? buildSummaryText() : subParts.join(" · ");
+    subEl.hidden = !subEl.textContent;
+  }
+
+  setCollapsed(initialAllDone && !entry._expanded);
+  return article;
 }

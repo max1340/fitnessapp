@@ -60,8 +60,8 @@ export function openExerciseHistory(exerciseId, fallbackName = t("exercises.defa
 }
 
 export function openExerciseForm(ex, onSaved) {
-  const isNew = !ex;
-  const e = ex ? { ...ex } : { name: "", muscleGroup: "", unit: state.settings.defaultUnit, defaultSets: 3, defaultRestSec: state.settings.restSec, trackRpe: false, note: "" };
+  const isNew = !ex || !ex.id;
+  const e = ex && ex.id ? { ...ex } : { name: "", muscleGroup: ex?.muscleGroup || "", unit: state.settings.defaultUnit, defaultSets: 3, defaultRestSec: state.settings.restSec, trackRpe: false, note: "" };
   const name = h("input", { type: "text", value: e.name, placeholder: t("exercises.namePlaceholder"), autocomplete: "off" });
   const muscle = h("input", { type: "text", value: e.muscleGroup, list: "muscle-list", placeholder: t("exercises.musclePlaceholder"), autocomplete: "off" });
   const dl = h("datalist", { id: "muscle-list" }, muscleOptions().map(m => h("option", { value: m })));
@@ -179,7 +179,8 @@ export function mount(root) {
   const search = h("input", { type: "search", placeholder: t("common.search"), "aria-label": t("common.searchAria") });
   const filter = h("select", { "aria-label": t("exercises.filterMuscleAria") });
   const showArchived = h("input", { type: "checkbox" });
-  const list = h("div", { class: "list" });
+  const groupsWrap = h("div", { class: "stack ex-groups-grid" });
+  const collapsedGroups = new Set();
 
   const paintFilter = () => {
     const cur = filter.value;
@@ -189,29 +190,72 @@ export function mount(root) {
   const paint = () => {
     paintFilter();
     const q = search.value.trim().toLowerCase();
-    clear(list);
+    clear(groupsWrap);
     const items = state.exercises
-      .filter(e => (showArchived.checked || !e.archived) && (!filter.value || e.muscleGroup === filter.value) && (!q || e.name.toLowerCase().includes(q)))
+      .filter(e => (showArchived.checked || !e.archived) && (!filter.value || e.muscleGroup === filter.value) && (!q || (e.name + " " + (e.muscleGroup || "")).toLowerCase().includes(q)))
       .sort((a, b) => (a.muscleGroup || "").localeCompare(b.muscleGroup || "") || a.name.localeCompare(b.name));
-    if (!items.length) list.append(h("p", { class: "empty" }, state.exercises.length ? t("exercises.nothingFound") : t("exercises.emptyLibrary")));
-    let lastGroup = null;
+
+    if (!items.length) {
+      groupsWrap.append(h("p", { class: "empty" }, state.exercises.length ? t("exercises.nothingFound") : t("exercises.emptyLibrary")));
+      return;
+    }
+
+    const byGroup = new Map();
     for (const e of items) {
-      if (e.muscleGroup !== lastGroup) { lastGroup = e.muscleGroup; list.append(h("h3", { class: "group" }, lastGroup || t("common.uncategorized"))); }
-      const weightInfo = e.startWeight != null ? `${fmtNum(e.startWeight)} ${unitLabel(e.unit)} · ` : "";
-      list.append(h("div", { class: "list-item" + (e.archived ? " archived" : "") },
-        h("button", { class: "card-main grow", type: "button", onclick: () => openExerciseForm(e) },
-          h("strong", {}, e.name),
-          h("small", { class: "muted" }, t("exercises.cardSub", {
-            weight: weightInfo,
-            sets: e.defaultSets,
-            rest: fmtRest(e.defaultRestSec),
-            unit: unitLabel(e.unit),
-            bw: e.isBodyweight ? t("exercises.cardBw") : "",
-            rpe: e.trackRpe ? " · RPE" : "",
-            arch: e.archived ? t("exercises.cardArch") : ""
-          }))),
-        iconBtn("clock", t("exercises.historyBtnAria"), () => openExerciseHistory(e.id, e.name, e.unit)),
-        iconBtn("edit", t("common.edit"), () => openExerciseForm(e))));
+      const g = e.muscleGroup || t("common.uncategorized");
+      if (!byGroup.has(g)) byGroup.set(g, []);
+      byGroup.get(g).push(e);
+    }
+
+    for (const [grpName, grpItems] of byGroup) {
+      const forceOpen = !!q || !!filter.value;
+      const isCol = !forceOpen && collapsedGroups.has(grpName);
+      const previewNames = grpItems.slice(0, 4).map(x => x.name).join(", ") + (grpItems.length > 4 ? "…" : "");
+
+      const innerList = h("div", { class: "ex-group-items" });
+      for (const e of grpItems) {
+        const weightInfo = e.startWeight != null ? `${fmtNum(e.startWeight)} ${unitLabel(e.unit)} · ` : "";
+        innerList.append(h("div", { class: "ex-group-item" + (e.archived ? " archived" : "") },
+          h("button", { class: "card-main grow", type: "button", onclick: () => openExerciseForm(e) },
+            h("div", { class: "row gap", style: "flex-wrap:wrap" },
+              h("strong", {}, e.name),
+              e.isBodyweight ? h("span", { class: "muscle-tag" }, t("exercises.bwBadge")) : null),
+            h("small", { class: "muted" }, t("exercises.cardSub", {
+              weight: weightInfo,
+              sets: e.defaultSets,
+              rest: fmtRest(e.defaultRestSec),
+              unit: unitLabel(e.unit),
+              bw: "",
+              rpe: e.trackRpe ? " · RPE" : "",
+              arch: e.archived ? t("exercises.cardArch") : ""
+            }))),
+          iconBtn("clock", t("exercises.historyBtnAria"), () => openExerciseHistory(e.id, e.name, e.unit)),
+          iconBtn("edit", t("common.edit"), () => openExerciseForm(e))));
+      }
+
+      const cardEl = h("section", { class: "ex-group-card" + (isCol ? " collapsed" : "") },
+        h("button", {
+          type: "button",
+          class: "ex-group-head",
+          onclick: () => {
+            const nowCollapsed = !cardEl.classList.contains("collapsed");
+            cardEl.classList.toggle("collapsed", nowCollapsed);
+            if (nowCollapsed) collapsedGroups.add(grpName);
+            else collapsedGroups.delete(grpName);
+          }
+        },
+          h("div", { class: "grow ex-group-title-box" },
+            h("div", { class: "row gap" },
+              h("strong", { class: "ex-group-title" }, grpName),
+              h("span", { class: "ex-group-badge" }, t("exercises.groupCount", { n: grpItems.length }))),
+            h("small", { class: "muted ex-group-preview" }, previewNames)),
+          h("span", { class: "fold-chevron" }, icon("up", 18))
+        ),
+        h("div", { class: "fold-body" },
+          h("div", { class: "fold-inner" }, innerList))
+      );
+
+      groupsWrap.append(cardEl);
     }
   };
   [search, filter, showArchived].forEach(el => el.addEventListener("input", paint));
@@ -220,7 +264,7 @@ export function mount(root) {
     h("div", { class: "row gap", style: "justify-content:space-between" },
       h("label", { class: "check small" }, showArchived, h("span", {}, t("common.showArchived"))),
       h("button", { class: "btn small primary", type: "button", onclick: () => openExerciseForm(null) }, t("exercises.addShortBtn"))),
-    list,
+    groupsWrap,
     h("div", { class: "bottom-actions" }, h("button", { class: "btn primary block", type: "button", onclick: () => openExerciseForm(null) }, t("exercises.addNewBtn"))));
   paint();
   return { update: () => { if (!document.activeElement || document.activeElement === document.body || !root.contains(document.activeElement) || document.activeElement === filter) paint(); } };

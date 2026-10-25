@@ -3,7 +3,7 @@ import { state, getExercise, getProgram, saveProgram, saveSession, deleteSession
 import { sessionStats, loadIndex, pickBaseline, compareWithPrevious, personalRecords, formatNum, fromKg, byStart } from "../metrics.js";
 import { entryCard, checkSetPR } from "./entryCard.js";
 import { pickExercise } from "./exercises.js";
-import { startRest, stopRest } from "../timer.js";
+import { startRest, stopRest, pauseRest, resumeRest } from "../timer.js";
 import { renderBodyMap, ZONES, mapMuscleToZones } from "../bodyMap.js";
 import { t, tMuscle } from "../i18n.js";
 
@@ -831,29 +831,64 @@ export function mount(root) {
     );
   }
 
+  function elapsedSec(s, now = Date.now()) {
+    if (!s) return 0;
+    const pausedMs = (Number(s.pausedTotalMs) || 0) + (s.pausedAt ? Math.max(0, now - s.pausedAt) : 0);
+    return Math.max(0, (now - s.startedAt - pausedMs) / 1000);
+  }
+
   function open(s) {
-    mode = "active"; session = s; acquireLock();
+    mode = "active"; session = s;
+    if (!session.pausedAt) acquireLock();
     session.entries.forEach(e => (e._key = e._key || uid()));
     priorPrs = personalRecords(doneSessions().filter(x => x.id !== session.id && x.startedAt < session.startedAt));
     clear(view);
     clockEl = h("span", { class: "active-clock" });
+    const pausedBadge = h("span", { class: "paused-badge", hidden: !session.pausedAt }, t("workout.pausedBadge"));
     progTextEl = h("span", { class: "muted" });
     progFillEl = h("div", { class: "workout-prog-fill" });
-    const tick = () => (clockEl.textContent = fmtRest((Date.now() - session.startedAt) / 1000));
+    const tick = () => (clockEl.textContent = fmtRest(elapsedSec(session)));
     tick(); clockTimer = setInterval(tick, 1000);
     entriesBox = h("div", { class: "stack" });
     enableDragSort(entriesBox, keys => {
       session.entries = keys.map(k => session.entries.find(e => e._key === k)).filter(Boolean);
       reindex(); persistNow(); paintEntries();
     });
+
+    const pauseBtn = h("button", { class: "btn small pause-btn", type: "button", onclick: togglePause });
+    function syncPauseUI() {
+      const isP = !!session.pausedAt;
+      pausedBadge.hidden = !isP;
+      clockEl.classList.toggle("is-paused", isP);
+      pauseBtn.classList.toggle("is-paused", isP);
+      pauseBtn.replaceChildren(icon(isP ? "play" : "pause", 14), isP ? t("workout.resumeBtn") : t("workout.pauseBtn"));
+    }
+    function togglePause() {
+      haptic("medium");
+      if (session.pausedAt) {
+        session.pausedTotalMs = (Number(session.pausedTotalMs) || 0) + Math.max(0, Date.now() - session.pausedAt);
+        session.pausedAt = null;
+        resumeRest();
+        acquireLock();
+      } else {
+        session.pausedAt = Date.now();
+        pauseRest();
+        releaseLock();
+      }
+      tick(); syncPauseUI(); persistNow();
+    }
+    syncPauseUI();
+
     view.append(
       h("div", { class: "active-top" },
         h("div", { class: "active-row1" },
           h("h2", { class: "section grow" }, session.programName),
           h("button", { class: "btn icon", type: "button", title: t("workout.deleteWorkoutTitle"), "aria-label": t("workout.deleteWorkoutTitle"), onclick: cancel }, icon("trash", 18))),
         h("div", { class: "active-row2" },
-          h("div", { class: "active-meta" }, clockEl, h("span", { class: "muted" }, "·"), progTextEl),
-          h("button", { class: "btn small primary", type: "button", onclick: finish }, t("workout.finishShort"))),
+          h("div", { class: "active-meta" }, clockEl, pausedBadge, h("span", { class: "muted" }, "·"), progTextEl),
+          h("div", { class: "row gap" },
+            pauseBtn,
+            h("button", { class: "btn small primary", type: "button", onclick: finish }, t("workout.finishShort")))),
         h("div", { class: "workout-prog" }, progFillEl)),
       entriesBox,
       h("button", { class: "btn block", type: "button", onclick: () => pickExercise(ex => {
@@ -876,6 +911,19 @@ export function mount(root) {
         onChange: () => { persist(); updateProgress(); },
         rerender: () => { paintEntries(); updateProgress(); },
         onSetDone: (e, set, pr) => {
+          if (session.pausedAt) {
+            session.pausedTotalMs = (Number(session.pausedTotalMs) || 0) + Math.max(0, Date.now() - session.pausedAt);
+            session.pausedAt = null;
+            acquireLock();
+            const pBadge = view.querySelector(".paused-badge");
+            if (pBadge) pBadge.hidden = true;
+            const pBtn = view.querySelector(".pause-btn");
+            if (pBtn) {
+              pBtn.classList.remove("is-paused");
+              pBtn.replaceChildren(icon("pause", 14), t("workout.pauseBtn"));
+            }
+            if (clockEl) clockEl.classList.remove("is-paused");
+          }
           updateProgress();
           if (pr) toast(t("workout.newPrToast", { name: e.exerciseName }));
           if (!set.isWarmup) startRest(e.restSec ?? state.settings.restSec, buildNextLabel(session, e));
@@ -910,10 +958,13 @@ export function mount(root) {
     if (!doneCount && !(await confirmDialog(t("workout.finishEmptyConfirm"), { ok: t("workout.finishShort") }))) return;
     persist.flush();
     const now = Date.now();
+    const totalSec = elapsedSec(session, now);
+    delete session.pausedAt;
+    delete session.pausedTotalMs;
     session.entries = session.entries.filter(e => !e.skipped || e.sets.some(s => s.done)).map(({ _key, _expanded, progression, ...rest }) => rest);
     session.bodyweightKg = session.bodyweightKg ?? state.settings.bodyweightKg ?? null;
     session.finishedAt = now; session.status = "done";
-    session.durationMin = Math.max(1, Math.round((now - session.startedAt) / 60000));
+    session.durationMin = Math.max(1, Math.round(totalSec / 60));
     const saved = saveSession(session);
     haptic("success");
     stopRest(); home(); showSummary(saved);
