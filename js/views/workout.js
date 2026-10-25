@@ -765,7 +765,11 @@ export function mount(root) {
         for (const s of e.sets || []) { actTotal++; if (s.done) actDone++; }
       }
       orbSubEl.textContent = t("workout.activeOrbSub", { done: actDone, total: actTotal, date: fmtDate(act.startedAt) });
-      orbBtnEl = h("button", { class: "home-orb", type: "button", onclick: () => { haptic("medium"); open(act); } },
+      orbBtnEl = h("button", {
+        class: "home-orb", type: "button",
+        style: "background:#e53935 !important; color:#ffffff !important; box-shadow:0 0 0 1.5px #e53935, 0 10px 28px rgba(229, 57, 53, .38) !important;",
+        onclick: () => { haptic("medium"); open(act); }
+      },
         icon("play", 28),
         h("span", { class: "home-orb-label" }, t("workout.resumeCaps")),
         h("small", { class: "home-orb-sub" }, shortProgTitle(act.programName)),
@@ -785,6 +789,7 @@ export function mount(root) {
     } else {
       orbBtnEl = h("button", {
         class: "home-orb", type: "button",
+        style: "background:#e53935 !important; color:#ffffff !important; box-shadow:0 0 0 1.5px #e53935, 0 10px 28px rgba(229, 57, 53, .38) !important;",
         onclick: () => { haptic("medium"); open(startSession(getSelectedProg())); }
       },
         icon("play", 30),
