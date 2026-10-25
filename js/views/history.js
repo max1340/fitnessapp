@@ -3,7 +3,7 @@ import { state, saveSession, deleteSession, downloadCsv, unitLabel } from "../st
 import { sessionStats, formatNum } from "../metrics.js";
 import { entryCard } from "./entryCard.js";
 import { pickExercise } from "./exercises.js";
-import { buildEntry } from "./workout.js";
+import { buildEntry, showSummary } from "./workout.js";
 import { t } from "../i18n.js";
 
 function dayKey(ts) {
@@ -143,6 +143,7 @@ export function mount(root) {
           h("strong", {}, s.programName),
           h("small", { class: "muted" }, `${fmtDate(s.startedAt, true)} · ${s.durationMin ?? "?"} ${t("workout.minUnit")}`),
           h("small", { class: "muted" }, t("history.cardSetsVol", { sets, vol: formatNum(st.volume, 0) }))),
+        iconBtn("share", t("history.summaryBtnAria"), () => showSummary(s)),
         iconBtn("trash", t("history.deleteBtn"), async () => {
           if (await confirmDialog(t("history.deleteItemConfirm", { name: s.programName, date: fmtDate(s.startedAt) }), { ok: t("common.delete"), danger: true })) {
             deleteSession(s.id); toast(t("workout.deletedToast"));

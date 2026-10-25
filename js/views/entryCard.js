@@ -115,7 +115,7 @@ export function entryCard(entry, ctx) {
       h("button", { class: "btn step", type: "button", "aria-label": t("entry.plusAria", { label }), onclick: () => bump(stepSize) }, icon("plus", 14)));
   }
 
-  function attachSwipeDelete(row, onDelete) {
+  function attachSwipeDelete(row, bg, iconWrap, onDelete) {
     let startX = 0, startY = 0, dx = 0, swiping = false, crossed = false;
     row.addEventListener("pointerdown", e => {
       if (e.target.closest("input, button")) return;
@@ -132,23 +132,34 @@ export function entryCard(entry, ctx) {
         if (swiping) {
           dx = Math.max(-120, Math.min(0, curX));
           row.style.transform = `translateX(${dx}px)`;
-          row.style.opacity = String(Math.max(0.35, 1 + dx / 180));
-          if (dx < -70 && !crossed) { crossed = true; haptic("medium"); }
-          else if (dx >= -70 && crossed) { crossed = false; haptic("light"); }
+          const ratio = Math.min(1, Math.abs(dx) / 70);
+          bg.style.opacity = String(Math.min(1, Math.abs(dx) / 36));
+          iconWrap.style.transform = `scale(${(0.75 + ratio * 0.35).toFixed(2)})`;
+          if (dx < -70 && !crossed) {
+            crossed = true;
+            bg.classList.add("armed");
+            haptic("medium");
+          } else if (dx >= -70 && crossed) {
+            crossed = false;
+            bg.classList.remove("armed");
+            haptic("light");
+          }
         }
       };
       const end = () => {
         cleanup();
         if (!swiping) return;
-        row.style.transition = "transform .18s ease, opacity .18s ease";
+        row.style.transition = "transform .18s cubic-bezier(.2, .8, .2, 1), opacity .18s ease";
         if (dx < -70) {
           haptic("warning");
-          row.style.transform = "translateX(-100%)";
+          row.style.transform = "translateX(-105%)";
           row.style.opacity = "0";
           setTimeout(onDelete, 160);
         } else {
           row.style.transform = "";
-          row.style.opacity = "";
+          bg.style.opacity = "0";
+          bg.classList.remove("armed");
+          iconWrap.style.transform = "";
         }
       };
       const cleanup = () => {
@@ -216,8 +227,11 @@ export function entryCard(entry, ctx) {
       const rowB = h("div", { class: "set-sub", hidden: !showSub }, hintEl, prSlot, rpeEl);
       const delSet = () => { entry.sets.splice(i, 1); ctx.onChange(); paintSets(); };
       const row = h("div", { class: "set" + (set.done ? " done" : "") + (set.isWarmup ? " warm" : "") }, rowA, rowB);
-      attachSwipeDelete(row, delSet);
-      setsBox.append(row);
+      const bgIcon = h("span", { class: "set-swipe-icon" }, icon("trash", 18));
+      const bg = h("div", { class: "set-swipe-bg", "aria-hidden": "true" }, bgIcon);
+      const wrap = h("div", { class: "set-swipe-wrap" }, bg, row);
+      attachSwipeDelete(row, bg, bgIcon, delSet);
+      setsBox.append(wrap);
     });
   }
 

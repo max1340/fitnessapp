@@ -4,8 +4,8 @@ import { sessionStats, loadIndex, pickBaseline, compareWithPrevious, personalRec
 import { entryCard, checkSetPR } from "./entryCard.js";
 import { pickExercise } from "./exercises.js";
 import { startRest, stopRest } from "../timer.js";
-import { renderBodyMap } from "../bodyMap.js";
-import { t } from "../i18n.js";
+import { renderBodyMap, ZONES, mapMuscleToZones } from "../bodyMap.js";
+import { t, tMuscle } from "../i18n.js";
 
 /* ---------- Screen Wake Lock ---------- */
 let wakeLock = null, wantLock = false;
@@ -104,6 +104,404 @@ function hasProgramChanged(session, program) {
   return false;
 }
 
+/* ---------- Генератор карточки «Итог тренировки» (Share Card на Canvas) ---------- */
+const BODY_OUTLINE_PATH = [
+  "M -7,38 L -28,43 C -38,45 -43,55 -41,66",
+  "C -45,76 -45,88 -42,95 C -47,105 -49,117 -46,127 L -38,127",
+  "C -34,115 -32,101 -29,81 L -24,71 L -18,115",
+  "C -27,131 -28,155 -23,175 C -24,193 -24,211 -19,227 L -11,227",
+  "C -8,209 -7,191 -9,175 C -5,157 -3,139 -2,124",
+  "L 2,124 C 3,139 5,157 9,175 C 7,191 8,209 11,227 L 19,227",
+  "C 24,211 24,193 23,175 C 28,155 27,131 18,115",
+  "L 24,71 L 29,81 C 32,101 34,115 38,127 L 46,127",
+  "C 49,117 47,105 42,95 C 45,88 45,76 41,66",
+  "C 43,55 38,45 28,43 L 7,38"
+].join(" ");
+
+function rrect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  if (ctx.roundRect) {
+    ctx.roundRect(x, y, w, h, r);
+  } else {
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+}
+
+function fitText(ctx, text, maxW) {
+  let s = String(text || "");
+  if (ctx.measureText(s).width <= maxW) return s;
+  while (s.length > 1 && ctx.measureText(s + "…").width > maxW) s = s.slice(0, -1);
+  return s + "…";
+}
+
+function renderShareCanvas(canvas, session, meta, theme = "dark") {
+  const { stats, li, cmp, prItems = [], mapItems = [] } = meta;
+  const pal = theme === "light"
+    ? { bg: "#f6f6f7", s1: "#ffffff", s2: "#ececee", line: "#d6d6da", fg: "#0b0b0c", mut: "#6b6b72" }
+    : { bg: "#0b0b0c", s1: "#151517", s2: "#1f1f22", line: "#2a2a2e", fg: "#f2f2f3", mut: "#8b8b92" };
+
+  const prNames = new Set(prItems.map(p => p.name));
+  const exRows = [];
+  let totalWorkSets = 0;
+  for (const e of session.entries || []) {
+    if (e.skipped) continue;
+    const work = (e.sets || []).filter(s => s.done && !s.isWarmup && s.reps > 0);
+    if (!work.length) continue;
+    totalWorkSets += work.length;
+    let bestSet = work[0];
+    for (const s of work) {
+      if ((s.weight ?? 0) > (bestSet.weight ?? 0) || ((s.weight ?? 0) === (bestSet.weight ?? 0) && (s.reps ?? 0) > (bestSet.reps ?? 0))) {
+        bestSet = s;
+      }
+    }
+    const u = unitLabel(e.unit);
+    const bestTxt = (bestSet.weight ?? 0) > 0
+      ? `${t("workout.shareSetsOnly", { n: work.length })} · ${t("workout.shareBestSet", { w: fmtNum(bestSet.weight), u, r: bestSet.reps })}`
+      : `${t("workout.shareSetsOnly", { n: work.length })} × ${bestSet.reps}`;
+    exRows.push({
+      name: getExercise(e.exerciseId)?.name || e.exerciseName,
+      detail: bestTxt,
+      hasPr: prNames.has(e.exerciseName) || prNames.has(getExercise(e.exerciseId)?.name)
+    });
+  }
+  const shownEx = exRows.slice(0, 7);
+
+  const W = 720;
+  const pad = 28;
+  const innerW = W - pad * 2;
+  const exBoxH = shownEx.length ? (52 + shownEx.length * 44 + 12) : 0;
+  const H = 132 + 104 + 16 + 266 + (exBoxH ? 16 + exBoxH : 0) + 52;
+  const scale = 2;
+
+  canvas.width = W * scale;
+  canvas.height = H * scale;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(scale, scale);
+
+  const font = (weight, size) => `${weight} ${size}px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
+
+  // 1. Фон и внешняя рамка
+  ctx.fillStyle = pal.bg;
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = pal.line;
+  ctx.lineWidth = 2;
+  rrect(ctx, 10, 10, W - 20, H - 20, 22);
+  ctx.stroke();
+
+  // 2. Шапка: эмблема, дата, заголовок программы
+  ctx.fillStyle = pal.fg;
+  rrect(ctx, pad, 28, 42, 42, 11);
+  ctx.fill();
+  ctx.strokeStyle = pal.bg;
+  ctx.lineWidth = 2.4;
+  ctx.lineCap = "round";
+  ctx.save();
+  ctx.translate(pad + 9, 37);
+  ctx.stroke(new Path2D("M6 8v8M3 10v4M18 8v8M21 10v4M6 12h12"));
+  ctx.restore();
+
+  ctx.fillStyle = pal.mut;
+  ctx.font = font(700, 12);
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(t("app.splashTitle") + (state.user?.username ? ` · @${state.user.username}` : ""), pad + 54, 45);
+  ctx.font = font(500, 13);
+  ctx.fillText(fmtDate(session.startedAt, true), pad + 54, 64);
+
+  ctx.fillStyle = pal.fg;
+  ctx.font = font(800, 26);
+  ctx.fillText(fitText(ctx, session.programName || t("workout.freeWorkout"), innerW), pad, 108);
+
+  // 3. Сетка из 4 карточек ключевых метрик
+  const statY = 128;
+  const statGap = 10;
+  const statW = (innerW - statGap * 3) / 4;
+  const statH = 92;
+  const kg = unitLabel("kg");
+  const sign = n => (n > 0 ? "+" : "") + formatNum(n, 1);
+  const fourthLabel = li ? t("workout.sumLoadIndex") : t("workout.sumBestE1rm");
+  const fourthVal = li ? formatNum(li.li, 1) : (stats.bestE1rm ? `${formatNum(stats.bestE1rm, 1)} ${kg}` : "—");
+  const fourthSub = cmp !== null ? `${sign(cmp)}%` : "";
+
+  const statCards = [
+    { label: t("workout.sumVolume"), val: `${formatNum(stats.volume, 0)} ${kg}`, sub: "" },
+    { label: t("workout.sumTime"), val: `${session.durationMin ?? "—"} ${t("workout.minUnit")}`, sub: "" },
+    { label: t("workout.shareWorkSets"), val: String(totalWorkSets), sub: prItems.length ? `${prItems.length} PR` : "" },
+    { label: fourthLabel, val: fourthVal, sub: fourthSub }
+  ];
+
+  statCards.forEach((sc, i) => {
+    const x = pad + i * (statW + statGap);
+    ctx.fillStyle = pal.s1;
+    ctx.strokeStyle = pal.line;
+    ctx.lineWidth = 1.5;
+    rrect(ctx, x, statY, statW, statH, 14);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = pal.mut;
+    ctx.font = font(600, 12);
+    ctx.fillText(fitText(ctx, sc.label, statW - 24), x + 14, statY + 26);
+
+    ctx.fillStyle = pal.fg;
+    ctx.font = font(800, 22);
+    ctx.fillText(fitText(ctx, sc.val, statW - 24), x + 14, statY + 58);
+
+    if (sc.sub) {
+      ctx.fillStyle = pal.mut;
+      ctx.font = font(700, 12);
+      ctx.fillText(sc.sub, x + 14, statY + 78);
+    }
+  });
+
+  // 4. Панель: Анатомический силуэт (Спереди + Сзади) и распределение по мышцам
+  const mapY = statY + statH + 16;
+  const mapH = 266;
+  ctx.fillStyle = pal.s1;
+  ctx.strokeStyle = pal.line;
+  ctx.lineWidth = 1.5;
+  rrect(ctx, pad, mapY, innerW, mapH, 16);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = pal.mut;
+  ctx.font = font(700, 12);
+  ctx.fillText(t("workout.musclesWorked").toUpperCase(), pad + 18, mapY + 26);
+
+  const zoneStats = new Map();
+  let maxZoneSets = 0;
+  for (const item of mapItems) {
+    const sets = Number(item.sets) || 0;
+    if (sets <= 0) continue;
+    for (const zid of mapMuscleToZones(item.muscle)) {
+      const prev = zoneStats.get(zid) || 0;
+      const next = prev + sets;
+      zoneStats.set(zid, next);
+      if (next > maxZoneSets) maxZoneSets = next;
+    }
+  }
+
+  const drawFigure = (side, cx, cy, sc, labelText) => {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(sc, sc);
+
+    // Голова и контур тела
+    ctx.fillStyle = pal.s2;
+    ctx.strokeStyle = pal.line;
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.arc(0, 18, 11, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.stroke(new Path2D("M -6,28 L -7,38 M 6,28 L 7,38"));
+    const bodyP = new Path2D(BODY_OUTLINE_PATH);
+    ctx.save();
+    ctx.globalAlpha = 0.45;
+    ctx.fill(bodyP);
+    ctx.restore();
+    ctx.stroke(bodyP);
+
+    for (const z of ZONES.filter(x => x.side === side)) {
+      const sets = zoneStats.get(z.id) || 0;
+      const ratio = maxZoneSets > 0 && sets > 0 ? sets / maxZoneSets : 0;
+      ctx.save();
+      if (sets === 0) {
+        ctx.fillStyle = pal.s1;
+        ctx.globalAlpha = 0.7;
+        ctx.strokeStyle = pal.line;
+        ctx.lineWidth = 1;
+      } else {
+        ctx.fillStyle = pal.fg;
+        ctx.globalAlpha = Math.max(0.35, Math.min(1.0, 0.35 + ratio * 0.65));
+        ctx.strokeStyle = pal.fg;
+        ctx.lineWidth = 1.2;
+      }
+      for (const d of z.paths) {
+        const p = new Path2D(d);
+        ctx.fill(p);
+        ctx.globalAlpha = 1;
+        ctx.stroke(p);
+        if (sets > 0) ctx.globalAlpha = Math.max(0.35, Math.min(1.0, 0.35 + ratio * 0.65));
+      }
+      ctx.restore();
+    }
+    ctx.restore();
+
+    ctx.fillStyle = pal.mut;
+    ctx.font = font(700, 10);
+    ctx.textAlign = "center";
+    ctx.fillText(labelText, cx, cy + 242 * sc);
+    ctx.textAlign = "left";
+  };
+
+  drawFigure("front", pad + 92, mapY + 36, 0.86, t("bodyMap.front"));
+  drawFigure("back", pad + 228, mapY + 36, 0.86, t("bodyMap.back"));
+
+  // Правая колонка внутри панели мышц — полоски мышечных групп
+  const sortedMuscles = [...mapItems].sort((a, b) => b.sets - a.sets).slice(0, 6);
+  const maxMuscleSets = sortedMuscles[0]?.sets || 1;
+  const barX = pad + 324;
+  const barW = innerW - 344;
+  sortedMuscles.forEach((m, idx) => {
+    const ry = mapY + 48 + idx * 34;
+    const mName = tMuscle(m.muscle);
+    ctx.fillStyle = pal.fg;
+    ctx.font = font(700, 13);
+    ctx.fillText(fitText(ctx, mName, barW - 60), barX, ry);
+
+    const cntTxt = t("workout.shareSetsOnly", { n: m.sets });
+    ctx.fillStyle = pal.mut;
+    ctx.font = font(600, 12);
+    ctx.textAlign = "right";
+    ctx.fillText(cntTxt, barX + barW, ry);
+    ctx.textAlign = "left";
+
+    // Полоска
+    ctx.fillStyle = pal.s2;
+    rrect(ctx, barX, ry + 6, barW, 7, 4);
+    ctx.fill();
+    ctx.fillStyle = pal.fg;
+    rrect(ctx, barX, ry + 6, Math.max(10, (m.sets / maxMuscleSets) * barW), 7, 4);
+    ctx.fill();
+  });
+
+  // 5. Список упражнений
+  if (shownEx.length) {
+    const exY = mapY + mapH + 16;
+    ctx.fillStyle = pal.s1;
+    ctx.strokeStyle = pal.line;
+    ctx.lineWidth = 1.5;
+    rrect(ctx, pad, exY, innerW, exBoxH, 16);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = pal.mut;
+    ctx.font = font(700, 12);
+    ctx.fillText(t("workout.shareExercises").toUpperCase(), pad + 18, exY + 28);
+
+    shownEx.forEach((row, idx) => {
+      const ry = exY + 46 + idx * 44;
+      ctx.fillStyle = pal.s2;
+      rrect(ctx, pad + 14, ry, innerW - 28, 36, 9);
+      ctx.fill();
+
+      // Номер
+      ctx.fillStyle = pal.mut;
+      ctx.font = font(700, 12);
+      ctx.fillText(String(idx + 1) + ".", pad + 26, ry + 23);
+
+      // Значения справа
+      ctx.fillStyle = pal.mut;
+      ctx.font = font(600, 13);
+      ctx.textAlign = "right";
+      ctx.fillText(row.detail, pad + innerW - 26, ry + 23);
+      const detailW = ctx.measureText(row.detail).width;
+      ctx.textAlign = "left";
+
+      let prOffset = 0;
+      if (row.hasPr) {
+        prOffset = 34;
+        const bx = pad + innerW - 26 - detailW - 36;
+        ctx.fillStyle = pal.fg;
+        rrect(ctx, bx, ry + 9, 28, 18, 5);
+        ctx.fill();
+        ctx.fillStyle = pal.bg;
+        ctx.font = font(800, 10);
+        ctx.textAlign = "center";
+        ctx.fillText("PR", bx + 14, ry + 22);
+        ctx.textAlign = "left";
+      }
+
+      ctx.fillStyle = pal.fg;
+      ctx.font = font(700, 14);
+      ctx.fillText(fitText(ctx, row.name, innerW - 95 - detailW - prOffset), pad + 48, ry + 23);
+    });
+  }
+
+  // 6. Подвал
+  ctx.fillStyle = pal.mut;
+  ctx.font = font(600, 12);
+  ctx.textAlign = "center";
+  ctx.fillText(t("app.name").toUpperCase(), W / 2, H - 22);
+  ctx.textAlign = "left";
+}
+
+export function openShareCard(session, meta) {
+  let cardTheme = document.documentElement.dataset.theme === "light" ? "light" : "dark";
+  const canvas = h("canvas", { class: "share-canvas" });
+
+  const darkBtn = h("button", {
+    type: "button",
+    class: "btn small tag" + (cardTheme === "dark" ? " on" : ""),
+    onclick: () => { cardTheme = "dark"; syncThemeBtns(); renderShareCanvas(canvas, session, meta, cardTheme); }
+  }, t("workout.shareThemeDark"));
+  const lightBtn = h("button", {
+    type: "button",
+    class: "btn small tag" + (cardTheme === "light" ? " on" : ""),
+    onclick: () => { cardTheme = "light"; syncThemeBtns(); renderShareCanvas(canvas, session, meta, cardTheme); }
+  }, t("workout.shareThemeLight"));
+
+  const syncThemeBtns = () => {
+    darkBtn.classList.toggle("on", cardTheme === "dark");
+    lightBtn.classList.toggle("on", cardTheme === "light");
+  };
+
+  renderShareCanvas(canvas, session, meta, cardTheme);
+
+  const toBlob = () => new Promise(res => canvas.toBlob(res, "image/png"));
+  const fileName = () => `workout-${new Date(session.startedAt).toISOString().slice(0, 10)}.png`;
+
+  const downloadPng = async () => {
+    const blob = await toBlob();
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = h("a", { href: url, download: fileName() });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    haptic("success");
+    toast(t("workout.shareDownloaded"));
+  };
+
+  const sharePng = async () => {
+    const blob = await toBlob();
+    if (!blob) return;
+    const file = new File([blob], fileName(), { type: "image/png" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: session.programName || t("app.name") });
+        haptic("success");
+        return;
+      } catch (e) {
+        if (e && e.name === "AbortError") return;
+      }
+    }
+    if (navigator.clipboard && window.ClipboardItem) {
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        haptic("success");
+        toast(t("workout.shareCopied"));
+        return;
+      } catch { /* fallback to download */ }
+    }
+    await downloadPng();
+  };
+
+  sheet(h("div", { class: "stack" },
+    h("div", { class: "row gap", style: "justify-content:center" }, darkBtn, lightBtn),
+    h("div", { class: "share-canvas-wrap" }, canvas),
+    h("div", { class: "row gap" },
+      h("button", { class: "btn grow", type: "button", onclick: downloadPng }, icon("download", 18), t("workout.shareDownload")),
+      h("button", { class: "btn primary grow", type: "button", onclick: sharePng }, icon("share", 18), t("workout.shareAction"))
+    )
+  ), { title: t("workout.shareTitle"), full: true });
+}
+
 /* ---------- Итоговая сводка ---------- */
 export function showSummary(session) {
   const stats = sessionStats(session);
@@ -197,7 +595,13 @@ export function showSummary(session) {
       ...prItems.map(p => h("div", { class: "row gap" }, h("span", { class: "pr-badge" }, "PR"), h("strong", { class: "grow" }, p.name), h("small", { class: "muted" }, p.text)))
     ) : null,
     syncProgramBlock,
-    h("button", { class: "btn primary block", type: "button", onclick: () => sh.close() }, t("common.done"))), { title: t("workout.finishedTitle") });
+    h("div", { class: "row gap" },
+      h("button", {
+        class: "btn grow", type: "button",
+        onclick: () => openShareCard(session, { stats, li, cmp, prItems, mapItems })
+      }, icon("share", 18), t("workout.shareBtn")),
+      h("button", { class: "btn primary grow", type: "button", onclick: () => sh.close() }, t("common.done"))
+    )), { title: t("workout.finishedTitle") });
 }
 
 /* ---------- Подсказка следующего подхода для таймера ---------- */

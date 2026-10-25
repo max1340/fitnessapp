@@ -4,6 +4,7 @@ import { t, isEn } from "./i18n.js";
 
 const NS = "http://www.w3.org/2000/svg";
 const s = (tag, attrs = {}) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
+let chartUid = 0;
 
 /**
  * points: [{ t: timestamp, y: number, label?: string }]
@@ -32,6 +33,16 @@ export function lineChart(points, opts = {}) {
   const y = v => pt + (1 - (v - min) / (max - min)) * (H - pt - pb);
 
   const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, class: "chart-svg", role: "img", "aria-label": opts.label || t("chart.defaultLabel") });
+  const gid = "cg-" + (++chartUid);
+  const defs = s("defs");
+  const grad = s("linearGradient", { id: gid, x1: "0", y1: "0", x2: "0", y2: "1" });
+  grad.append(
+    s("stop", { offset: "0%", "stop-color": "var(--fg)", "stop-opacity": "0.18" }),
+    s("stop", { offset: "100%", "stop-color": "var(--fg)", "stop-opacity": "0" })
+  );
+  defs.append(grad);
+  svg.append(defs);
+
   // сетка и подписи оси Y
   for (let i = 0; i <= 3; i++) {
     const v = min + ((max - min) * i) / 3, yy = y(v);
@@ -45,16 +56,31 @@ export function lineChart(points, opts = {}) {
     const t = s("text", { x: x(i), y: H - 8, class: "axis", "text-anchor": xl.length > 1 ? (k === 0 ? "start" : k === xl.length - 1 ? "end" : "middle") : "middle" });
     t.textContent = fmtShortDate(points[i].t); svg.append(t);
   });
-  // линия данных
-  if (points.length > 1) svg.append(s("polyline", { class: "line", fill: "none", pathLength: "1", points: points.map((p, i) => `${x(i)},${y(p.y)}` ).join(" ") }));
+  // градиентная подложка и линия данных
+  if (points.length > 1) {
+    const areaD = `M ${x(0)},${H - pb} ` + points.map((p, i) => `L ${x(i)},${y(p.y)}`).join(" ") + ` L ${x(points.length - 1)},${H - pb} Z`;
+    svg.append(s("path", { class: "chart-area", d: areaD, fill: `url(#${gid})` }));
+    svg.append(s("polyline", { class: "line", fill: "none", pathLength: "1", points: points.map((p, i) => `${x(i)},${y(p.y)}` ).join(" ") }));
+  }
   // сглаживающая линия (скользящее среднее) — толще и пунктиром
   if (opts.smooth && points.length > 1) svg.append(s("polyline", { class: "smooth", fill: "none", points: opts.smooth.map((v, i) => `${x(i)},${y(v)}`).join(" ") }));
+
+  // вертикальное перекрестие (курсор-линия) и ореол вокруг выбранной точки
+  const cursorLine = s("line", { x1: x(points.length - 1), x2: x(points.length - 1), y1: pt, y2: H - pb, class: "chart-cursor" });
+  const halo = s("circle", { cx: x(points.length - 1), cy: y(points[points.length - 1].y), r: 11, class: "dot-halo" });
+  svg.append(cursorLine, halo);
+
   const dots = points.map((p, i) => { const c = s("circle", { cx: x(i), cy: y(p.y), r: 4, class: "dot" }); svg.append(c); return c; });
 
   let sel = -1;
   const select = i => {
     if (sel >= 0) { dots[sel].setAttribute("r", 4); dots[sel].classList.remove("sel"); }
     sel = i; dots[i].setAttribute("r", 7); dots[i].classList.add("sel");
+    const cx = x(i), cy = y(points[i].y);
+    cursorLine.setAttribute("x1", cx);
+    cursorLine.setAttribute("x2", cx);
+    halo.setAttribute("cx", cx);
+    halo.setAttribute("cy", cy);
     const p = points[i];
     caption.textContent = `${fmtShortDate(p.t)} · ${p.label || fmt(p.y)}`;
     opts.onSelect && opts.onSelect(i);

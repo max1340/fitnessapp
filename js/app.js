@@ -51,6 +51,9 @@ function route({ force = false } = {}) {
   } else {
     main.scrollTop = 0; window.scrollTo(0, 0);
   }
+  const activeIdx = Math.max(0, ROUTES.findIndex(x => x.id === r.id));
+  const navEl = document.getElementById("nav");
+  if (navEl) navEl.style.setProperty("--active-idx", String(activeIdx));
   document.querySelectorAll("#nav a").forEach(a => {
     const on = a.dataset.route === r.id;
     a.classList.toggle("active", on);
@@ -71,7 +74,15 @@ function buildNav() {
   const nav = document.getElementById("nav");
   clear(nav);
   nav.setAttribute("aria-label", t("app.navAria"));
-  ROUTES.forEach(r => nav.append(h("a", { href: "#/" + r.id, dataset: { route: r.id } }, icon(r.icon, 24), h("span", {}, t(r.titleKey)))));
+  const curRouteId = currentId || (location.hash.replace(/^#\/?/, "") || "workout");
+  const activeIdx = Math.max(0, ROUTES.findIndex(x => x.id === curRouteId));
+  nav.style.setProperty("--active-idx", String(activeIdx));
+  ROUTES.forEach((r, i) => {
+    const on = i === activeIdx;
+    const a = h("a", { href: "#/" + r.id, class: on ? "active" : "", dataset: { route: r.id } }, icon(r.icon, 24), h("span", {}, t(r.titleKey)));
+    if (on) a.setAttribute("aria-current", "page");
+    nav.append(a);
+  });
   const settingsBtn = document.getElementById("settings-btn");
   if (settingsBtn) {
     settingsBtn.setAttribute("aria-label", t("app.settingsAria"));
