@@ -1,37 +1,27 @@
 /**
- * Конфигурация Firebase.
+ * Конфигурация Firebase — НОВЫЙ отдельный проект этого приложения.
  *
  * Где взять значения: Firebase Console → Project settings (⚙) → General →
  * "Your apps" → Web app → SDK setup and configuration → "Config".
+ * databaseURL: Build → Realtime Database → Data (адрес над деревом данных).
  *
- * ВАЖНО: проект общий с другими вашими приложениями. Это приложение пишет
- * ТОЛЬКО в ветку  fitnessApp/...  внутри Realtime Database и больше никуда
- * (соседние ветки finance, foodTracker, huji_study_app, kadr_website,
- * outfitbuilder, users и др. НЕ затрагиваются). Firebase-приложение
- * инициализируется под отдельным именем "fitness", чтобы не конфликтовать
- * с другими проектами на том же домене.
+ * Эти значения не являются секретом (они всегда видны клиенту), защита данных
+ * обеспечивается Firebase Auth + database.rules.json. Дополнительно ограничьте
+ * API key по HTTP-referrer (см. README).
  */
 export const firebaseConfig = {
-  apiKey: "AIzaSyC5aYba4eGsnSRDvmK5pIApjIrbJOrUXNQ",
-  authDomain: "pc-building-b3d74.firebaseapp.com",
-  databaseURL: "https://pc-building-b3d74-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "pc-building-b3d74",
-  storageBucket: "pc-building-b3d74.firebasestorage.app",
-  messagingSenderId: "1000168163599",
-  appId: "1:1000168163599:web:6c64d4b7782100a27a167a",
-  measurementId: "G-SM5V2K63JX"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "YOUR_PROJECT_ID",
+  appId: "YOUR_APP_ID"
 };
 
-/**
- * Идентификатор «пространства» ваших данных внутри ветки fitnessApp.
- * Авторизации нет, поэтому это единственная «защита»: замените на длинную
- * случайную строку (например "k7f3-9xq2-lm40-ab71") и не публикуйте её.
- * Данные лежат в: fitnessApp/{SPACE_ID}/exercises | programs | sessions | meta
- */
-export const SPACE_ID = "main";
+/** true, если плейсхолдеры заменены реальными значениями. */
+export const isFirebaseConfigured = !Object.values(firebaseConfig).some(v => /YOUR_/.test(String(v)));
 
-/** Корневая коллекция ветки этого приложения. */
+/** Корневой узел данных приложения в Realtime Database. */
 export const ROOT_COLLECTION = "fitnessApp";
 
-/** Версия Firebase SDK (зафиксирована; должна совпадать с URL в js/db.js и sw.js). */
+/** Версия Firebase SDK (зафиксирована; должна совпадать с URL в js/auth.js, js/db.js и sw.js). */
 export const FIREBASE_VERSION = "10.12.2";

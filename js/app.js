@@ -1,6 +1,7 @@
 import { h, clear, icon, closeTopSheet } from "./ui.js";
-import { init, subscribe, state } from "./store.js";
-import { ensureMaxProfile } from "./db.js";
+import { init, subscribe, state, activateUserSession, clearSession } from "./store.js";
+import { waitForInitialAuth, onAuthChange } from "./auth.js";
+import { isFirebaseConfigured } from "../firebase-config.js";
 import { initTimerBar, refreshTimerI18n, stopRest } from "./timer.js";
 import { t, getLang } from "./i18n.js";
 import { applyTheme, openSettings } from "./views/settings.js";
@@ -129,9 +130,6 @@ async function boot() {
   window.addEventListener("hashchange", () => route());
   window.addEventListener("online", paintSync); window.addEventListener("offline", paintSync);
 
-  // Фоново гарантируем создание и миграцию профиля max_134 (код 1328)
-  ensureMaxProfile().catch(() => {});
-
   let first = true;
   subscribe(() => {
     applyTheme(); paintSync();
@@ -154,7 +152,12 @@ async function boot() {
   });
 
   const t0 = performance.now();
-  if (state.user) {
+  if (!isFirebaseConfigured) throw new Error(t("auth.errNoConfig"));
+
+  // Состояние входа берётся из IndexedDB без сети; без сессии (или по таймауту) показываем экран входа.
+  const user = await waitForInitialAuth();
+  if (user) {
+    activateUserSession(user);
     await init((ratio, text) => setSplash(20 + ratio * 75, text));
     if (getLang() !== lastLang) {
       lastLang = getLang();
@@ -170,6 +173,18 @@ async function boot() {
     showAuthFlow();
   }
 
+  // Дальнейшие изменения сессии: выход (в т.ч. из другой вкладки), удаление аккаунта, вход вне экрана входа.
+  onAuthChange(async u => {
+    if (authOpen) return; // экран входа/регистрации сам завершает активацию
+    if (!u && state.user) { clearSession(); return; }
+    if (u && !state.user) {
+      activateUserSession(u);
+      lastLang = getLang();
+      buildNav(); refreshTimerI18n();
+      await init();
+      route({ force: true }); paintSync();
+    }
+  });
   const waitMs = Math.max(180, 420 - (performance.now() - t0));
   setTimeout(() => {
     if (!splash) return;

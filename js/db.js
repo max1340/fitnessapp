@@ -1,35 +1,34 @@
-// Слой доступа к Firebase Realtime Database с локальным офлайн-кэшем, очередью досинхронизации и мультиаккаунтностью.
-// Все данные хранятся СТРОГО в ветке fitnessApp/... — соседние ветки БД никогда не затрагиваются.
-import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+// Слой доступа к Firebase Realtime Database с локальным офлайн-кэшем и очередью досинхронизации.
+// Все данные пользователя лежат строго в fitnessApp/users/{uid}/..., доступ ограничен правилами БД (database.rules.json).
+// Локальные ключи имеют префикс fitness:{uid}: — данные одного аккаунта никогда не попадают другому на том же устройстве.
 import { getDatabase, ref, set, remove, update, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { firebaseConfig, ROOT_COLLECTION } from "../firebase-config.js";
+import { app, auth } from "./auth.js";
 
-const APP_NAME = "fitness";
-const app = getApps().some(a => a.name === APP_NAME) ? getApp(APP_NAME) : initializeApp(firebaseConfig, APP_NAME);
 const db = getDatabase(app, firebaseConfig.databaseURL);
 
 let currentUserId = null;
 
-export function normalizeUserId(raw) {
-  return String(raw || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
-}
+/** Допустимый uid Firebase Auth: только латиница/цифры/_/- (защита от подстановки в путь). */
+const isValidUid = v => typeof v === "string" && /^[A-Za-z0-9_-]{6,128}$/.test(v);
 
-export function setSpaceUser(userId) {
-  currentUserId = normalizeUserId(userId) || null;
+export function setSpaceUser(uid) {
+  currentUserId = isValidUid(uid) ? uid : null;
 }
 
 export function getSpaceUser() {
   return currentUserId;
 }
 
-function getBasePath() {
-  return currentUserId
-    ? `${ROOT_COLLECTION}/users/${currentUserId}`
-    : ROOT_COLLECTION;
-}
+const getBasePath = () => {
+  if (!currentUserId) throw new Error("No authenticated user");
+  return `${ROOT_COLLECTION}/users/${currentUserId}`;
+};
 
-const getCachePrefix = () => `fitness.rtdb.cache.v1.${getBasePath()}.`;
-const getQueueKey = () => `fitness.rtdb.queue.v1.${getBasePath()}`;
+/** Префикс всех локальных ключей пользователя: fitness:{uid}: */
+export const lsPrefix = (uid = currentUserId) => `fitness:${uid}:`;
+const cacheKey = name => `${lsPrefix()}cache:${name}`;
+const queueKey = () => `${lsPrefix()}queue`;
 
 export let persistence = "persistent";
 try {
@@ -40,29 +39,59 @@ try {
   persistence = "memory";
 }
 
-function readCache(name) {
-  if (persistence !== "persistent") return null;
+/** Обычное хранилище на пользователя (настройки, вес тела): fitness:{uid}:{name}. */
+export function lsGetUser(uid, name) {
+  if (persistence !== "persistent" || !isValidUid(uid)) return null;
+  try { return localStorage.getItem(`${lsPrefix(uid)}${name}`); } catch { return null; }
+}
+export function lsSetUser(uid, name, value) {
+  if (persistence !== "persistent" || !isValidUid(uid)) return;
+  try { localStorage.setItem(`${lsPrefix(uid)}${name}`, value); } catch { /* ignore */ }
+}
+
+/** Удаление всех локальных данных пользователя (при удалении аккаунта). */
+export function clearLocalUserData(uid) {
+  if (persistence !== "persistent" || !isValidUid(uid)) return;
   try {
-    const raw = localStorage.getItem(getCachePrefix() + name);
+    const p = lsPrefix(uid);
+    for (const k of Object.keys(localStorage)) if (k.startsWith(p)) localStorage.removeItem(k);
+  } catch { /* ignore */ }
+}
+
+/** Данные старой версии (учётные данные, общий кэш) без привязки к uid удаляются при старте. */
+(function purgeLegacyStorage() {
+  if (persistence !== "persistent") return;
+  try {
+    for (const k of Object.keys(localStorage)) {
+      if (k.startsWith("fitness.rtdb.") || k.startsWith("fitness.settings.v1") || k.startsWith("fitness.bodyweight.v1") ||
+          k === "fitness.auth.v1" || k === "fitness.savedProfiles.v1") localStorage.removeItem(k);
+    }
+  } catch { /* ignore */ }
+})();
+
+function readCache(name) {
+  if (persistence !== "persistent" || !currentUserId) return null;
+  try {
+    const raw = localStorage.getItem(cacheKey(name));
     return raw ? JSON.parse(raw) : null;
   } catch { return null; }
 }
 
 function writeCache(name, map) {
-  if (persistence !== "persistent") return;
-  try { localStorage.setItem(getCachePrefix() + name, JSON.stringify(map || {})); }
+  if (persistence !== "persistent" || !currentUserId) return;
+  try { localStorage.setItem(cacheKey(name), JSON.stringify(map || {})); }
   catch (e) { console.warn("Ошибка записи локального кэша:", e); }
 }
 
 function readQueue() {
-  if (persistence !== "persistent") return {};
-  try { return JSON.parse(localStorage.getItem(getQueueKey()) || "{}"); }
+  if (persistence !== "persistent" || !currentUserId) return {};
+  try { return JSON.parse(localStorage.getItem(queueKey()) || "{}"); }
   catch { return {}; }
 }
 
 function writeQueue(q) {
-  if (persistence !== "persistent") return;
-  try { localStorage.setItem(getQueueKey(), JSON.stringify(q || {})); }
+  if (persistence !== "persistent" || !currentUserId) return;
+  try { localStorage.setItem(queueKey(), JSON.stringify(q || {})); }
   catch (e) { console.warn("Ошибка записи очереди синхронизации:", e); }
 }
 
@@ -80,6 +109,11 @@ function applyQueueToMap(name, baseMap) {
 function hasPendingFor(name) {
   const q = readQueue();
   return Object.values(q).some(item => !name || item.name === name);
+}
+
+/** Количество неотправленных локальных записей текущего пользователя. */
+export function pendingCount() {
+  return Object.keys(readQueue()).length;
 }
 
 let opSeq = 0;
@@ -105,107 +139,16 @@ function dequeueOp(name, id, opId) {
   }
 }
 
-/** Ссылка на коллекцию внутри ветки текущего пользователя */
 const colPath = name => `${getBasePath()}/${name}`;
 const docPath = (name, id) => `${getBasePath()}/${name}/${id}`;
 
-/** Однократное чтение пути из RTDB с таймаутом. */
-function readOnce(path, timeoutMs = 4000) {
-  return new Promise((resolve, reject) => {
-    let done = false;
-    const timer = setTimeout(() => {
-      if (done) return;
-      done = true;
-      reject(new Error("timeout"));
-    }, timeoutMs);
-    onValue(ref(db, path), snap => {
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      resolve(snap.val());
-    }, err => {
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      reject(err);
-    }, { onlyOnce: true });
-  });
-}
-
-/** Профиль пользователя: fitnessApp/users/{userId}/profile */
-export async function fetchUserProfile(userId) {
-  const uid = normalizeUserId(userId);
-  if (!uid) return null;
-  return await readOnce(`${ROOT_COLLECTION}/users/${uid}/profile`, 5000);
-}
-
-export async function saveUserProfile(userId, profile) {
-  const uid = normalizeUserId(userId);
-  if (!uid) throw new Error("Invalid userId");
-  const clean = JSON.parse(JSON.stringify({ ...profile, username: uid }));
-  await set(ref(db, `${ROOT_COLLECTION}/users/${uid}/profile`), clean);
-  return clean;
-}
-
-/**
- * Автоматическая инициализация и миграция профиля max_134 (код 1328).
- * Если в корне fitnessApp/{exercises,programs,sessions,meta} уже были данные до введения мультиаккаунтности,
- * они бережно копируются в fitnessApp/users/max_134/ без потерь.
- */
-export async function ensureMaxProfile() {
-  const uid = "max_134";
-  const pin = "1328";
-  try {
-    const existing = await fetchUserProfile(uid);
-    if (existing && existing.migratedFromRoot) return existing;
-
-    const updates = {};
-    const cols = ["exercises", "programs", "sessions", "meta"];
-    const userEx = await readOnce(`${ROOT_COLLECTION}/users/${uid}/exercises`, 3500).catch(() => null);
-    const userSess = await readOnce(`${ROOT_COLLECTION}/users/${uid}/sessions`, 3500).catch(() => null);
-
-    if (!userEx && !userSess) {
-      for (const c of cols) {
-        const rootData = await readOnce(`${ROOT_COLLECTION}/${c}`, 3500).catch(() => null);
-        if (rootData && typeof rootData === "object") {
-          updates[c] = rootData;
-        }
-      }
-    }
-
-    const profile = {
-      username: uid,
-      pin,
-      createdAt: existing?.createdAt || Date.now(),
-      onboarded: true,
-      migratedFromRoot: true
-    };
-    updates.profile = profile;
-    await update(ref(db, `${ROOT_COLLECTION}/users/${uid}`), updates);
-
-    // Переносим также локальный кэш из старых ключей, если он есть
-    if (persistence === "persistent") {
-      for (const c of cols) {
-        const oldCache = localStorage.getItem(`fitness.rtdb.cache.v1.${ROOT_COLLECTION}.${c}`);
-        const newCacheKey = `fitness.rtdb.cache.v1.${ROOT_COLLECTION}/users/${uid}.${c}`;
-        if (oldCache && !localStorage.getItem(newCacheKey)) {
-          localStorage.setItem(newCacheKey, oldCache);
-        }
-      }
-    }
-    return profile;
-  } catch (e) {
-    console.warn("ensureMaxProfile offline/deferred:", e);
-    return { username: uid, pin, onboarded: true };
-  }
-}
-
-/** Общая база упражнений: fitnessApp/sharedExercises */
+/** Общая база упражнений (только чтение): fitnessApp/sharedExercises */
 export function watchSharedExercises(cb) {
-  const cacheKey = `fitness.rtdb.cache.v1.${ROOT_COLLECTION}.sharedExercises`;
+  if (!currentUserId) return () => {};
+  const key = `${lsPrefix()}cache:shared`;
   if (persistence === "persistent") {
     try {
-      const raw = localStorage.getItem(cacheKey);
+      const raw = localStorage.getItem(key);
       if (raw) cb(Object.values(JSON.parse(raw)));
     } catch { /* ignore */ }
   }
@@ -213,30 +156,10 @@ export function watchSharedExercises(cb) {
   return onValue(r, snap => {
     const map = snap.val() || {};
     if (persistence === "persistent") {
-      try { localStorage.setItem(cacheKey, JSON.stringify(map)); } catch { /* ignore */ }
+      try { localStorage.setItem(key, JSON.stringify(map)); } catch { /* ignore */ }
     }
-    const docs = Object.entries(map).map(([id, val]) => ({ ...val, id: val.id || id }));
-    cb(docs);
+    cb(Object.entries(map).map(([id, val]) => ({ ...val, id: val.id || id })));
   }, () => {});
-}
-
-export function saveSharedExercise(ex) {
-  if (!ex || !ex.id) return Promise.resolve();
-  const shared = {
-    id: ex.id,
-    name: ex.name,
-    muscleGroup: ex.muscleGroup || "",
-    unit: ex.unit || "kg",
-    defaultSets: ex.defaultSets || 3,
-    defaultRestSec: ex.defaultRestSec ?? 210,
-    isBodyweight: !!ex.isBodyweight,
-    trackRpe: !!ex.trackRpe,
-    note: "",
-    startWeight: null,
-    startReps: [],
-    archived: false
-  };
-  return set(ref(db, `${ROOT_COLLECTION}/sharedExercises/${ex.id}`), JSON.parse(JSON.stringify(shared))).catch(() => {});
 }
 
 /** Подписка на коллекцию в Realtime Database с мгновенной отдачей локального кэша. */
@@ -307,22 +230,51 @@ export function bulkRemove(items) {
   });
 }
 
-/** Досинхронизация накопленных офлайн-изменений при появлении сети. */
+/**
+ * Досинхронизация накопленных офлайн-изменений. Выполняется только когда auth готов
+ * и текущий пользователь Firebase совпадает с владельцем очереди; пишет только в ветку этого uid.
+ */
+let flushing = null;
 export function flushOfflineQueue() {
-  if (!currentUserId) return Promise.resolve();
+  const uid = currentUserId;
+  if (!uid || auth.currentUser?.uid !== uid) return Promise.resolve(false);
   const q = readQueue();
   const entries = Object.values(q);
-  if (!entries.length) return Promise.resolve();
+  if (!entries.length) return Promise.resolve(true);
+  if (flushing) return flushing;
   const updates = {};
   for (const item of entries) {
     updates[`${item.name}/${item.id}`] = item.op === "set" ? item.data : null;
   }
-  return update(ref(db, getBasePath()), updates).then(() => {
-    for (const item of entries) dequeueOp(item.name, item.id, item.opId);
-  }).catch(e => console.warn("Офлайн-очередь будет отправлена позже:", e));
+  flushing = update(ref(db, `${ROOT_COLLECTION}/users/${uid}`), updates).then(() => {
+    if (currentUserId === uid) for (const item of entries) dequeueOp(item.name, item.id, item.opId);
+    return true;
+  }).catch(e => {
+    console.warn("Офлайн-очередь будет отправлена позже:", e);
+    return false;
+  }).finally(() => { flushing = null; });
+  return flushing;
+}
+
+/** Ожидание синхронизации очереди до timeoutMs. Возвращает true, если очередь пуста. */
+export async function waitForSync(timeoutMs = 8000) {
+  const t0 = Date.now();
+  while (pendingCount() > 0 && Date.now() - t0 < timeoutMs) {
+    await Promise.race([flushOfflineQueue(), new Promise(r => setTimeout(r, timeoutMs))]);
+    if (pendingCount() > 0) await new Promise(r => setTimeout(r, 500));
+  }
+  return pendingCount() === 0;
+}
+
+/** Удаление всей ветки пользователя fitnessApp/users/{uid} (нужна сеть: иначе ошибка сети). */
+export function deleteUserBranch() {
+  const uid = currentUserId;
+  if (!uid || auth.currentUser?.uid !== uid) return Promise.reject(new Error("No authenticated user"));
+  const op = remove(ref(db, `${ROOT_COLLECTION}/users/${uid}`));
+  const timeout = new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error("timeout"), { code: "auth/network-request-failed" })), 12000));
+  return Promise.race([op, timeout]);
 }
 
 if (typeof window !== "undefined") {
   window.addEventListener("online", () => flushOfflineQueue());
-  setTimeout(() => flushOfflineQueue(), 1500);
 }

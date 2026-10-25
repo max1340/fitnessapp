@@ -1,53 +1,33 @@
-// Хранилище состояния в памяти поверх Firebase Realtime Database + локального офлайн-кэша и мультиаккаунтности.
+// Хранилище состояния в памяти поверх Firebase Realtime Database + локального офлайн-кэша.
+// Аккаунт = пользователь Firebase Auth; все данные и локальные ключи привязаны к uid.
 import {
   watchCollection, saveDoc, removeDoc, bulkSave, bulkRemove,
-  setSpaceUser, getSpaceUser, normalizeUserId, fetchUserProfile, saveUserProfile,
-  ensureMaxProfile, watchSharedExercises, saveSharedExercise
+  setSpaceUser, getSpaceUser, watchSharedExercises, lsGetUser, lsSetUser, clearLocalUserData,
+  pendingCount, waitForSync, flushOfflineQueue, deleteUserBranch
 } from "./db.js";
+import {
+  signIn, signUp, signOutUser, reauthenticate, deleteCurrentUser, sendReset, auth
+} from "./auth.js";
 import { t, detectDefaultLang, setLang, isEn, localizeExercise, localizeProgram, localizeSession, localizeState, tMuscle } from "./i18n.js";
 
 const COLLECTIONS = ["exercises", "programs", "sessions", "meta"];
-const LS_SETTINGS_BASE = "fitness.settings.v1";
-const LS_BW_BASE = "fitness.bodyweight.v1";
-const LS_AUTH = "fitness.auth.v1";
-const LS_SAVED_PROFILES = "fitness.savedProfiles.v1";
+/** Нечувствительные настройки внешнего вида на устройстве (язык/тема) — для экрана входа до авторизации. */
+const LS_DEVICE_PREFS = "fitness:device:prefs";
 
 const toArray = v => Array.isArray(v) ? v : (v && typeof v === "object" ? Object.values(v) : []);
 
-function lsSettingsKey(uid = getSpaceUser()) {
-  return uid ? `${LS_SETTINGS_BASE}.${uid}` : LS_SETTINGS_BASE;
-}
-function lsBwKey(uid = getSpaceUser()) {
-  return uid ? `${LS_BW_BASE}.${uid}` : LS_BW_BASE;
-}
-
-export function getSavedAuth() {
+function readDevicePrefs() {
   try {
-    const raw = localStorage.getItem(LS_AUTH);
-    if (!raw) return null;
-    const p = JSON.parse(raw);
-    const username = normalizeUserId(p.username);
-    if (!username) return null;
-    return { username, pin: String(p.pin || "") };
-  } catch { return null; }
+    const p = JSON.parse(localStorage.getItem(LS_DEVICE_PREFS) || "{}");
+    const out = {};
+    if (p.lang === "ru" || p.lang === "en") out.lang = p.lang;
+    if (["dark", "light", "system"].includes(p.theme)) out.theme = p.theme;
+    return out;
+  } catch { return {}; }
 }
-
-export function getRememberedProfiles() {
-  try {
-    return toArray(JSON.parse(localStorage.getItem(LS_SAVED_PROFILES) || "[]")).filter(x => x && x.username);
-  } catch { return []; }
+function writeDevicePrefs(s) {
+  try { localStorage.setItem(LS_DEVICE_PREFS, JSON.stringify({ lang: s.lang, theme: s.theme })); } catch { /* ignore */ }
 }
-
-function addRememberedProfile(username) {
-  try {
-    const uid = normalizeUserId(username);
-    if (!uid) return;
-    const list = getRememberedProfiles().filter(x => x.username !== uid);
-    list.unshift({ username: uid, lastUsedAt: Date.now() });
-    localStorage.setItem(LS_SAVED_PROFILES, JSON.stringify(list.slice(0, 8)));
-  } catch { /* ignore */ }
-}
-
 function normalizeDoc(coll, d) {
   if (!d || typeof d !== "object") return d;
   if (coll === "exercises") {
@@ -92,16 +72,13 @@ export const DEFAULT_SETTINGS = {
   theme: "dark" // dark | light | system
 };
 
-const initialAuth = getSavedAuth();
-if (initialAuth) setSpaceUser(initialAuth.username);
-
 export const state = {
-  user: initialAuth,
+  user: null, // { uid, email, displayName } — устанавливается после входа (Firebase Auth)
   sharedExercises: [],
   exercises: [], programs: [], sessions: [],
-  bodyweightLog: loadLocalBodyweight(initialAuth?.username),
+  bodyweightLog: [],
   loaded: { exercises: false, programs: false, sessions: false, meta: false },
-  settings: loadLocalSettings(initialAuth?.username),
+  settings: { ...DEFAULT_SETTINGS, ...readDevicePrefs() },
   sync: { fromCache: false, pending: false, error: null }
 };
 setLang(state.settings.lang);
@@ -110,17 +87,18 @@ const listeners = new Set();
 export function subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 function emit() { listeners.forEach(fn => { try { fn(); } catch (e) { console.error(e); } }); }
 
-function loadLocalSettings(uid = getSpaceUser()) {
+function loadLocalSettings(userUid) {
+  const base = { ...DEFAULT_SETTINGS, ...readDevicePrefs() };
   try {
-    const raw = localStorage.getItem(lsSettingsKey(uid)) || (uid === "max_134" ? localStorage.getItem(LS_SETTINGS_BASE) : null) || localStorage.getItem(LS_SETTINGS_BASE) || "{}";
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
-  } catch { return { ...DEFAULT_SETTINGS }; }
+    const raw = lsGetUser(userUid, "settings");
+    return raw ? { ...base, ...JSON.parse(raw) } : base;
+  } catch { return base; }
 }
 
-function loadLocalBodyweight(uid = getSpaceUser()) {
+function loadLocalBodyweight(userUid) {
   try {
-    const raw = localStorage.getItem(lsBwKey(uid)) || (uid === "max_134" ? localStorage.getItem(LS_BW_BASE) : null) || "[]";
-    return toArray(JSON.parse(raw));
+    const raw = lsGetUser(userUid, "bodyweight");
+    return raw ? toArray(JSON.parse(raw)) : [];
   } catch { return []; }
 }
 
@@ -135,58 +113,28 @@ export function stopSubscriptions() {
   activeUnsubscribes = [];
 }
 
-/** Вход в существующий профиль по логину и PIN-коду. */
-export async function loginWithPin(rawUsername, rawPin, remember = true) {
-  const username = normalizeUserId(rawUsername);
-  const pin = String(rawPin || "").trim();
-  if (!username || username.length < 2) throw new Error(t("auth.errInvalidUser"));
-  if (!pin) throw new Error(t("auth.errEmptyPin"));
-
-  if (username === "max_134") {
-    const maxProf = await ensureMaxProfile();
-    const expectedPin = String(maxProf?.pin || "1328");
-    if (pin !== expectedPin) throw new Error(t("auth.errWrongPin"));
-  } else {
-    const prof = await fetchUserProfile(username);
-    if (!prof) throw new Error(t("auth.errNotFound"));
-    if (String(prof.pin || "") !== pin) throw new Error(t("auth.errWrongPin"));
-  }
-
-  activateUserSession(username, pin, remember);
+/** Аккаунт = пользователь Firebase Auth. Пароль нигде не хранится. */
+export async function loginWithEmail(email, password) {
+  const u = await signIn(email, password);
+  activateUserSession(u);
   return state.user;
 }
 
-/** Регистрация нового профиля с начальными настройками и опциональной первой программой. */
-export async function registerNewProfile({ username: rawUsername, pin: rawPin, remember = true, settingsPatch = {}, bodyweightKg = null, firstProgramMode = "skip", customProgram = null }) {
-  const username = normalizeUserId(rawUsername);
-  const pin = String(rawPin || "").trim();
-  if (!username || username.length < 3) throw new Error(t("auth.errInvalidUser"));
-  if (pin.length < 4) throw new Error(t("auth.errShortPin"));
+export const sendPasswordReset = sendReset;
+export { pendingCount, waitForSync };
 
-  if (username === "max_134") {
-    await ensureMaxProfile();
-    throw new Error(t("auth.errUserTaken"));
-  }
-
-  const existing = await fetchUserProfile(username);
-  if (existing) throw new Error(t("auth.errUserTaken"));
-
-  await saveUserProfile(username, {
-    username,
-    pin,
-    createdAt: Date.now(),
-    onboarded: true
-  });
-
-  activateUserSession(username, pin, remember);
+/** Регистрация нового аккаунта (Firebase Auth) с начальными настройками и опциональной первой программой. */
+export async function registerNewProfile({ email, password, displayName, settingsPatch = {}, bodyweightKg = null, firstProgramMode = "skip", customProgram = null }) {
+  const u = await signUp(email, password, displayName);
+  activateUserSession(u);
 
   // Применяем выбранные в онбординге настройки
   const mergedSettings = { ...DEFAULT_SETTINGS, ...state.settings, ...settingsPatch };
   if (bodyweightKg && bodyweightKg > 0) mergedSettings.bodyweightKg = Math.round(Number(bodyweightKg) * 10) / 10;
   state.settings = mergedSettings;
   setLang(state.settings.lang);
-  localStorage.setItem(lsSettingsKey(username), JSON.stringify(state.settings));
-  localStorage.setItem(LS_SETTINGS_BASE, JSON.stringify(state.settings));
+  lsSetUser(u.uid, "settings", JSON.stringify(state.settings));
+  writeDevicePrefs(state.settings);
 
   // Загружаем общую базу упражнений в профиль
   seedCommonExercises();
@@ -207,42 +155,70 @@ export async function registerNewProfile({ username: rawUsername, pin: rawPin, r
   }
 
   saveDoc("meta", { id: "init", createdAt: Date.now(), catalogVersion: 3 }).catch(console.error);
+  saveDoc("meta", { id: "profile", displayName: u.displayName || "", createdAt: Date.now() }).catch(console.error);
   saveDoc("meta", { id: "settings", ...state.settings }).catch(console.error);
   emit();
   return state.user;
 }
 
-export function activateUserSession(username, pin, remember = true) {
+/** Активация сессии для пользователя Firebase: ветка данных и локальные ключи — только по его uid. */
+export function activateUserSession(user) {
   stopSubscriptions();
-  const cleanUser = normalizeUserId(username);
-  setSpaceUser(cleanUser);
-  state.user = { username: cleanUser, pin: String(pin || "") };
+  setSpaceUser(user.uid);
+  if (getSpaceUser() !== user.uid) throw new Error("Invalid uid");
+  state.user = { uid: user.uid, email: user.email || "", displayName: user.displayName || "" };
   state.exercises = [];
   state.programs = [];
   state.sessions = [];
+  state.sharedExercises = [];
   state.loaded = { exercises: false, programs: false, sessions: false, meta: false };
-  state.settings = loadLocalSettings(cleanUser);
-  state.bodyweightLog = loadLocalBodyweight(cleanUser);
+  state.settings = loadLocalSettings(user.uid);
+  state.bodyweightLog = loadLocalBodyweight(user.uid);
   setLang(state.settings.lang);
-
-  if (remember) {
-    try {
-      localStorage.setItem(LS_AUTH, JSON.stringify(state.user));
-      addRememberedProfile(cleanUser);
-    } catch { /* ignore */ }
-  }
 }
 
-export function logoutProfile() {
+let lastEmail = "";
+/** Email последнего вышедшего пользователя (только в памяти) — для подстановки в поле входа. */
+export const getLastEmail = () => lastEmail;
+
+/** Сброс локального состояния при выходе / удалении аккаунта. Идемпотентно. */
+export function clearSession() {
   stopSubscriptions();
-  try { localStorage.removeItem(LS_AUTH); } catch { /* ignore */ }
+  if (state.user?.email) lastEmail = state.user.email;
   setSpaceUser(null);
   state.user = null;
   state.exercises = [];
   state.programs = [];
   state.sessions = [];
+  state.sharedExercises = [];
+  state.bodyweightLog = [];
   state.loaded = { exercises: false, programs: false, sessions: false, meta: false };
+  state.settings = { ...DEFAULT_SETTINGS, ...readDevicePrefs() };
+  setLang(state.settings.lang);
   emit();
+}
+
+export async function logoutProfile() {
+  await signOutUser();
+  clearSession();
+}
+
+/** Удаление аккаунта: повторный ввод пароля → удаление fitnessApp/users/{uid} → deleteUser. */
+export async function deleteAccount(password) {
+  const uidNow = state.user?.uid;
+  if (!uidNow || auth.currentUser?.uid !== uidNow) throw Object.assign(new Error("no-user"), { code: "auth/requires-recent-login" });
+  if (!navigator.onLine) throw Object.assign(new Error("offline"), { code: "auth/network-request-failed" });
+  await reauthenticate(password);
+  stopSubscriptions();
+  try {
+    await deleteUserBranch();
+    await deleteCurrentUser();
+  } catch (e) {
+    init().catch(console.warn); // восстанавливаем подписки: аккаунт остался
+    throw e;
+  }
+  clearLocalUserData(uidNow);
+  clearSession();
 }
 
 function mergeSharedExercisesIntoState(sharedDocs) {
@@ -266,13 +242,10 @@ export function init(onProgress) {
 
   return new Promise(resolve => {
     const serverLoaded = { exercises: false, programs: false, sessions: false, meta: false };
-    let metaHasInit = false;
     let autoSeeded = false;
     let resolved = false;
 
-    if (curUser === "max_134") {
-      ensureMaxProfile().catch(console.warn);
-    }
+    flushOfflineQueue(); // очередь уйдёт только в ветку текущего uid и только когда auth готов
 
     const labels = {
       exercises: () => t("store.loadedExercises"),
@@ -296,19 +269,8 @@ export function init(onProgress) {
       }
       if (!autoSeeded && Object.values(serverLoaded).every(Boolean)) {
         autoSeeded = true;
-        if (curUser === "max_134") {
-          if (!metaHasInit && !state.exercises.length && !state.programs.length && !state.sessions.length) {
-            seedStarterData();
-            saveDoc("meta", { id: "init", createdAt: Date.now(), catalogVersion: 3 }).catch(console.error);
-            saveDoc("meta", { id: "settings", ...state.settings }).catch(console.error);
-          } else if (state.exercises.length <= 8) {
-            seedExtraExercises();
-          }
-          ensureMaxCalisthenicsProgram();
-        } else {
-          if (state.exercises.length < COMMON_LIBRARY_EXERCISES.length) {
-            seedCommonExercises();
-          }
+        if (state.exercises.length < COMMON_LIBRARY_EXERCISES.length) {
+          seedCommonExercises();
         }
         mergeSharedExercisesIntoState(state.sharedExercises);
       }
@@ -317,14 +279,13 @@ export function init(onProgress) {
     for (const name of COLLECTIONS) {
       const unsub = watchCollection(name, (docs, fromCache, pending) => {
         if (name === "meta") {
-          metaHasInit = docs.some(d => d.id === "init" || d.id === "settings");
           const s = docs.find(d => d.id === "settings");
           if (s) {
             const { id, ...rest } = s;
             const prevLang = state.settings.lang;
             state.settings = { ...DEFAULT_SETTINGS, ...rest };
-            localStorage.setItem(lsSettingsKey(curUser), JSON.stringify(state.settings));
-            localStorage.setItem(LS_SETTINGS_BASE, JSON.stringify(state.settings));
+            lsSetUser(curUser, "settings", JSON.stringify(state.settings));
+            writeDevicePrefs(state.settings);
             if (state.settings.lang && state.settings.lang !== prevLang) {
               setLang(state.settings.lang);
               localizeState(state);
@@ -333,7 +294,7 @@ export function init(onProgress) {
           const bw = docs.find(d => d.id === "bodyweight");
           if (bw) {
             state.bodyweightLog = toArray(bw.items).filter(x => x && x.weight > 0).sort((a, b) => a.t - b.t);
-            localStorage.setItem(lsBwKey(curUser), JSON.stringify(state.bodyweightLog));
+            lsSetUser(curUser, "bodyweight", JSON.stringify(state.bodyweightLog));
           }
         } else {
           state[name] = docs.map(d => normalizeDoc(name, d));
@@ -370,8 +331,8 @@ export function updateSettings(patch) {
     localizeState(state);
   }
   const curUser = getSpaceUser();
-  localStorage.setItem(lsSettingsKey(curUser), JSON.stringify(state.settings));
-  localStorage.setItem(LS_SETTINGS_BASE, JSON.stringify(state.settings));
+  writeDevicePrefs(state.settings);
+  if (curUser) lsSetUser(curUser, "settings", JSON.stringify(state.settings));
   if (curUser) saveDoc("meta", { id: "settings", ...state.settings }).catch(console.error);
   emit();
 }
@@ -389,7 +350,7 @@ export function logBodyweight(weightKg) {
   log.sort((a, b) => a.t - b.t);
   state.bodyweightLog = log;
   const curUser = getSpaceUser();
-  localStorage.setItem(lsBwKey(curUser), JSON.stringify(log));
+  if (curUser) lsSetUser(curUser, "bodyweight", JSON.stringify(log));
   if (curUser) saveDoc("meta", { id: "bodyweight", items: log }).catch(console.error);
   updateSettings({ bodyweightKg: w });
 }
@@ -415,8 +376,7 @@ export const getSession = id => state.sessions.find(s => s.id === id);
 
 export function saveExercise(ex) {
   const saved = upsert("exercises", localizeExercise({ archived: false, ...ex, id: ex.id || uid() }));
-  // Публикуем упражнение в общую базу, чтобы оно было доступно во всех профилях
-  saveSharedExercise(saved);
+  // Пользовательские упражнения живут только в ветке пользователя; общий каталог клиентам недоступен для записи
   return saved;
 }
 export function saveProgram(p) {
@@ -579,96 +539,11 @@ export function seedGenericFullbodyProgram() {
   return program;
 }
 
-export function seedExtraExercises() {
-  const items = [];
-  for (const raw of EXTRA_LIBRARY_EXERCISES) {
-    if (!getExercise(raw.id)) {
-      const e = localizeExercise(raw);
-      items.push(["exercises", e]);
-      state.exercises.push(e);
-    }
-  }
-  if (items.length) {
-    bulkSave(items).catch(console.error);
-    emit();
-  }
-  return items.length;
-}
-
-export function ensureMaxCalisthenicsProgram() {
-  const caliIds = ["seed-pullups", "ex-aust-pullups", "ex-dips", "ex-pushups", "ex-chinups", "ex-diamond-pushups", "ex-pike-pushups", "ex-hanging-leg-raise"];
-  const items = [];
-  for (const id of caliIds) {
-    if (!getExercise(id)) {
-      const raw = COMMON_LIBRARY_EXERCISES.find(x => x.id === id);
-      if (raw) {
-        const e = localizeExercise(raw);
-        items.push(["exercises", e]);
-        state.exercises.push(e);
-      }
-    }
-  }
-  if (!getProgram("seed-calisthenics")) {
-    const rest = state.settings.restSec || 150;
-    const caliProgram = localizeProgram({
-      id: "seed-calisthenics",
-      name: "КАЛИСТЕНИКА — работа со своим весом",
-      archived: false,
-      items: [
-        { exerciseId: "seed-pullups", sets: 3, targetReps: "8-12", restSec: rest, note: "Вертикальная тяга" },
-        { exerciseId: "ex-aust-pullups", sets: 3, targetReps: "10-15", restSec: rest, note: "Горизонтальная тяга (аналог Т-грифа)" },
-        { exerciseId: "ex-dips", sets: 3, targetReps: "8-12", restSec: rest, note: "Наклон вперёд на грудь" },
-        { exerciseId: "ex-pushups", sets: 3, targetReps: "12-15", restSec: 120, note: "Глубокая амплитуда" },
-        { exerciseId: "ex-chinups", sets: 3, targetReps: "8-10", restSec: 120, note: "Супинированный хват на бицепс" },
-        { exerciseId: "ex-diamond-pushups", sets: 3, targetReps: "10-15", restSec: 120, note: "Акцент на трицепс" },
-        { exerciseId: "ex-pike-pushups", sets: 3, targetReps: "8-12", restSec: 120, note: "Жим углом на дельты" },
-        { exerciseId: "ex-hanging-leg-raise", sets: 3, targetReps: "10-15", restSec: 90, note: "Без раскачки" }
-      ]
-    });
-    items.push(["programs", caliProgram]);
-    state.programs.push(caliProgram);
-  }
-  if (items.length) {
-    bulkSave(items).catch(console.error);
-    emit();
-  }
-}
-
-export function seedStarterData() {
-  const REST = REST_DEFAULT;
-  const exs = [
-    mkEx("seed-pullups", "Подтягивания", "Спина", 15, [8, 7, 8], { note: "Доп. вес", isBodyweight: true }),
-    mkEx("seed-tbar", "Т-гриф широким хватом", "Спина", 62.5, [9, 8, 9]),
-    mkEx("seed-dbpress", "Жим гантелей", "Грудь", 32, [7, 6, 5]),
-    mkEx("seed-biceps", "Гантели", "Бицепс", 20, [7, 7, 5]),
-    mkEx("seed-tri-long", "Cable Overhead Extension", "Трицепс (Long)", 20, [], { note: "Рабочий вес 20–25 кг" }),
-    mkEx("seed-tri-lat", "Cable Lateral Head (разгибания)", "Трицепс (Lateral)", 72.5, []),
-    mkEx("seed-delts", "Кабель", "Средняя дельта", 15, [], { unit: "lb" })
-  ];
-  const program = localizeProgram({
-    id: "seed-fullbody", name: "FULLBODY — классические сеты", archived: false,
-    items: exs.map(e => ({ exerciseId: e.id, sets: 3, targetReps: "8-10", restSec: REST, note: "" }))
-  });
-  // не перезаписываем то, что пользователь уже мог отредактировать
-  const items = [];
-  for (const raw of [...exs, ...EXTRA_LIBRARY_EXERCISES]) {
-    if (!getExercise(raw.id)) {
-      const e = localizeExercise(raw);
-      items.push(["exercises", e]);
-      state.exercises.push(e);
-    }
-  }
-  if (!getProgram(program.id)) { items.push(["programs", program]); state.programs.push(program); }
-  if (items.length) bulkSave(items).catch(console.error);
-  emit();
-  return items.length;
-}
-
 /* ---------- Экспорт / импорт ---------- */
 export function exportData() {
   return JSON.stringify({
     app: "fitness-tracker", version: 1, exportedAt: new Date().toISOString(),
-    profile: state.user?.username || null,
+    profile: state.user?.displayName || null,
     settings: state.settings, bodyweightLog: state.bodyweightLog,
     exercises: state.exercises, programs: state.programs, sessions: state.sessions
   }, null, 2);
@@ -736,8 +611,9 @@ export function importData(json) {
   if (data.app !== "fitness-tracker") throw new Error(t("settings.importInvalid"));
   const items = [];
   for (const name of ["exercises", "programs", "sessions"]) {
-    for (const raw of data[name] || []) {
-      if (!raw.id) continue;
+    for (const raw of toArray(data[name])) {
+      // ключи Firebase не могут содержать . $ # [ ] /
+      if (!raw || typeof raw.id !== "string" || !raw.id || raw.id.length > 128 || /[.$#\[\]\/]/.test(raw.id)) continue;
       const obj = normalizeDoc(name, raw);
       items.push([name, obj]);
       const list = state[name], i = list.findIndex(x => x.id === obj.id);
@@ -745,7 +621,20 @@ export function importData(json) {
     }
   }
   bulkSave(items).catch(console.error);
-  if (data.settings) updateSettings(data.settings);
+  if (data.settings && typeof data.settings === "object") {
+    // принимаем только известные поля настроек (старые резервные копии могли содержать лишнее)
+    const patch = {};
+    for (const k of Object.keys(DEFAULT_SETTINGS)) if (k in data.settings) patch[k] = data.settings[k];
+    updateSettings(patch);
+  }
+  if (Array.isArray(data.bodyweightLog) && data.bodyweightLog.length) {
+    const log = data.bodyweightLog.filter(x => x && x.weight > 0 && x.t > 0).sort((a, b) => a.t - b.t);
+    if (log.length) {
+      state.bodyweightLog = log;
+      const cu = getSpaceUser();
+      if (cu) { lsSetUser(cu, "bodyweight", JSON.stringify(log)); saveDoc("meta", { id: "bodyweight", items: log }).catch(console.error); }
+    }
+  }
   emit();
   return items.length;
 }

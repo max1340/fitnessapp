@@ -1,5 +1,6 @@
 import { h, clear, sheet, toast, confirmDialog, parseNum, fmtNum, fmtRest, icon, haptic } from "../ui.js";
-import { state, updateSettings, exportData, importData, downloadCsv, unitLabel, logoutProfile, doneSessions } from "../store.js";
+import { state, updateSettings, exportData, importData, downloadCsv, unitLabel, logoutProfile, doneSessions, pendingCount, waitForSync, deleteAccount } from "../store.js";
+import { authErrorMessage } from "../auth.js";
 import { t, getLang } from "../i18n.js";
 
 export function applyTheme() {
@@ -10,6 +11,44 @@ export function applyTheme() {
   if (meta) meta.content = dark ? "#0b0b0c" : "#f6f6f7";
 }
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
+
+/** Удаление аккаунта: повторный ввод пароля (reauthenticate) → удаление данных → deleteUser. */
+function openDeleteAccount() {
+  const passInp = h("input", { type: "password", autocomplete: "current-password", placeholder: t("auth.passwordPlaceholder") });
+  const errEl = h("p", { class: "error", hidden: true });
+  const delBtn = h("button", { class: "btn primary danger", type: "submit" }, t("settings.deleteAccountOk"));
+  let dsh = null;
+  const form = h("form", {
+    class: "stack",
+    onsubmit: async ev => {
+      ev.preventDefault();
+      errEl.hidden = true;
+      if (!passInp.value) { errEl.textContent = t("auth.errFillAll"); errEl.hidden = false; return; }
+      delBtn.disabled = true;
+      try {
+        await deleteAccount(passInp.value);
+        passInp.value = "";
+        haptic("warning");
+        toast(t("settings.deleteAccountDone"));
+        if (dsh) dsh.close();
+        document.querySelectorAll("#sheets .sheet-wrap").forEach(n => n.remove());
+        document.body.classList.remove("sheet-open");
+      } catch (err) {
+        haptic("error");
+        errEl.textContent = authErrorMessage(err);
+        errEl.hidden = false;
+        delBtn.disabled = false;
+      }
+    }
+  },
+    h("p", { class: "confirm-text" }, t("settings.deleteAccountWarn")),
+    h("label", { class: "field" }, h("span", {}, t("settings.passwordLabel")), passInp),
+    errEl,
+    h("div", { class: "row gap" },
+      h("button", { class: "btn", type: "button", onclick: () => dsh && dsh.close() }, t("common.cancel")),
+      delBtn));
+  dsh = sheet(form, { title: t("settings.deleteAccount") });
+}
 
 export function openSettings() {
   const wrap = h("div", { class: "stack stg-wrap" });
@@ -102,7 +141,7 @@ export function openSettings() {
       file.value = "";
     });
 
-    const curUsername = state.user?.username || "—";
+    const curUsername = state.user?.displayName || state.user?.email || "—";
     const initials = curUsername.replace(/[^a-zA-Zа-яА-Я0-9]/g, "").slice(0, 2).toUpperCase() || "U";
     const doneCnt = doneSessions().length;
     const progCnt = state.programs.filter(p => !p.archived).length;
@@ -112,15 +151,24 @@ export function openSettings() {
       h("div", { class: "stg-profile-left" },
         h("div", { class: "stg-avatar" }, initials),
         h("div", { class: "stg-profile-meta" },
-          h("strong", { class: "stg-profile-name" }, `@${curUsername}`),
+          h("strong", { class: "stg-profile-name" }, curUsername),
+          state.user?.email && state.user.email !== curUsername ? h("small", { class: "muted" }, state.user.email) : null,
           h("small", { class: "muted" }, t("settings.profileStats", { workouts: doneCnt, programs: progCnt, exercises: exCnt })))),
       h("button", {
         class: "btn small stg-logout-btn",
         type: "button",
         onclick: async () => {
           if (!(await confirmDialog(t("settings.logoutConfirm", { user: curUsername }), { ok: t("settings.logoutOk") }))) return;
+          // неотправленные локальные записи: предупреждаем и предлагаем дождаться синхронизации
+          if (pendingCount() > 0) {
+            if (await confirmDialog(t("settings.logoutPendingWarn", { n: pendingCount() }), { ok: t("settings.logoutWait") })) {
+              toast(t("settings.logoutWaiting"));
+              await waitForSync(10000);
+            }
+            if (pendingCount() > 0 && !(await confirmDialog(t("settings.logoutStillPending", { n: pendingCount() }), { ok: t("settings.logoutAnyway"), danger: true }))) return;
+          }
           if (sh) sh.close();
-          logoutProfile();
+          try { await logoutProfile(); } catch (e) { toast(authErrorMessage(e)); }
         }
       }, t("settings.logoutShort"))
     );
@@ -211,11 +259,12 @@ export function openSettings() {
           }),
           actionRow("copy", t("settings.exportJsonBtn"), t("settings.exportJsonSub"), () => {
             const blob = new Blob([exportData()], { type: "application/json" });
-            const a = h("a", { href: URL.createObjectURL(blob), download: `fitness-backup-${curUsername}-${new Date().toISOString().slice(0, 10)}.json` });
+            const a = h("a", { href: URL.createObjectURL(blob), download: `fitness-backup-${curUsername.replace(/[^\p{L}\p{N}_-]+/gu, "_").slice(0, 40)}-${new Date().toISOString().slice(0, 10)}.json` });
             document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
           }),
-          actionRow("plus", t("settings.importJsonBtn"), t("settings.importJsonSub"), () => file.click(), true),
-          file
+          actionRow("plus", t("settings.importJsonBtn"), t("settings.importJsonSub"), () => file.click()),
+          file,
+          actionRow("trash", t("settings.deleteAccount"), t("settings.deleteAccountSub"), () => openDeleteAccount(), true)
         )
       )
     );

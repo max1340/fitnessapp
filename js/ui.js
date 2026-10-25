@@ -77,6 +77,8 @@ export function h(tag, attrs = {}, ...children) {
     else if (k === "dataset") Object.assign(el.dataset, v);
     else if (k === "value") el.value = v;
     else if (k === "checked") el.checked = !!v;
+    else if (/^on/i.test(k) || /^srcdoc$/i.test(k)) continue; // строковые inline-обработчики запрещены (защита от XSS)
+    else if (/^(href|src|action|formaction|xlink:href)$/i.test(k) && /^\s*(javascript|data|vbscript):/i.test(String(v))) continue;
     else if (v === true) el.setAttribute(k, "");
     else el.setAttribute(k, v);
   }

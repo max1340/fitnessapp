@@ -15,22 +15,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Тренировки">
   <link rel="stylesheet" href="styles.css">
-  <script>
-    // Применяем тему и язык до первой отрисовки, чтобы не было вспышки.
-    try {
-      var st = JSON.parse(localStorage.getItem("fitness.settings.v1") || "{}");
-      var t = st.theme || "dark";
-      var dark = t === "dark" || (t === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
-      document.documentElement.dataset.theme = dark ? "dark" : "light";
-      document.querySelector('meta[name="theme-color"]').content = dark ? "#0b0b0c" : "#f6f6f7";
-      var lang = st.lang || (/^(ru|uk|be|kk)\b/i.test(navigator.language || "ru") ? "ru" : "en");
-      document.documentElement.lang = lang;
-      if (lang === "en") {
-        document.title = "Workouts";
-        window.__initEn = true;
-      }
-    } catch (e) {}
-  </script>
+  <script src="js/theme-init.js"></script>
 </head>
 <body>
   <div id="splash" class="splash" role="status" aria-live="polite">
@@ -45,12 +30,7 @@
       <small id="splash-text" class="splash-sub">Загрузка данных…</small>
     </div>
   </div>
-  <script>
-    if (window.__initEn) {
-      var stEl = document.querySelector(".splash-title"); if (stEl) stEl.textContent = "WORKOUTS";
-      var sbEl = document.getElementById("splash-text"); if (sbEl) sbEl.textContent = "Loading data…";
-    }
-  </script>
+  <script src="js/splash-init.js"></script>
   <div id="app">
     <header class="topbar">
       <h1 id="title">Тренировка</h1>

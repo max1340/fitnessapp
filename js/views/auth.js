@@ -1,10 +1,10 @@
 // Экран входа, регистрации и начальной пошаговой настройки профиля (Onboarding).
 import { h, clear, parseNum, fmtNum, fmtRest, icon, toast, haptic } from "../ui.js";
 import {
-  state, updateSettings, loginWithPin, registerNewProfile,
-  getRememberedProfiles, getCommonCatalogLocalized, unitLabel
+  state, updateSettings, loginWithEmail, registerNewProfile, sendPasswordReset,
+  getLastEmail, getCommonCatalogLocalized, unitLabel
 } from "../store.js";
-import { normalizeUserId, fetchUserProfile } from "../db.js";
+import { authErrorMessage, MIN_PASSWORD_LEN } from "../auth.js";
 import { t, getLang } from "../i18n.js";
 import { applyTheme } from "./settings.js";
 
@@ -16,18 +16,19 @@ export function openAuthScreen(onSuccess) {
   }
   document.body.classList.add("auth-open");
 
-  let mode = "login"; // "login" | "register"
+  let mode = "login"; // "login" | "register" | "reset"
   let step = 1;       // 1 | 2 | 3
 
   // Поля входа
-  let loginUser = "";
-  let loginPin = "";
-  let loginRemember = true;
+  let loginEmail = getLastEmail(); // подставляется только email, пароль нигде не хранится
+  let loginPass = "";
+  let resetInfo = "";
+  let step1Error = "";
 
   // Поля регистрации и настройки
-  let regUser = "";
-  let regPin = "";
-  let regRemember = true;
+  let regEmail = "";
+  let regPass = "";
+  let regName = "";
   let regBw = state.settings.bodyweightKg ? fmtNum(state.settings.bodyweightKg) : "";
   let regUnit = state.settings.defaultUnit || "kg";
   let regRest = state.settings.restSec || 210;
@@ -70,7 +71,7 @@ export function openAuthScreen(onSuccess) {
     const tabs = h("div", { class: "auth-tabs" },
       h("button", {
         type: "button",
-        class: "auth-tab" + (mode === "login" ? " active" : ""),
+        class: "auth-tab" + (mode !== "register" ? " active" : ""),
         onclick: () => { mode = "login"; render(); }
       }, t("auth.tabLogin")),
       h("button", {
@@ -82,80 +83,100 @@ export function openAuthScreen(onSuccess) {
 
     const body = h("div", { class: "auth-body stack" });
 
-    if (mode === "login") {
-      const recent = getRememberedProfiles();
-      const userInp = h("input", {
-        type: "text",
-        value: loginUser,
-        placeholder: t("auth.usernamePlaceholder"),
+    if (mode === "reset") {
+      const emailInp = h("input", {
+        type: "email", value: loginEmail, placeholder: t("auth.emailPlaceholder"),
+        autocomplete: "email", autocapitalize: "none", inputmode: "email",
+        oninput: e => { loginEmail = e.target.value; }
+      });
+      const errEl = h("p", { class: "error", hidden: true });
+      const okEl = h("p", { class: "muted small", hidden: !resetInfo }, resetInfo);
+      const sendBtn = h("button", { class: "btn primary block", type: "submit" }, t("auth.resetSendBtn"));
+      body.append(h("form", {
+        class: "stack",
+        onsubmit: async ev => {
+          ev.preventDefault();
+          errEl.hidden = true; okEl.hidden = true;
+          sendBtn.disabled = true;
+          try {
+            await sendPasswordReset(emailInp.value);
+            haptic("success");
+            // не раскрываем, существует ли такой email
+            resetInfo = t("auth.resetSent");
+            okEl.textContent = resetInfo; okEl.hidden = false;
+          } catch (err) {
+            haptic("error");
+            // user-not-found не показываем (защита от перебора email)
+            if (err && err.code === "auth/user-not-found") { resetInfo = t("auth.resetSent"); okEl.textContent = resetInfo; okEl.hidden = false; }
+            else { errEl.textContent = authErrorMessage(err); errEl.hidden = false; }
+          }
+          sendBtn.disabled = false;
+        }
+      },
+        h("p", { class: "muted small" }, t("auth.resetHint")),
+        h("label", { class: "field" }, h("span", {}, t("auth.emailLabel")), emailInp),
+        okEl, errEl, sendBtn,
+        h("button", { class: "btn block", type: "button", onclick: () => { mode = "login"; resetInfo = ""; render(); } }, t("auth.backToLogin"))
+      ));
+    } else if (mode === "login") {
+      const emailInp = h("input", {
+        type: "email",
+        value: loginEmail,
+        placeholder: t("auth.emailPlaceholder"),
         autocomplete: "username",
         autocapitalize: "none",
-        oninput: e => { loginUser = e.target.value; }
+        inputmode: "email",
+        oninput: e => { loginEmail = e.target.value; }
       });
-      const pinInp = h("input", {
+      const passInp = h("input", {
         type: "password",
-        inputmode: "text",
-        value: loginPin,
-        placeholder: t("auth.pinPlaceholder"),
+        value: loginPass,
+        placeholder: t("auth.passwordPlaceholder"),
         autocomplete: "current-password",
         enterkeyhint: "done",
-        oninput: e => { loginPin = e.target.value; }
-      });
-      const remChk = h("input", {
-        type: "checkbox",
-        checked: loginRemember,
-        onchange: e => { loginRemember = e.target.checked; }
+        oninput: e => { loginPass = e.target.value; }
       });
       const errEl = h("p", { class: "error", hidden: true });
       const submitBtn = h("button", { class: "btn primary block", type: "submit" }, t("auth.loginBtn"));
-
-      const recentBlock = recent.length
-        ? h("div", { class: "stack" },
-            h("small", { class: "muted" }, t("auth.recentProfiles")),
-            h("div", { class: "row gap", style: "flex-wrap:wrap" },
-              ...recent.map(r => h("button", {
-                type: "button",
-                class: "btn small tag" + (normalizeUserId(loginUser) === r.username ? " on" : ""),
-                onclick: () => {
-                  loginUser = r.username;
-                  userInp.value = r.username;
-                  pinInp.focus();
-                }
-              }, r.username))))
-        : null;
 
       const form = h("form", {
         class: "stack",
         onsubmit: async ev => {
           ev.preventDefault();
           errEl.hidden = true;
+          if (!emailInp.value.trim() || !passInp.value) {
+            haptic("error");
+            errEl.textContent = t("auth.errFillAll");
+            errEl.hidden = false;
+            return;
+          }
           submitBtn.disabled = true;
           submitBtn.textContent = t("auth.loggingIn");
           try {
-            const u = await loginWithPin(userInp.value, pinInp.value, remChk.checked);
+            const u = await loginWithEmail(emailInp.value, passInp.value);
+            loginPass = "";
             haptic("success");
-            toast(t("auth.welcomeToast", { user: u.username }));
+            toast(t("auth.welcomeToast", { user: u.displayName || u.email }));
             closeAuth();
             if (onSuccess) await onSuccess(u);
           } catch (err) {
             haptic("error");
-            errEl.textContent = err.message || String(err);
+            errEl.textContent = authErrorMessage(err);
             errEl.hidden = false;
             submitBtn.disabled = false;
             submitBtn.textContent = t("auth.loginBtn");
           }
         }
       },
-        recentBlock,
-        h("label", { class: "field" }, h("span", {}, t("auth.usernameLabel")), userInp),
-        h("label", { class: "field" }, h("span", {}, t("auth.pinLabel")), pinInp),
-        h("label", { class: "check small" }, remChk, h("span", {}, t("auth.rememberMe"))),
+        h("label", { class: "field" }, h("span", {}, t("auth.emailLabel")), emailInp),
+        h("label", { class: "field" }, h("span", {}, t("auth.passwordLabel")), passInp),
         errEl,
-        submitBtn
+        submitBtn,
+        h("button", { class: "btn block", type: "button", onclick: () => { loginEmail = emailInp.value; mode = "reset"; resetInfo = ""; render(); } }, t("auth.forgotPassword")),
+        h("button", { class: "btn block", type: "button", onclick: () => { loginEmail = emailInp.value; regEmail = regEmail || emailInp.value; mode = "register"; step = 1; render(); } }, t("auth.createAccount"))
       );
 
-      body.append(form);
-    } else {
+      body.append(form);    } else {
       // Режим регистрации и пошаговой настройки (Steps 1..3)
       const stepTitleKey = step === 1 ? "auth.step1Title" : step === 2 ? "auth.step2Title" : "auth.step3Title";
       const stepHeader = h("div", { class: "auth-steps" },
@@ -168,28 +189,31 @@ export function openAuthScreen(onSuccess) {
       body.append(stepHeader);
 
       if (step === 1) {
-        const userInp = h("input", {
-          type: "text",
-          value: regUser,
-          placeholder: t("auth.regUsernamePlaceholder"),
-          autocomplete: "off",
+        const emailInp = h("input", {
+          type: "email",
+          value: regEmail,
+          placeholder: t("auth.emailPlaceholder"),
+          autocomplete: "email",
           autocapitalize: "none",
-          oninput: e => { regUser = e.target.value; }
+          inputmode: "email",
+          oninput: e => { regEmail = e.target.value; }
         });
-        const pinInp = h("input", {
+        const passInp = h("input", {
           type: "password",
-          inputmode: "text",
-          value: regPin,
-          placeholder: t("auth.pinPlaceholder"),
+          value: regPass,
+          placeholder: t("auth.passwordPlaceholder"),
           autocomplete: "new-password",
-          oninput: e => { regPin = e.target.value; }
+          oninput: e => { regPass = e.target.value; }
         });
-        const remChk = h("input", {
-          type: "checkbox",
-          checked: regRemember,
-          onchange: e => { regRemember = e.target.checked; }
+        const nameInp = h("input", {
+          type: "text",
+          value: regName,
+          maxlength: "60",
+          placeholder: t("auth.namePlaceholder"),
+          autocomplete: "name",
+          oninput: e => { regName = e.target.value; }
         });
-        const errEl = h("p", { class: "error", hidden: true });
+        const errEl = h("p", { class: "error", hidden: !step1Error }, step1Error);
         const nextBtn = h("button", { class: "btn primary block", type: "submit" }, t("auth.nextBtn"));
 
         const themeRow = h("div", { class: "row gap" },
@@ -203,69 +227,35 @@ export function openAuthScreen(onSuccess) {
 
         const form = h("form", {
           class: "stack",
-          onsubmit: async ev => {
+          onsubmit: ev => {
             ev.preventDefault();
             errEl.hidden = true;
-            const cleanU = normalizeUserId(regUser);
-            const cleanP = String(regPin || "").trim();
-            if (!cleanU || cleanU.length < 3) {
-              haptic("error");
-              errEl.textContent = t("auth.errInvalidUser");
-              errEl.hidden = false;
-              userInp.focus();
-              return;
-            }
-            if (cleanP.length < 4) {
-              haptic("error");
-              errEl.textContent = t("auth.errShortPin");
-              errEl.hidden = false;
-              pinInp.focus();
-              return;
-            }
-            if (cleanU === "max_134") {
-              haptic("error");
-              errEl.textContent = t("auth.errUserTaken");
-              errEl.hidden = false;
-              return;
-            }
-            nextBtn.disabled = true;
-            nextBtn.textContent = t("auth.checkingUser");
-            try {
-              const existing = await fetchUserProfile(cleanU).catch(() => null);
-              if (existing) {
-                haptic("error");
-                errEl.textContent = t("auth.errUserTaken");
-                errEl.hidden = false;
-                nextBtn.disabled = false;
-                nextBtn.textContent = t("auth.nextBtn");
-                return;
-              }
-              haptic("medium");
-              regUser = cleanU;
-              regPin = cleanP;
-              step = 2;
-              render();
-            } catch (err) {
-              haptic("error");
-              errEl.textContent = err.message || String(err);
-              errEl.hidden = false;
-              nextBtn.disabled = false;
-              nextBtn.textContent = t("auth.nextBtn");
-            }
+            step1Error = "";
+            const fail = msg => { haptic("error"); step1Error = msg; errEl.textContent = msg; errEl.hidden = false; };
+            const email = emailInp.value.trim();
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { fail(t("auth.errInvalidEmail")); emailInp.focus(); return; }
+            if (passInp.value.length < MIN_PASSWORD_LEN) { fail(t("auth.err.weakPassword")); passInp.focus(); return; }
+            if (!nameInp.value.trim()) { fail(t("auth.errNameRequired")); nameInp.focus(); return; }
+            // аккаунт создаётся на последнем шаге; здесь только проверка полей на клиенте
+            haptic("medium");
+            regEmail = email;
+            regPass = passInp.value;
+            regName = nameInp.value.trim();
+            step = 2;
+            render();
           }
         },
           h("label", { class: "field" }, h("span", {}, t("settings.theme")), themeRow),
-          h("label", { class: "field" }, h("span", {}, t("auth.regUsernameLabel")), userInp),
+          h("label", { class: "field" }, h("span", {}, t("auth.emailLabel")), emailInp),
           h("label", { class: "field" },
-            h("span", {}, t("auth.regPinLabel")),
-            pinInp,
-            h("small", { class: "muted" }, t("auth.regPinHint"))),
-          h("label", { class: "check small" }, remChk, h("span", {}, t("auth.rememberMe"))),
+            h("span", {}, t("auth.regPasswordLabel")),
+            passInp,
+            h("small", { class: "muted" }, t("auth.regPasswordHint"))),
+          h("label", { class: "field" }, h("span", {}, t("auth.nameLabel")), nameInp),
           errEl,
           nextBtn
         );
-        body.append(form);
-      } else if (step === 2) {
+        body.append(form);      } else if (step === 2) {
         const bwInp = h("input", {
           type: "text",
           inputmode: "decimal",
@@ -407,9 +397,9 @@ export function openAuthScreen(onSuccess) {
               note: ""
             }));
             const u = await registerNewProfile({
-              username: regUser,
-              pin: regPin,
-              remember: regRemember,
+              email: regEmail,
+              password: regPass,
+              displayName: regName,
               settingsPatch: {
                 defaultUnit: regUnit,
                 restSec: Number(regRest) || 210
@@ -421,13 +411,22 @@ export function openAuthScreen(onSuccess) {
                 items: customItems
               }
             });
+            regPass = "";
             haptic("success");
-            toast(t("auth.welcomeToast", { user: u.username }));
+            toast(t("auth.welcomeToast", { user: u.displayName || u.email }));
             closeAuth();
             if (onSuccess) await onSuccess(u);
           } catch (err) {
             haptic("error");
-            errEl.textContent = err.message || String(err);
+            const code = err && err.code;
+            // ошибки полей шага 1 возвращают пользователя на первый шаг
+            if (code === "auth/email-already-in-use" || code === "auth/weak-password" || code === "auth/invalid-email") {
+              step1Error = authErrorMessage(err);
+              step = 1;
+              render();
+              return;
+            }
+            errEl.textContent = authErrorMessage(err);
             errEl.hidden = false;
             finishBtn.disabled = false;
             finishBtn.textContent = t("auth.finishBtn");

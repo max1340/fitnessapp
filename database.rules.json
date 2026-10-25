@@ -1,0 +1,35 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "fitnessApp": {
+      "users": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid",
+          "exercises": {
+            "$id": { ".validate": "newData.hasChild('id') && newData.child('id').val() === $id" }
+          },
+          "programs": {
+            "$id": { ".validate": "newData.hasChild('id') && newData.child('id').val() === $id" }
+          },
+          "sessions": {
+            "$id": { ".validate": "newData.hasChild('id') && newData.child('id').val() === $id" }
+          },
+          "meta": {
+            "$id": { ".validate": "newData.hasChild('id') && newData.child('id').val() === $id" }
+          },
+          "$other": { ".validate": false }
+        }
+      },
+      "sharedExercises": {
+        ".read": "auth != null",
+        ".write": "auth != null && root.child('fitnessApp/admins').child(auth.uid).val() === true"
+      },
+      "admins": {
+        ".read": false,
+        ".write": false
+      }
+    }
+  }
+}

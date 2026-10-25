@@ -1,12 +1,12 @@
 // Service worker: app shell (precache) + runtime-кэш модулей Firebase с CDN gstatic.
 // Увеличивайте CACHE_VERSION при каждом релизе, чтобы клиенты обновили оболочку.
-const CACHE_VERSION = "v23";
+const CACHE_VERSION = "v24";
 const SHELL_CACHE = "fitness-shell-" + CACHE_VERSION;
 const RUNTIME_CACHE = "fitness-runtime-" + CACHE_VERSION;
 
 const SHELL = [
   "./", "index.html", "styles.css", "manifest.webmanifest", "firebase-config.js",
-  "js/app.js", "js/i18n.js", "js/db.js", "js/store.js", "js/metrics.js", "js/chart.js", "js/bodyMap.js", "js/timer.js", "js/ui.js",
+  "js/theme-init.js", "js/splash-init.js", "js/app.js", "js/i18n.js", "js/auth.js", "js/db.js", "js/store.js", "js/metrics.js", "js/chart.js", "js/bodyMap.js", "js/timer.js", "js/ui.js",
   "js/views/auth.js", "js/views/workout.js", "js/views/programs.js", "js/views/exercises.js", "js/views/progress.js",
   "js/views/history.js", "js/views/settings.js", "js/views/entryCard.js",
   "icons/icon.svg", "icons/icon-maskable.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "icons/apple-touch-icon.png"
@@ -14,6 +14,7 @@ const SHELL = [
 // Основные модули Firebase кэшируем сразу (best effort), остальные чанки — при первом обращении.
 const CDN = [
   "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js",
+  "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js",
   "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js"
 ];
 
@@ -64,6 +65,9 @@ self.addEventListener("fetch", event => {
   const req = event.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
+  // Ответы API авторизации и базы данных никогда не кэшируем и не перехватываем.
+  if (/(^|\.)googleapis\.com$/.test(url.hostname) || /(^|\.)firebasedatabase\.app$/.test(url.hostname) ||
+      /(^|\.)firebaseio\.com$/.test(url.hostname) || url.pathname.startsWith("/__/auth/")) return;
   if (url.origin === self.location.origin) {
     if (req.mode === "navigate") {
       event.respondWith(networkFirst(req, SHELL_CACHE, "index.html"));
@@ -73,7 +77,7 @@ self.addEventListener("fetch", event => {
   } else if (url.hostname === "www.gstatic.com" && url.pathname.startsWith("/firebasejs/")) {
     event.respondWith(staleWhileRevalidate(req, RUNTIME_CACHE));
   }
-  // Запросы к firestore.googleapis.com не трогаем: офлайн обрабатывает сам Firestore SDK.
+  // Прочие запросы (identitytoolkit / securetoken / Realtime Database) не трогаем: офлайн обрабатывают Firebase SDK и локальная очередь.
 });
 
 self.addEventListener("notificationclick", event => {

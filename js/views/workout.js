@@ -208,7 +208,7 @@ function renderShareCanvas(canvas, session, meta, theme = "dark") {
   ctx.fillStyle = pal.mut;
   ctx.font = font(700, 12);
   ctx.textBaseline = "alphabetic";
-  ctx.fillText(t("app.splashTitle") + (state.user?.username ? ` · @${state.user.username}` : ""), pad + 54, 45);
+  ctx.fillText(t("app.splashTitle") + (state.user?.displayName ? ` · ${state.user.displayName}` : ""), pad + 54, 45);
   ctx.font = font(500, 13);
   ctx.fillText(fmtDate(session.startedAt, true), pad + 54, 64);
 

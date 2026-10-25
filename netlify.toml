@@ -26,5 +26,10 @@
 [[headers]]
   for = "/*"
   [headers.values]
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Frame-Options = "DENY"
+    # CSP пока в режиме Report-Only (только сообщает о нарушениях в консоль браузера, ничего не блокирует).
+    # Как перевести в enforce — см. README, раздел «Content-Security-Policy».
+    Content-Security-Policy-Report-Only = "default-src 'self'; script-src 'self' https://www.gstatic.com; connect-src 'self' https://*.firebasedatabase.app wss://*.firebasedatabase.app https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
