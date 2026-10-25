@@ -1,6 +1,6 @@
 // Карточка упражнения с сетами. Используется и в активной тренировке, и в редактировании истории.
 import { h, icon, iconBtn, fmtNum, parseNum, toast } from "../ui.js";
-import { getExercise, stepFor, unitLabel } from "../store.js";
+import { state, getExercise, stepFor, unitLabel } from "../store.js";
 import { toKg, epley, MAX_E1RM_REPS } from "../metrics.js";
 import { openExerciseHistory } from "./exercises.js";
 
@@ -241,11 +241,32 @@ export function entryCard(entry, ctx) {
 
   const exObj = getExercise(entry.exerciseId);
   const muscle = exObj?.muscleGroup || "";
+  const isBw = !!(entry.isBodyweight || exObj?.isBodyweight);
   const firstHint = (entry.sets.find(s => s.hint) || {}).hint || "";
   const subParts = [];
+  if (isBw && state.settings.bodyweightKg) subParts.push(`свой вес ${fmtNum(state.settings.bodyweightKg)} кг`);
   if (entry.targetReps) subParts.push("цель: " + entry.targetReps);
   if (entry.programNote) subParts.push(entry.programNote);
   else if (firstHint) subParts.push(firstHint);
+
+  const progBanner = entry.progression && !entry.sets.some(s => s.done)
+    ? h("button", {
+        class: "prog-banner", type: "button",
+        onclick: () => {
+          const { nextWeight, resetReps, step: st } = entry.progression;
+          entry.sets.forEach(s => {
+            if (!s.isWarmup && !s.done) {
+              s.weight = nextWeight;
+              if (resetReps) s.reps = resetReps;
+            }
+          });
+          entry.progression = null;
+          ctx.onChange();
+          ctx.rerender();
+          toast(`Вес увеличен на +${fmtNum(st)} ${unitLabel(unit)}`);
+        }
+      }, `↑ Все сеты закрыты (${entry.progression.maxTarget}+) — добавить +${fmtNum(entry.progression.step)} ${unitLabel(unit)} → ${fmtNum(entry.progression.nextWeight)} ${unitLabel(unit)}`)
+    : null;
 
   return h("article", { class: "entry", dataset: { key: cardKey } },
     h("div", { class: "entry-head" },
@@ -260,12 +281,14 @@ export function entryCard(entry, ctx) {
           icon("clock", 13)),
         subParts.length ? h("small", { class: "muted" }, subParts.join(" · ")) : null),
       allDone ? iconBtn("up", "Свернуть", () => { entry._expanded = false; ctx.rerender(); }) : null,
+      ctx.onSwap ? iconBtn("swap", "Заменить упражнение", ctx.onSwap) : null,
       ctx.reorder ? [iconBtn("up", "Выше", () => ctx.onMove(-1)), iconBtn("down", "Ниже", () => ctx.onMove(1))] : null,
       ctx.onSkip ? iconBtn("skip", "Пропустить упражнение", ctx.onSkip) : null,
       ctx.onRemove ? iconBtn("trash", "Убрать упражнение", ctx.onRemove) : null),
+    progBanner,
     h("div", { class: "set-cols" },
       h("span", { title: "Нажмите на номер подхода для разминки (Р)" }, "#/Р"),
-      h("span", {}, "Вес, " + unitLabel(unit)),
+      h("span", {}, (isBw ? "Доп. вес, " : "Вес, ") + unitLabel(unit)),
       h("span", {}, "Повторы"),
       h("span", {}, "Готово")),
     setsBox,

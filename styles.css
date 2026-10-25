@@ -202,6 +202,15 @@ input[type="checkbox"]:checked::after { transform: rotate(-45deg) scale(1); }
   height: 18px; padding: 0 6px; border-radius: 5px;
   background: var(--fg); color: var(--bg); font-size: 10px; font-weight: 800; letter-spacing: .04em;
 }
+.prog-banner {
+  width: 100%; padding: 7px 10px; border: 1.5px dashed var(--fg); border-radius: 8px;
+  background: var(--s2); color: var(--fg); font: inherit; font-size: 12px; font-weight: 700;
+  text-align: left; cursor: pointer; touch-action: manipulation;
+}
+.prog-banner:active { background: var(--fg); color: var(--bg); }
+.bw-home-card { flex-wrap: nowrap; }
+.bw-home-card .row { flex: none; width: auto; }
+.bw-inline-input { width: 68px; min-height: 36px; height: 36px; padding: 0 8px; text-align: center; font-weight: 700; }
 
 .set-cols, .set-main {
   display: grid; grid-template-columns: 28px 1.2fr 1fr 40px; gap: 6px; align-items: center;
@@ -340,6 +349,13 @@ input[type="checkbox"]:checked::after { transform: rotate(-45deg) scale(1); }
   background: none; border: 0; padding: 0; color: var(--fg); font: inherit; font-weight: 600;
   text-decoration: underline; cursor: pointer;
 }
+
+/* ---------- Баланс по мышцам ---------- */
+.muscle-bars { display: flex; flex-direction: column; gap: 8px; }
+.muscle-row { display: flex; flex-direction: column; gap: 4px; }
+.muscle-head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+.muscle-track { height: 7px; width: 100%; background: var(--s2); border: 1px solid var(--line); border-radius: 99px; overflow: hidden; }
+.muscle-fill { height: 100%; background: var(--fg); border-radius: 99px; transition: width .3s ease; }
 
 /* ---------- Графики ---------- */
 .chart-svg { width: 100%; height: auto; display: block; touch-action: manipulation; user-select: none; }

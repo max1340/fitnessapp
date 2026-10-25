@@ -71,11 +71,12 @@ export function openExerciseForm(ex, onSaved) {
   const restHint = h("span", { class: "muted" }, "= " + fmtRest(e.defaultRestSec));
   rest.addEventListener("input", () => (restHint.textContent = "= " + fmtRest(parseNum(rest.value) || 0)));
   const rpe = h("input", { type: "checkbox", checked: e.trackRpe });
+  const isBw = h("input", { type: "checkbox", checked: !!e.isBodyweight });
   const note = h("textarea", { rows: 2, placeholder: "Заметка (настройка тренажёра, хват…)" }, e.note || "");
   const err = h("p", { class: "error", hidden: true });
 
   let dirty = false;
-  [name, muscle, unit, sets, rest, rpe, note].forEach(el => el.addEventListener("input", () => (dirty = true)));
+  [name, muscle, unit, sets, rest, rpe, isBw, note].forEach(el => el.addEventListener("input", () => (dirty = true)));
 
   const save = () => {
     const nm = name.value.trim();
@@ -84,7 +85,7 @@ export function openExerciseForm(ex, onSaved) {
       ...e, name: nm, muscleGroup: muscle.value.trim(), unit: unit.value,
       defaultSets: Math.max(1, Math.round(parseNum(sets.value) || 3)),
       defaultRestSec: Math.max(0, Math.round(parseNum(rest.value) ?? 210)),
-      trackRpe: rpe.checked, note: note.value.trim()
+      trackRpe: rpe.checked, isBodyweight: isBw.checked, note: note.value.trim()
     });
     dirty = false;
     sh.close(); onSaved && onSaved(saved);
@@ -92,7 +93,7 @@ export function openExerciseForm(ex, onSaved) {
   const archived = !!e.archived;
   const extra = [];
   if (!isNew) {
-    extra.push(h("button", { class: "btn", type: "button", onclick: () => { dirty = false; saveExercise({ ...e, archived: !archived }); sh.close(); toast(archived ? "Возвращено из архива" : "Перенесено в архив"); } }, archived ? "Вернуть из архива" : "В архив"));
+    extra.push(h("button", { class: "btn", type: "button", onclick: () => { dirty = false; saveExercise({ ...e, archived: !archived }); sh.close(); toast(archived ? "Возвращено из архива" : "Перенесено в архив"); } }, archived ? "Возвратить из архива" : "В архив"));
     if (!isExerciseUsed(e.id)) extra.push(h("button", { class: "btn", type: "button", onclick: async () => { if (await confirmDialog(`Удалить «${e.name}»?`, { ok: "Удалить", danger: true })) { dirty = false; deleteExercise(e.id); sh.close(); } } }, "Удалить"));
     else extra.push(h("p", { class: "muted small" }, "Упражнение есть в истории — удалить нельзя, только архивировать."));
   }
@@ -103,6 +104,7 @@ export function openExerciseForm(ex, onSaved) {
       h("label", { class: "field grow" }, h("span", {}, "Единицы"), unit),
       h("label", { class: "field grow" }, h("span", {}, "Сетов по умолч."), sets)),
     h("label", { class: "field" }, h("span", {}, "Отдых по умолчанию, сек ", restHint), rest),
+    h("label", { class: "check" }, isBw, h("span", {}, "Упражнение со своим весом (+ доп. вес)")),
     h("label", { class: "check" }, rpe, h("span", {}, "Вести RPE")),
     h("label", { class: "field" }, h("span", {}, "Заметка"), note),
     err,
@@ -160,7 +162,7 @@ export function mount(root) {
       list.append(h("div", { class: "list-item" + (e.archived ? " archived" : "") },
         h("button", { class: "card-main grow", type: "button", onclick: () => openExerciseForm(e) },
           h("strong", {}, e.name),
-          h("small", { class: "muted" }, `${weightInfo}${e.defaultSets} сет. · отдых ${fmtRest(e.defaultRestSec)} · ${unitLabel(e.unit)}${e.trackRpe ? " · RPE" : ""}${e.archived ? " · архив" : ""}`)),
+          h("small", { class: "muted" }, `${weightInfo}${e.defaultSets} сет. · отдых ${fmtRest(e.defaultRestSec)} · ${unitLabel(e.unit)}${e.isBodyweight ? " · свой вес" : ""}${e.trackRpe ? " · RPE" : ""}${e.archived ? " · архив" : ""}`)),
         iconBtn("clock", "История упражнения", () => openExerciseHistory(e.id, e.name, e.unit)),
         iconBtn("edit", "Редактировать", () => openExerciseForm(e))));
     }

@@ -1,5 +1,5 @@
-import { h, clear, sheet, confirmDialog, toast, fmtDate, fmtShortDate, toLocalInput, fromLocalInput, parseNum, iconBtn } from "../ui.js";
-import { state, saveSession, deleteSession } from "../store.js";
+import { h, clear, sheet, confirmDialog, toast, fmtDate, fmtShortDate, toLocalInput, fromLocalInput, parseNum, icon, iconBtn } from "../ui.js";
+import { state, saveSession, deleteSession, downloadCsv } from "../store.js";
 import { sessionStats, formatNum } from "../metrics.js";
 import { entryCard } from "./entryCard.js";
 import { pickExercise } from "./exercises.js";
@@ -148,6 +148,12 @@ export function mount(root) {
         })));
     }
     wrap.append(list);
+    if (items.length) {
+      wrap.append(h("button", {
+        class: "btn block", type: "button",
+        onclick: () => { downloadCsv(); toast("История выгружена в CSV"); }
+      }, icon("download", 18), "Скачать историю в CSV (Excel)"));
+    }
   };
   paint();
   return { update: paint };

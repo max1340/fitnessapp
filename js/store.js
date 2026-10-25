@@ -3,13 +3,20 @@ import { watchCollection, saveDoc, removeDoc, bulkSave, bulkRemove } from "./db.
 
 const COLLECTIONS = ["exercises", "programs", "sessions", "meta"];
 const LS_SETTINGS = "fitness.settings.v1";
+const LS_BW = "fitness.bodyweight.v1";
 
 const toArray = v => Array.isArray(v) ? v : (v && typeof v === "object" ? Object.values(v) : []);
 
 function normalizeDoc(coll, d) {
   if (!d || typeof d !== "object") return d;
   if (coll === "exercises") {
-    return { archived: false, note: "", ...d, startReps: toArray(d.startReps) };
+    return {
+      archived: false,
+      note: "",
+      isBodyweight: Boolean(d.isBodyweight || d.id === "seed-pullups"),
+      ...d,
+      startReps: toArray(d.startReps)
+    };
   }
   if (coll === "programs") {
     return {
@@ -36,6 +43,7 @@ export const DEFAULT_SETTINGS = {
   stepKg: 2.5,
   stepLb: 5,
   restSec: 210,
+  bodyweightKg: null,
   sound: true,
   vibration: true,
   notifications: true,
@@ -44,6 +52,7 @@ export const DEFAULT_SETTINGS = {
 
 export const state = {
   exercises: [], programs: [], sessions: [],
+  bodyweightLog: loadLocalBodyweight(),
   loaded: { exercises: false, programs: false, sessions: false, meta: false },
   settings: loadLocalSettings(),
   sync: { fromCache: false, pending: false, error: null }
@@ -56,6 +65,11 @@ function emit() { listeners.forEach(fn => { try { fn(); } catch (e) { console.er
 function loadLocalSettings() {
   try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(LS_SETTINGS) || "{}") }; }
   catch { return { ...DEFAULT_SETTINGS }; }
+}
+
+function loadLocalBodyweight() {
+  try { return toArray(JSON.parse(localStorage.getItem(LS_BW) || "[]")); }
+  catch { return []; }
 }
 
 export const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
@@ -101,6 +115,11 @@ export function init(onProgress) {
             state.settings = { ...DEFAULT_SETTINGS, ...rest };
             localStorage.setItem(LS_SETTINGS, JSON.stringify(state.settings));
           }
+          const bw = docs.find(d => d.id === "bodyweight");
+          if (bw) {
+            state.bodyweightLog = toArray(bw.items).filter(x => x && x.weight > 0).sort((a, b) => a.t - b.t);
+            localStorage.setItem(LS_BW, JSON.stringify(state.bodyweightLog));
+          }
         } else {
           state[name] = docs.map(d => normalizeDoc(name, d));
         }
@@ -119,12 +138,29 @@ export function init(onProgress) {
   });
 }
 
-/* ---------- Настройки ---------- */
+/* ---------- Настройки и собственный вес тела ---------- */
 export function updateSettings(patch) {
   state.settings = { ...state.settings, ...patch };
   localStorage.setItem(LS_SETTINGS, JSON.stringify(state.settings));
   saveDoc("meta", { id: "settings", ...state.settings }).catch(console.error);
   emit();
+}
+
+export function logBodyweight(weightKg) {
+  const w = Math.round(Number(weightKg) * 10) / 10;
+  if (!(w > 0)) return;
+  const now = Date.now();
+  const dayStr = t => new Date(t).toDateString();
+  const today = dayStr(now);
+  const log = [...state.bodyweightLog];
+  const idx = log.findIndex(x => dayStr(x.t) === today);
+  if (idx >= 0) log[idx] = { t: now, weight: w };
+  else log.push({ t: now, weight: w });
+  log.sort((a, b) => a.t - b.t);
+  state.bodyweightLog = log;
+  localStorage.setItem(LS_BW, JSON.stringify(log));
+  saveDoc("meta", { id: "bodyweight", items: log }).catch(console.error);
+  updateSettings({ bodyweightKg: w });
 }
 
 /* ---------- Универсальные операции ---------- */
@@ -212,7 +248,7 @@ export function seedStarterData() {
     startWeight, startReps, archived: false, ...extra
   });
   const exs = [
-    mk("seed-pullups", "Подтягивания", "Спина", 15, [8, 7, 8], { note: "Доп. вес" }),
+    mk("seed-pullups", "Подтягивания", "Спина", 15, [8, 7, 8], { note: "Доп. вес", isBodyweight: true }),
     mk("seed-tbar", "Т-гриф широким хватом", "Спина", 62.5, [9, 8, 9]),
     mk("seed-dbpress", "Жим гантелей", "Грудь", 32, [7, 6, 5]),
     mk("seed-biceps", "Гантели", "Бицепс", 20, [7, 7, 5]),
@@ -222,7 +258,7 @@ export function seedStarterData() {
   ];
   const program = {
     id: "seed-fullbody", name: "FULLBODY — классические сеты", archived: false,
-    items: exs.map(e => ({ exerciseId: e.id, sets: 3, targetReps: "", restSec: REST, note: "" }))
+    items: exs.map(e => ({ exerciseId: e.id, sets: 3, targetReps: "8-10", restSec: REST, note: "" }))
   };
   // не перезаписываем то, что пользователь уже мог отредактировать
   const items = [];
@@ -237,8 +273,68 @@ export function seedStarterData() {
 export function exportData() {
   return JSON.stringify({
     app: "fitness-tracker", version: 1, exportedAt: new Date().toISOString(),
-    settings: state.settings, exercises: state.exercises, programs: state.programs, sessions: state.sessions
+    settings: state.settings, bodyweightLog: state.bodyweightLog,
+    exercises: state.exercises, programs: state.programs, sessions: state.sessions
   }, null, 2);
+}
+
+/** Экспорт всех завершённых тренировок в CSV (с BOM и разделителем `;` для Excel / Google Sheets). */
+export function exportCsv() {
+  const esc = v => {
+    const s = v === null || v === undefined ? "" : String(v);
+    return /[;"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const numStr = v => (v === null || v === undefined || v === "" ? "" : String(v).replace(".", ","));
+  const rows = [[
+    "Дата", "Время", "Программа", "Длительность (мин)", "Свой вес (кг)",
+    "№", "Мышца", "Упражнение", "Сет №", "Тип сета", "Вес", "Ед.", "Повторы", "RPE", "Заметка"
+  ].join(";")];
+
+  const done = [...state.sessions].filter(s => s.status === "done").sort((a, b) => b.startedAt - a.startedAt);
+  for (const s of done) {
+    const d = new Date(s.startedAt);
+    const dateStr = `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+    const timeStr = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    const bw = s.bodyweightKg ?? state.settings.bodyweightKg ?? "";
+    (s.entries || []).forEach((e, eIdx) => {
+      const ex = getExercise(e.exerciseId);
+      const muscle = ex?.muscleGroup || e.muscleGroup || "";
+      let workIdx = 0;
+      (e.sets || []).forEach(set => {
+        if (!set.done) return;
+        if (!set.isWarmup) workIdx++;
+        rows.push([
+          esc(dateStr),
+          esc(timeStr),
+          esc(s.programName || ""),
+          esc(s.durationMin ?? ""),
+          esc(numStr(bw)),
+          esc(eIdx + 1),
+          esc(muscle),
+          esc(e.exerciseName || ""),
+          esc(set.isWarmup ? "Р" : workIdx),
+          esc(set.isWarmup ? "Разминочный" : "Рабочий"),
+          esc(numStr(set.weight ?? 0)),
+          esc(unitLabel(e.unit)),
+          esc(set.reps ?? ""),
+          esc(numStr(set.rpe ?? "")),
+          esc(e.note || "")
+        ].join(";"));
+      });
+    });
+  }
+  return "\uFEFF" + rows.join("\r\n");
+}
+
+export function downloadCsv() {
+  const blob = new Blob([exportCsv()], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `fitness-history-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
 export function importData(json) {

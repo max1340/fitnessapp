@@ -35,6 +35,7 @@ const ICONS = {
   chart: "M4 20V4M4 20h16M8 16l4-5 3 3 5-7", clock: "M12 21a9 9 0 100-18 9 9 0 000 18zM12 7v5l3 2", book: "M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2zM4 21V5",
   help: "M12 21a9 9 0 100-18 9 9 0 000 18zM9.5 9.5a2.5 2.5 0 114 2c-.9.6-1.5 1-1.5 2M12 17h.01", copy: "M9 9h11v11H9zM5 15V5h10",
   archive: "M3 4h18v4H3zM5 8v12h14V8M10 12h4", edit: "M4 20h4L19 9l-4-4L4 16z", trash: "M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13", skip: "M5 5l9 7-9 7zM18 5v14",
+  swap: "M7 16l-4-4 4-4M3 12h18M17 8l4 4-4 4", download: "M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2",
   search: "M11 18a7 7 0 100-14 7 7 0 000 14zM21 21l-5-5"
 };
 export function icon(name, size = 22) {

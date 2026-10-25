@@ -1,5 +1,5 @@
-import { h, clear, sheet, toast, fmtDate, confirmDialog, icon } from "../ui.js";
-import { state, doneSessions, getProgram, saveProgram, unitLabel } from "../store.js";
+import { h, clear, sheet, toast, fmtDate, fmtNum, parseNum, icon } from "../ui.js";
+import { state, doneSessions, getExercise, getProgram, saveProgram, logBodyweight, unitLabel } from "../store.js";
 import { lineChart } from "../chart.js";
 import {
   liSeries, movingAverage, changeOverWeeks, personalRecords, pickBaseline, byStart, formatNum,
@@ -7,6 +7,92 @@ import {
 } from "../metrics.js";
 
 const LS_KEY = "fitness.progress.program";
+let muscleDays = 30;
+
+function buildMuscleBalance(onChangePeriod) {
+  const allDone = doneSessions();
+  const now = Date.now();
+  const cutoff = muscleDays > 0 ? now - muscleDays * 864e5 : 0;
+  const counts = new Map();
+  let totalSets = 0;
+
+  for (const s of allDone) {
+    if (s.startedAt < cutoff) continue;
+    for (const e of s.entries || []) {
+      const workSets = (e.sets || []).filter(x => x.done && !x.isWarmup && x.reps > 0).length;
+      if (!workSets) continue;
+      const ex = getExercise(e.exerciseId);
+      const mg = (ex?.muscleGroup || e.muscleGroup || "Другое").trim();
+      counts.set(mg, (counts.get(mg) || 0) + workSets);
+      totalSets += workSets;
+    }
+  }
+
+  const rows = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  const maxVal = rows[0]?.[1] || 1;
+
+  const periodBtn = (days, label) => h("button", {
+    class: "btn small tag" + (muscleDays === days ? " on" : ""),
+    type: "button",
+    onclick: () => { muscleDays = days; onChangePeriod(); }
+  }, label);
+
+  const bars = rows.length
+    ? h("div", { class: "muscle-bars" }, ...rows.map(([mg, cnt]) => {
+        const pct = Math.round((cnt / totalSets) * 100);
+        const wPct = Math.max(6, Math.round((cnt / maxVal) * 100));
+        return h("div", { class: "muscle-row" },
+          h("div", { class: "muscle-head" },
+            h("strong", {}, mg),
+            h("small", { class: "muted" }, `${cnt} сет. (${pct}%)`)),
+          h("div", { class: "muscle-track" },
+            h("div", { class: "muscle-fill", style: `width:${wPct}%` })));
+      }))
+    : h("p", { class: "muted small" }, "За выбранный период нет выполненных рабочих сетов.");
+
+  return h("section", { class: "panel" },
+    h("div", { class: "panel-head" },
+      h("h2", { class: "section" }, "Баланс по мышцам"),
+      h("div", { class: "row gap" },
+        periodBtn(7, "7 дн."),
+        periodBtn(30, "30 дн."),
+        periodBtn(0, "Все"))),
+    bars);
+}
+
+function buildBodyweightPanel() {
+  const log = state.bodyweightLog || [];
+  const cur = state.settings.bodyweightKg ?? (log[log.length - 1]?.weight ?? null);
+  const inp = h("input", {
+    type: "text", inputmode: "decimal", class: "bw-inline-input",
+    placeholder: "80,0", value: fmtNum(cur ?? ""),
+    "aria-label": "Собственный вес тела, кг"
+  });
+  const save = () => {
+    const v = parseNum(inp.value);
+    if (!v || v < 20 || v > 300) { toast("Введите корректный вес в кг"); return; }
+    logBodyweight(v);
+    toast(`Вес тела записан: ${fmtNum(v)} кг`);
+  };
+
+  let deltaText = "";
+  if (log.length >= 2) {
+    const first = log[0].weight, last = log[log.length - 1].weight;
+    const diff = last - first;
+    deltaText = ` · изменение ${diff > 0 ? "+" : ""}${formatNum(diff, 1)} кг`;
+  }
+
+  const pts = log.map(x => ({ t: x.t, y: x.weight, label: `${formatNum(x.weight, 1)} кг` }));
+  return h("section", { class: "panel" },
+    h("div", { class: "panel-head" },
+      h("div", {},
+        h("h2", { class: "section" }, "Собственный вес тела"),
+        h("small", { class: "muted" }, (cur ? `Текущий: ${formatNum(cur, 1)} кг` : "Не указан") + deltaText)),
+      h("div", { class: "row gap" },
+        inp,
+        h("button", { class: "btn small primary", type: "button", onclick: save }, "Записать"))),
+    pts.length >= 2 ? lineChart(pts, { height: 140, fmt: v => formatNum(v, 1), label: "Вес тела, кг" }) : null);
+}
 
 export function showFormula() {
   const pct = n => Math.round(n * 100) + "%";
@@ -36,10 +122,16 @@ export function mount(root) {
     clear(select);
     progs.forEach(p => select.append(h("option", { value: p.id, selected: p.id === programId }, p.name)));
     clear(content);
-    if (!programId) { content.append(h("p", { class: "empty" }, "Нет программ. Создайте программу и проведите первую тренировку.")); return; }
+    if (!programId) {
+      content.append(h("p", { class: "empty" }, "Нет программ. Создайте программу и проведите первую тренировку."), buildMuscleBalance(paint), buildBodyweightPanel());
+      return;
+    }
     const program = getProgram(programId);
     const done = doneSessions(programId).sort(byStart);
-    if (!done.length) { content.append(h("p", { class: "empty" }, "У этой программы ещё нет завершённых тренировок.")); return; }
+    if (!done.length) {
+      content.append(h("p", { class: "empty" }, "У этой программы ещё нет завершённых тренировок."), buildMuscleBalance(paint), buildBodyweightPanel());
+      return;
+    }
 
     const series = liSeries(done, program.baselineSessionId);
     const base = pickBaseline(done, program.baselineSessionId);
@@ -109,7 +201,7 @@ export function mount(root) {
         h("span", { class: "muted small" }, `вес ${pr.weightKg !== null ? formatNum(fromKg(pr.weightKg, pr.unit), 1) + " " + unitLabel(pr.unit) + " (" + fmtDate(pr.weightDate) + ")" : "—"}`),
         h("span", { class: "muted small" }, `e1RM ${pr.e1rmKg !== null ? formatNum(fromKg(pr.e1rmKg, pr.unit), 1) + " " + unitLabel(pr.unit) + " (" + fmtDate(pr.e1rmDate) + ")" : "—"}`)));
     }
-    content.append(prBox);
+    content.append(prBox, buildMuscleBalance(paint), buildBodyweightPanel());
   }
 
   function resetBaseline(program, done) {

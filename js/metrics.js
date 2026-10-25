@@ -23,22 +23,29 @@ export function epley(weightKg, reps, rpe) {
   return weightKg * (1 + eff / 30);
 }
 
+/** Эффективный рабочий вес подхода в кг (для упражнений со своим весом прибавляется вес тела, если он задан). */
+export function effectiveWeightKg(set, entry, bodyweightKg = 0) {
+  const added = toKg(num(set && set.weight) ?? 0, entry && entry.unit);
+  const bw = entry && entry.isBodyweight ? (num(entry.bodyweightKg) ?? num(bodyweightKg) ?? 0) : 0;
+  return Math.max(0, bw + added);
+}
+
 /** Объём одного упражнения (кг·повт). */
-export function entryVolume(entry) {
+export function entryVolume(entry, bodyweightKg = 0) {
   let v = 0;
   for (const s of entry.sets || []) {
     if (!isCounted(s)) continue;
-    v += toKg(num(s.weight) ?? 0, entry.unit) * s.reps;
+    v += effectiveWeightKg(s, entry, bodyweightKg) * s.reps;
   }
   return v;
 }
 
 /** Лучший e1RM упражнения в кг или null. */
-export function entryE1rm(entry) {
+export function entryE1rm(entry, bodyweightKg = 0) {
   let best = null;
   for (const s of entry.sets || []) {
     if (!isCounted(s) || s.reps > MAX_E1RM_REPS) continue;
-    const w = toKg(num(s.weight) ?? 0, entry.unit);
+    const w = effectiveWeightKg(s, entry, bodyweightKg);
     if (w <= 0) continue;
     const e = epley(w, s.reps, s.rpe);
     if (best === null || e > best) best = e;
@@ -47,12 +54,13 @@ export function entryE1rm(entry) {
 }
 
 /** Максимальный рабочий вес (кг) или null. */
-export function entryTopWeight(entry) {
+export function entryTopWeight(entry, bodyweightKg = 0) {
   let best = null;
   for (const s of entry.sets || []) {
     if (!isCounted(s)) continue;
     const w = toKg(num(s.weight) ?? 0, entry.unit);
-    if (best === null || w > best) best = w;
+    const eff = w > 0 ? w : effectiveWeightKg(s, entry, bodyweightKg);
+    if (best === null || eff > best) best = eff;
   }
   return best;
 }
@@ -66,9 +74,10 @@ export function usableDuration(session) {
 /** Общие метрики тренировки (по всем упражнениям). */
 export function sessionStats(session) {
   let volume = 0, bestE1rm = null;
+  const bw = num(session && session.bodyweightKg) ?? 0;
   for (const e of session.entries || []) {
-    volume += entryVolume(e);
-    const e1 = entryE1rm(e);
+    volume += entryVolume(e, bw);
+    const e1 = entryE1rm(e, bw);
     if (e1 !== null && (bestE1rm === null || e1 > bestE1rm)) bestE1rm = e1;
   }
   const dur = usableDuration(session);
@@ -78,9 +87,10 @@ export function sessionStats(session) {
 /** Пофасетные метрики по exerciseId. */
 export function perExercise(session) {
   const map = new Map();
+  const bw = num(session && session.bodyweightKg) ?? 0;
   for (const e of session.entries || []) {
     const prev = map.get(e.exerciseId);
-    const v = entryVolume(e), e1 = entryE1rm(e);
+    const v = entryVolume(e, bw), e1 = entryE1rm(e, bw);
     if (!prev) map.set(e.exerciseId, { volume: v, e1rm: e1 });
     else { // одно упражнение дважды в тренировке — суммируем объём, берём лучший e1RM
       prev.volume += v;

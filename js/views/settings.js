@@ -1,5 +1,5 @@
 import { h, sheet, toast, confirmDialog, parseNum } from "../ui.js";
-import { state, updateSettings, exportData, importData, seedStarterData, getProgram } from "../store.js";
+import { state, updateSettings, exportData, importData, downloadCsv, seedStarterData } from "../store.js";
 import { persistence } from "../db.js";
 
 export function applyTheme() {
@@ -59,11 +59,12 @@ export function openSettings() {
       return h("label", { class: "check" }, el, h("span", {}, "Системные уведомления таймера"));
     })(),
     h("h3", { class: "group" }, "Данные"),
+    h("button", { class: "btn block", type: "button", onclick: () => { downloadCsv(); toast("Таблица CSV выгружена"); } }, "Экспорт в CSV (Excel / Таблица)"),
     h("button", { class: "btn block", type: "button", onclick: () => {
       const blob = new Blob([exportData()], { type: "application/json" });
       const a = h("a", { href: URL.createObjectURL(blob), download: `fitness-backup-${new Date().toISOString().slice(0, 10)}.json` });
       document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    } }, "Экспорт JSON"),
+    } }, "Экспорт JSON (полный бэкап)"),
     h("button", { class: "btn block", type: "button", onclick: () => file.click() }, "Импорт JSON"), file,
     h("button", { class: "btn block", type: "button", onclick: () => { const n = seedStarterData(); toast(n ? "Стартовая программа загружена" : "Стартовые данные уже загружены"); } }, "Загрузить мою текущую программу"),
     h("p", { class: "muted small" }, `Облако: Firebase RTDB (ветка fitnessApp), офлайн-кэш: ${persistence === "persistent" ? "включён" : "недоступен"}. Авторизации нет — выходить не из чего. Настройки синхронизируются через Firebase.`),
