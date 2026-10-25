@@ -18,14 +18,35 @@ export function entryCard(entry, ctx) {
   const unit = entry.unit, step = stepFor(unit);
   const setsBox = h("div", { class: "sets" });
 
+  const weightInputs = new Map();
+  // Новый вес автоматически переносится на следующие невыполненные сеты, которые его ещё не меняли
+  function propagateWeight(fromIdx, oldVal) {
+    const nv = entry.sets[fromIdx].weight;
+    for (let j = fromIdx + 1; j < entry.sets.length; j++) {
+      const s = entry.sets[j];
+      if (s.done || s.isWarmup || entry.sets[fromIdx].isWarmup) continue;
+      if (s.weight === oldVal || s.weight == null) {
+        s.weight = nv;
+        const inp = weightInputs.get(s); if (inp) inp.value = fmtNum(nv);
+      }
+    }
+  }
+
   function stepper(set, key, stepSize, placeholder, label, min = 0) {
     const inp = h("input", { type: "text", inputmode: "decimal", autocomplete: "off", enterkeyhint: "done", value: fmtNum(set[key]), placeholder, "aria-label": label });
-    inp.addEventListener("input", () => { set[key] = parseNum(inp.value); ctx.onChange(); });
+    if (key === "weight") weightInputs.set(set, inp);
+    inp.addEventListener("input", () => {
+      const old = set[key]; set[key] = parseNum(inp.value);
+      if (key === "weight") propagateWeight(entry.sets.indexOf(set), old);
+      ctx.onChange();
+    });
     inp.addEventListener("focus", () => setTimeout(() => inp.select(), 0));
     const bump = d => {
-      const cur = set[key] ?? 0;
+      const cur = set[key] ?? 0, old = set[key];
       set[key] = Math.max(min, round(cur + d));
-      inp.value = fmtNum(set[key]); ctx.onChange();
+      inp.value = fmtNum(set[key]);
+      if (key === "weight") propagateWeight(entry.sets.indexOf(set), old);
+      ctx.onChange();
     };
     return h("div", { class: "stepper" },
       h("button", { class: "btn step", type: "button", "aria-label": label + " минус", onclick: () => bump(-stepSize) }, icon("minus", 18)),

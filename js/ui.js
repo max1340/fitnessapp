@@ -1,4 +1,4 @@
-// Мелкие UI-хелперы без зависимостей.
+﻿// Мелкие UI-хелперы без зависимостей.
 
 /** Создание элемента: h("div", {class:"x", onclick}, child1, "text") */
 export function h(tag, attrs = {}, ...children) {
@@ -80,7 +80,7 @@ export function sheet(content, { title = "", full = false, onClose, actions } = 
     el, body,
     close(result) {
       if (api.closed) return; api.closed = true;
-      el.remove(); openSheets.splice(openSheets.indexOf(api), 1);
+      el.classList.add("closing"); setTimeout(() => el.remove(), 180); openSheets.splice(openSheets.indexOf(api), 1);
       document.body.classList.toggle("sheet-open", openSheets.length > 0);
       onClose && onClose(result);
     }
@@ -178,3 +178,4 @@ export function enableDragSort(list, onReorder) {
     handle.addEventListener("pointercancel", end);
   });
 }
+

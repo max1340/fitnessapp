@@ -19,7 +19,10 @@ const ROUTES = [
 const main = document.getElementById("view");
 const titleEl = document.getElementById("title");
 const syncEl = document.getElementById("sync");
-let current = null, currentId = null;
+let current = null, currentId = null, enterTimer;
+// iOS игнорирует user-scalable=no: блокируем жест щипка вручную
+["gesturestart", "gesturechange", "gestureend"].forEach(t => document.addEventListener(t, e => e.preventDefault()));
+document.addEventListener("dblclick", e => e.preventDefault());
 
 function route() {
   const id = (location.hash.replace(/^#\/?/, "") || "workout");
@@ -30,6 +33,8 @@ function route() {
   titleEl.textContent = r.title;
   document.title = r.title + " · Тренировки";
   clear(main);
+  main.classList.remove("enter"); void main.offsetWidth; main.classList.add("enter");
+  clearTimeout(enterTimer); enterTimer = setTimeout(() => main.classList.remove("enter"), 700);
   current = r.view.mount(main) || {};
   main.scrollTop = 0; window.scrollTo(0, 0);
   document.querySelectorAll("#nav a").forEach(a => {
@@ -44,7 +49,7 @@ function paintSync() {
   let text = "", label = "";
   if (s.error) { text = "Ошибка"; label = "Ошибка Firestore: " + s.error; }
   else if (!navigator.onLine) { text = "Офлайн"; label = "Нет сети. Данные сохраняются на устройстве и отправятся позже."; }
-  else if (s.pending) { text = "Синхр…"; label = "Идёт синхронизация"; }
+  // «идёт синхронизация» намеренно не показываем: при обычной работе это постоянный шум
   syncEl.textContent = text; syncEl.title = label; syncEl.hidden = !text;
 }
 

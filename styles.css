@@ -1,4 +1,4 @@
-/* Спокойный минимализм: только оттенки серого. Состояния — инверсия, толщина линии, пунктир. */
+﻿/* Спокойный минимализм: только оттенки серого. Состояния — инверсия, толщина линии, пунктир. */
 :root {
   --bg: #0b0b0c; --s1: #151517; --s2: #1f1f22; --line: #2a2a2e; --fg: #f2f2f3; --mut: #8b8b92;
   --inv-bg: #f2f2f3; --inv-fg: #0b0b0c; --shade: rgba(0, 0, 0, .65);
@@ -213,3 +213,55 @@ body.timer-on .bottom-actions { bottom: calc(var(--nav-h) + var(--timer-h) + var
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* ---------- Исправления: переполнение, зум, выделение ---------- */
+html, body { max-width: 100%; overflow-x: hidden; overscroll-behavior-x: none; touch-action: manipulation; }
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, select { -webkit-user-select: text; user-select: text; touch-action: manipulation; }
+#app, .view, .view > *, .stack, .list, .card, .list-item, .entry, .panel, .sheet-body { min-width: 0; max-width: 100%; }
+.card-main { min-width: 0; overflow: hidden; }
+.list-item .grow { overflow: hidden; }
+.list-item .grow small, .card-main small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-wrap, .sheet { max-width: 100vw; }
+.code { white-space: pre-wrap; word-break: break-word; }
+.entry-head strong, .pitem-head strong { overflow-wrap: anywhere; }
+
+/* Чекбокс в общей стилистике (ч/б, инверсия при выборе) */
+input[type="checkbox"] { appearance: none; -webkit-appearance: none; width: 26px; height: 26px; min-height: 26px; flex: none; border: 2px solid var(--mut); border-radius: 8px; background: transparent; display: inline-grid; place-content: center; transition: background .15s, border-color .15s, transform .15s; }
+input[type="checkbox"]::after { content: ""; width: 12px; height: 7px; border-left: 3px solid var(--bg); border-bottom: 3px solid var(--bg); transform: rotate(-45deg) scale(0); margin-top: -3px; transition: transform .15s; }
+input[type="checkbox"]:checked { background: var(--fg); border-color: var(--fg); }
+input[type="checkbox"]:checked::after { transform: rotate(-45deg) scale(1); }
+.set.done input[type="checkbox"]::after { border-color: var(--inv-bg); }
+
+/* ---------- Анимации ---------- */
+@keyframes fade-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sheet-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.12); } 100% { transform: scale(1); } }
+@keyframes slide-timer { from { transform: translate(-50%, 100%); } to { transform: translate(-50%, 0); } }
+@keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+
+.view.enter > * { animation: fade-up .35s cubic-bezier(.2, .8, .2, 1) both; }
+.view.enter > *:nth-child(2) { animation-delay: .04s; } .view.enter > *:nth-child(3) { animation-delay: .08s; }
+.view.enter .list > *, .view.enter .stack > .entry, .view.enter .panel { animation: fade-up .32s cubic-bezier(.2, .8, .2, 1) both; }
+.view.enter .list > *:nth-child(2), .view.enter .stack > .entry:nth-child(2) { animation-delay: .04s; } .view.enter .list > *:nth-child(3), .view.enter .stack > .entry:nth-child(3) { animation-delay: .08s; }
+.view.enter .list > *:nth-child(4), .view.enter .stack > .entry:nth-child(4) { animation-delay: .12s; } .view.enter .list > *:nth-child(n+5), .view.enter .stack > .entry:nth-child(n+5) { animation-delay: .16s; }
+
+.btn, .list-item, .card-main, .nav a { transition: background-color .15s, color .15s, transform .12s, opacity .15s, border-color .15s; }
+.btn:active, .list-item:active { transform: scale(.97); }
+.set { transition: background-color .28s ease, color .28s ease, border-color .28s ease; }
+.set.done .done-btn svg { animation: pop .32s ease; }
+.nav a svg { transition: transform .2s; } .nav a.active svg { transform: translateY(-1px) scale(1.08); }
+.sheet-backdrop { animation: fade-in .2s ease both; }
+.sheet { animation: sheet-up .26s cubic-bezier(.2, .8, .2, 1) both; }
+.sheet-wrap.closing { pointer-events: none; animation: fade-in .18s reverse both; }
+.timer-bar:not([hidden]) { animation: slide-timer .28s cubic-bezier(.2, .8, .2, 1) both; }
+.timer-bar.over .timer-time { animation: pulse 1s ease-in-out infinite; }
+.toast:not([hidden]) { animation: fade-up .25s ease both; }
+.chart-svg .line { stroke-dasharray: 1; stroke-dashoffset: 0; animation: draw .9s ease-out both; }
+.chart-svg .dot { animation: fade-in .4s .5s ease both; transition: r .15s; }
+.pitem { transition: border-color .15s, box-shadow .15s; }
+.pitem.dragging { box-shadow: 0 8px 24px rgba(0, 0, 0, .35); transform-origin: center; }
+@media (prefers-reduced-motion: reduce) { .chart-svg .line { stroke-dasharray: none; } }
+

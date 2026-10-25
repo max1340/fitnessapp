@@ -1,4 +1,4 @@
-// Линейные графики на чистом SVG (без библиотек). Только оттенки серого через currentColor/CSS-классы.
+﻿// Линейные графики на чистом SVG (без библиотек). Только оттенки серого через currentColor/CSS-классы.
 import { h, fmtShortDate } from "./ui.js";
 
 const NS = "http://www.w3.org/2000/svg";
@@ -38,7 +38,7 @@ export function lineChart(points, opts = {}) {
     t.textContent = fmtShortDate(points[i].t); svg.append(t);
   });
   // линия данных
-  if (points.length > 1) svg.append(s("polyline", { class: "line", fill: "none", points: points.map((p, i) => `${x(i)},${y(p.y)}` ).join(" ") }));
+  if (points.length > 1) svg.append(s("polyline", { class: "line", fill: "none", pathLength: "1", points: points.map((p, i) => `${x(i)},${y(p.y)}` ).join(" ") }));
   // сглаживающая линия (скользящее среднее) — толще и пунктиром
   if (opts.smooth && points.length > 1) svg.append(s("polyline", { class: "smooth", fill: "none", points: opts.smooth.map((v, i) => `${x(i)},${y(v)}`).join(" ") }));
   const dots = points.map((p, i) => { const c = s("circle", { cx: x(i), cy: y(p.y), r: 4, class: "dot" }); svg.append(c); return c; });
@@ -61,3 +61,4 @@ export function lineChart(points, opts = {}) {
   select(points.length - 1);
   return wrap;
 }
+
