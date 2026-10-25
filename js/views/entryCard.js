@@ -1,5 +1,5 @@
 // Карточка упражнения с сетами. Используется и в активной тренировке, и в редактировании истории.
-import { h, icon, iconBtn, fmtNum, parseNum, toast } from "../ui.js";
+import { h, icon, iconBtn, fmtNum, parseNum, toast, haptic } from "../ui.js";
 import { state, getExercise, stepFor, unitLabel, warmupSymbol } from "../store.js";
 import { toKg, epley, MAX_E1RM_REPS } from "../metrics.js";
 import { openExerciseHistory } from "./exercises.js";
@@ -116,10 +116,10 @@ export function entryCard(entry, ctx) {
   }
 
   function attachSwipeDelete(row, onDelete) {
-    let startX = 0, startY = 0, dx = 0, swiping = false;
+    let startX = 0, startY = 0, dx = 0, swiping = false, crossed = false;
     row.addEventListener("pointerdown", e => {
       if (e.target.closest("input, button")) return;
-      startX = e.clientX; startY = e.clientY; dx = 0; swiping = false;
+      startX = e.clientX; startY = e.clientY; dx = 0; swiping = false; crossed = false;
       const move = ev => {
         const curX = ev.clientX - startX, curY = ev.clientY - startY;
         if (!swiping) {
@@ -133,6 +133,8 @@ export function entryCard(entry, ctx) {
           dx = Math.max(-120, Math.min(0, curX));
           row.style.transform = `translateX(${dx}px)`;
           row.style.opacity = String(Math.max(0.35, 1 + dx / 180));
+          if (dx < -70 && !crossed) { crossed = true; haptic("medium"); }
+          else if (dx >= -70 && crossed) { crossed = false; haptic("light"); }
         }
       };
       const end = () => {
@@ -140,6 +142,7 @@ export function entryCard(entry, ctx) {
         if (!swiping) return;
         row.style.transition = "transform .18s ease, opacity .18s ease";
         if (dx < -70) {
+          haptic("warning");
           row.style.transform = "translateX(-100%)";
           row.style.opacity = "0";
           setTimeout(onDelete, 160);
@@ -220,6 +223,7 @@ export function entryCard(entry, ctx) {
 
   function toggleDone(set, row, btn, rowA, prSlot) {
     if (!set.done && !(set.reps > 0)) { // нельзя отметить пустой сет — подсказываем куда ввести
+      haptic("error");
       const inputs = rowA.querySelectorAll("input"); inputs[1] && inputs[1].focus(); return;
     }
     set.done = !set.done;
@@ -230,11 +234,17 @@ export function entryCard(entry, ctx) {
     prSlot.replaceChildren(pr ? h("span", { class: "pr-badge", title: t("entry.prTitle") }, "PR") : "");
     const sub = row.querySelector(".set-sub");
     if (sub) sub.hidden = !pr && !entry.trackRpe;
-    if (!set.done) entry._expanded = true; // если сняли галочку — оставляем карточку открытой
-    else if (entry.sets.every(s => s.done)) entry._expanded = false; // все сеты готовы — свернётся
+    const allCompleted = entry.sets.every(s => s.done);
+    if (!set.done) {
+      haptic("light");
+      entry._expanded = true; // если сняли галочку — оставляем карточку открытой
+    } else {
+      haptic(pr ? "pr" : allCompleted ? "success" : "medium");
+      if (allCompleted) entry._expanded = false; // все сеты готовы — свернётся
+    }
     ctx.onChange();
     if (set.done && ctx.onSetDone) ctx.onSetDone(entry, set, pr);
-    if (ctx.collapsible !== false && entry.sets.every(s => s.done)) {
+    if (ctx.collapsible !== false && allCompleted) {
       setTimeout(() => ctx.rerender(), 260);
     }
   }
@@ -257,6 +267,7 @@ export function entryCard(entry, ctx) {
     ? h("button", {
         class: "prog-banner", type: "button",
         onclick: () => {
+          haptic("success");
           const { nextWeight, resetReps, step: st } = entry.progression;
           entry.sets.forEach(s => {
             if (!s.isWarmup && !s.done) {

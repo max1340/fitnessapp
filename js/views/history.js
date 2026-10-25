@@ -1,4 +1,4 @@
-import { h, clear, sheet, confirmDialog, toast, fmtDate, fmtShortDate, toLocalInput, fromLocalInput, parseNum, icon, iconBtn } from "../ui.js";
+import { h, clear, sheet, confirmDialog, toast, fmtDate, fmtShortDate, toLocalInput, fromLocalInput, parseNum, icon, iconBtn, haptic } from "../ui.js";
 import { state, saveSession, deleteSession, downloadCsv, unitLabel } from "../store.js";
 import { sessionStats, formatNum } from "../metrics.js";
 import { entryCard } from "./entryCard.js";
@@ -109,7 +109,7 @@ function openEditor(original) {
     s.finishedAt = s.durationMin ? s.startedAt + s.durationMin * 60000 : s.finishedAt;
     s.entries.forEach((e, i) => { e.order = i; delete e._key; delete e._expanded; });
     dirty = false;
-    saveSession(s); sh.close(); toast(t("history.savedToast"));
+    saveSession(s); haptic("success"); sh.close(); toast(t("history.savedToast"));
   };
   const sh = sheet(h("div", { class: "stack" },
     h("p", { class: "muted" }, s.programName),

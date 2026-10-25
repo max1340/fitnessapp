@@ -1,4 +1,4 @@
-import { h, clear, sheet, confirmDialog, toast, parseNum, fmtRest, icon, iconBtn, enableDragSort } from "../ui.js";
+import { h, clear, sheet, confirmDialog, toast, parseNum, fmtRest, icon, iconBtn, enableDragSort, haptic } from "../ui.js";
 import { state, saveProgram, deleteProgram, getExercise, activeSession, uid } from "../store.js";
 import { pickExercise } from "./exercises.js";
 import { startSession } from "./workout.js";
@@ -79,13 +79,14 @@ export function openProgramEditor(program) {
 
   const save = () => {
     const nm = name.value.trim();
-    if (!nm) { err.textContent = t("common.enterName"); err.hidden = false; name.focus(); return; }
+    if (!nm) { haptic("error"); err.textContent = t("common.enterName"); err.hidden = false; name.focus(); return; }
     const items = p.items.map(({ _key, ...rest }) => ({
       exerciseId: rest.exerciseId, sets: rest.sets || 3, targetReps: rest.targetReps || "",
       restSec: rest.restSec ?? null, note: rest.note || ""
     }));
     dirty = false;
     saveProgram({ ...p, name: nm, items: items });
+    haptic("success");
     sh.close(); toast(t("programs.savedToast"));
   };
 
@@ -131,6 +132,7 @@ export function mount(root) {
           !p.archived && (!act || isCurrentActive) ? h("button", {
             class: "btn small primary start-btn", type: "button",
             onclick: () => {
+              haptic("medium");
               if (!act) startSession(p);
               sessionStorage.setItem("fitness.openActive", "1");
               location.hash = "#/workout";

@@ -1,7 +1,7 @@
 // Векторная анатомическая карта мышц человека (Спереди + Сзади) на чистом SVG.
 // Все стили и цвета заданы напрямую через inline-стили с переменными CSS (var(--fg), var(--s2), var(--line)),
 // поэтому силуэт ВСЕГДА рендерится корректно в тёмной и светлой теме и никогда не заливается сплошным чёрным.
-import { h } from "./ui.js";
+import { h, haptic } from "./ui.js";
 import { t } from "./i18n.js";
 
 const NS = "http://www.w3.org/2000/svg";
@@ -319,9 +319,9 @@ export function renderBodyMap(muscleItems = [], opts = {}) {
         }
       };
 
-      zg.addEventListener("click", selectZone);
+      zg.addEventListener("click", () => { haptic("light"); selectZone(); });
       zg.addEventListener("keydown", e => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectZone(); }
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); haptic("light"); selectZone(); }
       });
 
       zoneGroups.set(z.id, zg);

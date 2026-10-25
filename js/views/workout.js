@@ -1,4 +1,4 @@
-import { h, clear, sheet, confirmDialog, toast, fmtDate, fmtNum, fmtRest, icon, debounce, enableDragSort } from "../ui.js";
+import { h, clear, sheet, confirmDialog, toast, fmtDate, fmtNum, fmtRest, icon, debounce, enableDragSort, haptic } from "../ui.js";
 import { state, getExercise, getProgram, saveProgram, saveSession, deleteSession, activeSession, doneSessions, lastValues, stepFor, uid, unitLabel, warmupSymbol } from "../store.js";
 import { sessionStats, loadIndex, pickBaseline, compareWithPrevious, personalRecords, formatNum, fromKg, byStart } from "../metrics.js";
 import { entryCard, checkSetPR } from "./entryCard.js";
@@ -155,6 +155,7 @@ export function showSummary(session) {
           };
         });
         saveProgram({ ...program, items: newItems });
+        haptic("success");
         btn.disabled = true;
         btn.textContent = t("workout.templateUpdatedBtn");
         toast(t("workout.templateUpdatedToast"));
@@ -309,7 +310,7 @@ export function mount(root) {
         for (const s of e.sets || []) { actTotal++; if (s.done) actDone++; }
       }
       orbSubEl.textContent = t("workout.activeOrbSub", { done: actDone, total: actTotal, date: fmtDate(act.startedAt) });
-      orbBtnEl = h("button", { class: "home-orb", type: "button", onclick: () => open(act) },
+      orbBtnEl = h("button", { class: "home-orb", type: "button", onclick: () => { haptic("medium"); open(act); } },
         icon("play", 28),
         h("span", { class: "home-orb-label" }, t("workout.resumeCaps")),
         h("small", { class: "home-orb-sub" }, shortProgTitle(act.programName)),
@@ -329,7 +330,7 @@ export function mount(root) {
     } else {
       orbBtnEl = h("button", {
         class: "home-orb", type: "button",
-        onclick: () => open(startSession(getSelectedProg()))
+        onclick: () => { haptic("medium"); open(startSession(getSelectedProg())); }
       },
         icon("play", 30),
         h("span", { class: "home-orb-label" }, t("workout.startCaps")),
@@ -510,6 +511,7 @@ export function mount(root) {
     session.finishedAt = now; session.status = "done";
     session.durationMin = Math.max(1, Math.round((now - session.startedAt) / 60000));
     const saved = saveSession(session);
+    haptic("success");
     stopRest(); home(); showSummary(saved);
   }
 

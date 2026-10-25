@@ -1,5 +1,5 @@
 // Линейные графики на чистом SVG (без библиотек). Только оттенки серого через currentColor/CSS-классы.
-import { h, fmtShortDate } from "./ui.js";
+import { h, fmtShortDate, haptic } from "./ui.js";
 import { t, isEn } from "./i18n.js";
 
 const NS = "http://www.w3.org/2000/svg";
@@ -59,11 +59,33 @@ export function lineChart(points, opts = {}) {
     caption.textContent = `${fmtShortDate(p.t)} · ${p.label || fmt(p.y)}`;
     opts.onSelect && opts.onSelect(i);
   };
-  svg.addEventListener("pointerdown", e => {
-    const r = svg.getBoundingClientRect(), px = ((e.clientX - r.left) / r.width) * W;
+  const pickAt = clientX => {
+    const r = svg.getBoundingClientRect(), px = ((clientX - r.left) / r.width) * W;
     let best = 0, bd = Infinity;
     points.forEach((_, i) => { const d = Math.abs(x(i) - px); if (d < bd) { bd = d; best = i; } });
+    if (best !== sel) haptic("light");
     select(best);
+  };
+  svg.addEventListener("pointerdown", e => {
+    pickAt(e.clientX);
+    const startX = e.clientX, startY = e.clientY;
+    let scrubbing = false;
+    const move = ev => {
+      const dx = Math.abs(ev.clientX - startX), dy = Math.abs(ev.clientY - startY);
+      if (!scrubbing) {
+        if (dy > 10 && dy > dx) { cleanup(); return; }
+        if (dx > 6) scrubbing = true;
+      }
+      if (scrubbing) pickAt(ev.clientX);
+    };
+    const cleanup = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", cleanup);
+      window.removeEventListener("pointercancel", cleanup);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", cleanup);
+    window.addEventListener("pointercancel", cleanup);
   });
   wrap.append(svg, caption);
   select(points.length - 1);

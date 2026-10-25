@@ -1,5 +1,71 @@
 // Мелкие UI-хелперы без зависимостей.
 import { t, MONTHS, getLang, isEn } from "./i18n.js";
+import { state } from "./store.js";
+
+/* ---------- Тактильный отклик (Haptics: Web Vibration API + iOS Safari Switch Taptic) ---------- */
+const HAPTIC_PATTERNS = {
+  light: 10,
+  medium: 20,
+  heavy: 35,
+  success: [16, 45, 28],
+  pr: [28, 45, 36, 45, 55],
+  warning: [22, 40, 22],
+  error: [18, 35, 18, 35, 18]
+};
+
+let lastHapticTs = 0;
+let iosHapticLabel = null;
+
+function triggerIosTaptic() {
+  try {
+    if (!iosHapticLabel && document.body) {
+      const inp = document.createElement("input");
+      inp.type = "checkbox";
+      inp.setAttribute("switch", "");
+      const lbl = document.createElement("label");
+      lbl.setAttribute("aria-hidden", "true");
+      lbl.tabIndex = -1;
+      lbl.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden";
+      lbl.append(inp);
+      document.body.append(lbl);
+      iosHapticLabel = lbl;
+    }
+    if (iosHapticLabel) iosHapticLabel.click();
+  } catch { /* ignore */ }
+}
+
+/**
+ * Запускает тактильный отклик, если вибрация включена в настройках.
+ * type: "light" | "medium" | "heavy" | "success" | "pr" | "warning" | "error" | number | number[]
+ */
+export function haptic(type = "light") {
+  if (state.settings && state.settings.vibration === false) return;
+  lastHapticTs = performance.now();
+  const pattern = typeof type === "string" ? (HAPTIC_PATTERNS[type] || HAPTIC_PATTERNS.light) : type;
+  if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+    try { navigator.vibrate(pattern); } catch { /* ignore */ }
+  } else {
+    triggerIosTaptic();
+  }
+}
+
+if (typeof document !== "undefined") {
+  // Автоматический лёгкий тактильный отклик на все кнопки, вкладки, карточки и чекбоксы,
+  // если обработчик события не вызвал свой специализированный паттерн (success/pr/medium/error).
+  document.addEventListener("click", e => {
+    if (!e.isTrusted) return;
+    if (iosHapticLabel && iosHapticLabel.contains(e.target)) return;
+    if (performance.now() - lastHapticTs < 55) return;
+    const interactive = e.target.closest("button, #nav a, .auth-tab, .auth-mode-card, .auth-ex-item, .list-item, label.check");
+    if (interactive && !interactive.disabled) haptic("light");
+  });
+  document.addEventListener("change", e => {
+    if (!e.isTrusted) return;
+    if (iosHapticLabel && iosHapticLabel.contains(e.target)) return;
+    if (performance.now() - lastHapticTs < 55) return;
+    if (e.target.matches && e.target.matches("select")) haptic("light");
+  });
+}
 
 /** Создание элемента: h("div", {class:"x", onclick}, child1, "text") */
 export function h(tag, attrs = {}, ...children) {
@@ -109,12 +175,14 @@ export function sheet(content, { title = "", full = false, onClose, beforeClose,
   head.addEventListener("pointerdown", e => {
     if (e.target.closest("button, a, input")) return;
     const startY = e.clientY;
-    let dy = 0;
+    let dy = 0, crossed = false;
     head.setPointerCapture(e.pointerId);
     box.style.transition = "none";
     const move = ev => {
       dy = Math.max(0, ev.clientY - startY);
       box.style.transform = `translateY(${dy}px)`;
+      if (dy > 75 && !crossed) { crossed = true; haptic("light"); }
+      else if (dy <= 75 && crossed) { crossed = false; }
     };
     const end = async () => {
       head.removeEventListener("pointermove", move);
@@ -168,7 +236,7 @@ export function confirmDialog(message, { ok = t("common.yes"), cancel = t("commo
       h("p", { class: "confirm-text" }, message),
       h("div", { class: "row gap" },
         h("button", { class: "btn", type: "button", onclick: () => sh.close() }, cancel),
-        h("button", { class: "btn primary" + (danger ? " danger" : ""), type: "button", onclick: () => { res = true; sh.close(); } }, ok))),
+        h("button", { class: "btn primary" + (danger ? " danger" : ""), type: "button", onclick: () => { haptic(danger ? "warning" : "medium"); res = true; sh.close(); } }, ok))),
       { title: t("common.confirmTitle"), onClose: () => resolve(res) });
   });
 }
@@ -217,6 +285,7 @@ export function enableDragSort(list, onReorder) {
     const item = handle.closest("[data-key]");
     if (!item || item.parentNode !== list) return;
     e.preventDefault();
+    haptic("medium");
     handle.setPointerCapture(e.pointerId);
     const grabOffset = e.clientY - item.getBoundingClientRect().top;
     item.classList.add("dragging");
@@ -235,8 +304,8 @@ export function enableDragSort(list, onReorder) {
       for (let guard = 0; guard < 3; guard++) {
         const r = item.getBoundingClientRect(), cy = r.top + r.height / 2;
         const prev = item.previousElementSibling, next = item.nextElementSibling;
-        if (prev) { const pr = prev.getBoundingClientRect(); if (cy < pr.top + pr.height / 2) { list.insertBefore(item, prev); place(ev.clientY); continue; } }
-        if (next) { const nr = next.getBoundingClientRect(); if (cy > nr.top + nr.height / 2) { list.insertBefore(next, item); place(ev.clientY); continue; } }
+        if (prev) { const pr = prev.getBoundingClientRect(); if (cy < pr.top + pr.height / 2) { list.insertBefore(item, prev); place(ev.clientY); haptic("light"); continue; } }
+        if (next) { const nr = next.getBoundingClientRect(); if (cy > nr.top + nr.height / 2) { list.insertBefore(next, item); place(ev.clientY); haptic("light"); continue; } }
         break;
       }
     };
@@ -245,6 +314,7 @@ export function enableDragSort(list, onReorder) {
       handle.removeEventListener("pointerup", end);
       handle.removeEventListener("pointercancel", end);
       item.classList.remove("dragging"); item.style.transform = "";
+      haptic("light");
       onReorder([...list.children].map(c => c.dataset.key));
     };
     handle.addEventListener("pointermove", move);

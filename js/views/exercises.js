@@ -1,4 +1,4 @@
-import { h, clear, sheet, confirmDialog, toast, parseNum, fmtNum, fmtRest, fmtDate, icon, iconBtn } from "../ui.js";
+import { h, clear, sheet, confirmDialog, toast, parseNum, fmtNum, fmtRest, fmtDate, icon, iconBtn, haptic } from "../ui.js";
 import { state, saveExercise, deleteExercise, isExerciseUsed, getExercise, doneSessions, unitLabel, warmupSymbol } from "../store.js";
 import { personalRecords, fromKg, formatNum } from "../metrics.js";
 import { t, getMuscleHints } from "../i18n.js";
@@ -80,7 +80,7 @@ export function openExerciseForm(ex, onSaved) {
 
   const save = () => {
     const nm = name.value.trim();
-    if (!nm) { err.textContent = t("common.enterName"); err.hidden = false; name.focus(); return; }
+    if (!nm) { haptic("error"); err.textContent = t("common.enterName"); err.hidden = false; name.focus(); return; }
     const saved = saveExercise({
       ...e, name: nm, muscleGroup: muscle.value.trim(), unit: unit.value,
       defaultSets: Math.max(1, Math.round(parseNum(sets.value) || 3)),
@@ -88,6 +88,7 @@ export function openExerciseForm(ex, onSaved) {
       trackRpe: rpe.checked, isBodyweight: isBw.checked, note: note.value.trim()
     });
     dirty = false;
+    haptic("success");
     sh.close(); onSaved && onSaved(saved);
   };
   const archived = !!e.archived;

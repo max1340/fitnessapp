@@ -1,4 +1,4 @@
-import { h, clear, sheet, toast, fmtDate, fmtNum, parseNum, icon } from "../ui.js";
+import { h, clear, sheet, toast, fmtDate, fmtNum, parseNum, icon, haptic } from "../ui.js";
 import { state, doneSessions, getExercise, getProgram, saveProgram, logBodyweight, unitLabel } from "../store.js";
 import { lineChart } from "../chart.js";
 import { renderBodyMap } from "../bodyMap.js";
@@ -98,8 +98,9 @@ function buildBodyweightPanel() {
   });
   const save = () => {
     const v = parseNum(inp.value);
-    if (!v || v < 20 || v > 300) { toast(t("progress.bwInvalidToast")); return; }
+    if (!v || v < 20 || v > 300) { haptic("error"); toast(t("progress.bwInvalidToast")); return; }
     logBodyweight(v);
+    haptic("success");
     toast(t("progress.bwSavedToast", { w: fmtNum(v) }));
   };
 
@@ -246,7 +247,7 @@ export function mount(root) {
   function resetBaseline(program, done) {
     const list = h("div", { class: "list" });
     const cur = pickBaseline(done, program.baselineSessionId);
-    const choose = id => { saveProgram({ ...program, baselineSessionId: id }); sh.close(); toast(t("progress.baselineUpdatedToast")); paint(); };
+    const choose = id => { haptic("success"); saveProgram({ ...program, baselineSessionId: id }); sh.close(); toast(t("progress.baselineUpdatedToast")); paint(); };
     list.append(h("button", { class: "list-item", type: "button", onclick: () => choose(null) }, h("span", { class: "grow" }, h("strong", {}, t("progress.baselineAuto")))));
     [...done].reverse().forEach(s => list.append(h("button", { class: "list-item" + (cur && cur.id === s.id ? " current" : ""), type: "button", onclick: () => choose(s.id) },
       h("span", { class: "grow" }, h("strong", {}, fmtDate(s.startedAt, true)), h("small", { class: "muted" }, `${s.durationMin ?? "?"} ${t("workout.minUnit")}`)), cur && cur.id === s.id ? icon("check", 18) : null)));

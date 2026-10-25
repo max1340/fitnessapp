@@ -1,5 +1,5 @@
 // Экран входа, регистрации и начальной пошаговой настройки профиля (Onboarding).
-import { h, clear, parseNum, fmtNum, fmtRest, icon, toast } from "../ui.js";
+import { h, clear, parseNum, fmtNum, fmtRest, icon, toast, haptic } from "../ui.js";
 import {
   state, updateSettings, loginWithPin, registerNewProfile,
   getRememberedProfiles, getCommonCatalogLocalized, unitLabel
@@ -133,10 +133,12 @@ export function openAuthScreen(onSuccess) {
           submitBtn.textContent = t("auth.loggingIn");
           try {
             const u = await loginWithPin(userInp.value, pinInp.value, remChk.checked);
+            haptic("success");
             toast(t("auth.welcomeToast", { user: u.username }));
             closeAuth();
             if (onSuccess) await onSuccess(u);
           } catch (err) {
+            haptic("error");
             errEl.textContent = err.message || String(err);
             errEl.hidden = false;
             submitBtn.disabled = false;
@@ -207,18 +209,21 @@ export function openAuthScreen(onSuccess) {
             const cleanU = normalizeUserId(regUser);
             const cleanP = String(regPin || "").trim();
             if (!cleanU || cleanU.length < 3) {
+              haptic("error");
               errEl.textContent = t("auth.errInvalidUser");
               errEl.hidden = false;
               userInp.focus();
               return;
             }
             if (cleanP.length < 4) {
+              haptic("error");
               errEl.textContent = t("auth.errShortPin");
               errEl.hidden = false;
               pinInp.focus();
               return;
             }
             if (cleanU === "max_134") {
+              haptic("error");
               errEl.textContent = t("auth.errUserTaken");
               errEl.hidden = false;
               return;
@@ -228,17 +233,20 @@ export function openAuthScreen(onSuccess) {
             try {
               const existing = await fetchUserProfile(cleanU).catch(() => null);
               if (existing) {
+                haptic("error");
                 errEl.textContent = t("auth.errUserTaken");
                 errEl.hidden = false;
                 nextBtn.disabled = false;
                 nextBtn.textContent = t("auth.nextBtn");
                 return;
               }
+              haptic("medium");
               regUser = cleanU;
               regPin = cleanP;
               step = 2;
               render();
             } catch (err) {
+              haptic("error");
               errEl.textContent = err.message || String(err);
               errEl.hidden = false;
               nextBtn.disabled = false;
@@ -299,6 +307,7 @@ export function openAuthScreen(onSuccess) {
           class: "stack",
           onsubmit: ev => {
             ev.preventDefault();
+            haptic("medium");
             step = 3;
             render();
           }
@@ -381,6 +390,7 @@ export function openAuthScreen(onSuccess) {
         finishBtn.addEventListener("click", async () => {
           errEl.hidden = true;
           if (progMode === "custom" && selectedExMap.size === 0) {
+            haptic("error");
             errEl.textContent = t("auth.selectAtLeastOne");
             errEl.hidden = false;
             return;
@@ -411,10 +421,12 @@ export function openAuthScreen(onSuccess) {
                 items: customItems
               }
             });
+            haptic("success");
             toast(t("auth.welcomeToast", { user: u.username }));
             closeAuth();
             if (onSuccess) await onSuccess(u);
           } catch (err) {
+            haptic("error");
             errEl.textContent = err.message || String(err);
             errEl.hidden = false;
             finishBtn.disabled = false;

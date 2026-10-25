@@ -1,4 +1,4 @@
-import { h, clear, sheet, toast, confirmDialog, parseNum, fmtNum } from "../ui.js";
+import { h, clear, sheet, toast, confirmDialog, parseNum, fmtNum, haptic } from "../ui.js";
 import { state, updateSettings, exportData, importData, downloadCsv, unitLabel, logoutProfile } from "../store.js";
 import { t, getLang } from "../i18n.js";
 
@@ -50,7 +50,10 @@ export function openSettings() {
     };
     const check = (key, label) => {
       const el = h("input", { type: "checkbox", checked: !!st[key] });
-      el.addEventListener("change", () => updateSettings({ [key]: el.checked }));
+      el.addEventListener("change", () => {
+        updateSettings({ [key]: el.checked });
+        if (key === "vibration" && el.checked) haptic("medium");
+      });
       return h("label", { class: "check" }, el, h("span", {}, label));
     };
     const file = h("input", { type: "file", accept: "application/json,.json", hidden: true });
