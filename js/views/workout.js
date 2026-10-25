@@ -267,87 +267,112 @@ export function mount(root) {
       selectedId = programs[0]?.id || FREE_ID;
     }
 
+    const getSelectedProg = () => (selectedId === FREE_ID ? null : programs.find(p => p.id === selectedId) || null);
+
+    // 1. Пилюли выбора программы (создаются один раз, не пересоздаются при клике)
+    const pillBtns = new Map();
     const pillsWrap = h("div", { class: "home-pills" });
-    const selMetaBox = h("div", { class: "home-sel-meta" });
-    const heroBox = h("div", { class: "home-hero" });
-    const previewBox = h("section", { class: "panel home-preview" });
-
-    const selectProg = id => {
-      selectedId = id;
-      localStorage.setItem(LS_HOME_PROG, id);
-      renderHomeParts();
-    };
-
-    function renderHomeParts() {
-      clear(pillsWrap);
-      for (const p of programs) {
-        pillsWrap.append(h("button", {
-          type: "button",
-          class: "btn tag home-pill" + (selectedId === p.id ? " on" : ""),
-          onclick: () => selectProg(p.id)
-        }, shortProgTitle(p.name)));
-      }
-      pillsWrap.append(h("button", {
+    for (const p of programs) {
+      const b = h("button", {
         type: "button",
-        class: "btn tag home-pill" + (selectedId === FREE_ID ? " on" : ""),
-        onclick: () => selectProg(FREE_ID)
-      }, "Свободная тренировка"));
+        class: "btn tag home-pill" + (selectedId === p.id ? " on" : ""),
+        onclick: () => selectProg(p.id)
+      }, shortProgTitle(p.name));
+      pillBtns.set(p.id, b);
+      pillsWrap.append(b);
+    }
+    const freeBtn = h("button", {
+      type: "button",
+      class: "btn tag home-pill" + (selectedId === FREE_ID ? " on" : ""),
+      onclick: () => selectProg(FREE_ID)
+    }, "Свободная тренировка");
+    pillBtns.set(FREE_ID, freeBtn);
+    pillsWrap.append(freeBtn);
 
-      const isFree = selectedId === FREE_ID;
-      const prog = isFree ? null : programs.find(p => p.id === selectedId) || null;
+    // 2. Блок мета-информации фиксированной высоты (никогда не меняет высоту карточки)
+    const selTitleEl = h("strong", { class: "home-sel-title" });
+    const selSubEl = h("small", { class: "muted home-sel-sub" });
+    const selMetaBox = h("div", { class: "home-sel-meta" }, selTitleEl, selSubEl);
+
+    // 3. Центральная круглая кнопка-шайба (создаётся один раз — координаты и высота 100% стабильны)
+    const orbSubEl = h("small", { class: "home-orb-sub" });
+    let orbBtnEl, orbRingEl;
+    const heroBox = h("div", { class: "home-hero" });
+
+    if (act) {
+      let actTotal = 0, actDone = 0;
+      for (const e of act.entries || []) {
+        if (e.skipped) continue;
+        for (const s of e.sets || []) { actTotal++; if (s.done) actDone++; }
+      }
+      orbSubEl.textContent = `${actDone}/${actTotal} сет. · ${fmtDate(act.startedAt)}`;
+      orbBtnEl = h("button", { class: "home-orb", type: "button", onclick: () => open(act) },
+        icon("play", 28),
+        h("span", { class: "home-orb-label" }, "ПРОДОЛЖИТЬ"),
+        h("small", { class: "home-orb-sub" }, shortProgTitle(act.programName)),
+        orbSubEl);
+      orbRingEl = h("div", { class: "home-orb-ring active-ring" }, orbBtnEl);
+      heroBox.append(
+        orbRingEl,
+        h("button", {
+          class: "btn small", type: "button",
+          onclick: async () => {
+            if (await confirmDialog("Удалить незавершённую тренировку? Все введённые данные будут удалены.", { ok: "Удалить", danger: true })) {
+              stopRest(); deleteSession(act.id); toast("Тренировка удалена"); home();
+            }
+          }
+        }, icon("trash", 15), "Удалить незавершённую тренировку")
+      );
+    } else {
+      orbBtnEl = h("button", {
+        class: "home-orb", type: "button",
+        onclick: () => open(startSession(getSelectedProg()))
+      },
+        icon("play", 30),
+        h("span", { class: "home-orb-label" }, "НАЧАТЬ"),
+        orbSubEl);
+      orbRingEl = h("div", { class: "home-orb-ring" }, orbBtnEl);
+      heroBox.append(orbRingEl);
+    }
+
+    // 4. Нижняя карточка превью мышц и упражнений
+    const previewTitleEl = h("h3", { class: "group", style: "margin:0" });
+    const previewCountEl = h("small", { class: "muted" });
+    const previewBody = h("div", { class: "home-preview-body" });
+    const previewBox = h("section", { class: "panel home-preview" },
+      h("div", { class: "panel-head" }, previewTitleEl, previewCountEl),
+      previewBody);
+
+    function updateHomeContent(animateSwitch = false) {
+      for (const [id, b] of pillBtns) b.classList.toggle("on", id === selectedId);
+
+      const prog = getSelectedProg();
       const totalSets = prog ? (prog.items || []).reduce((n, it) => n + (Number(it.sets) || 3), 0) : 0;
       const last = prog ? doneSessions(prog.id).sort(byStart).pop() : null;
 
-      clear(selMetaBox);
       if (prog) {
-        selMetaBox.append(
-          h("strong", { class: "home-sel-title" }, prog.name),
-          h("small", { class: "muted" }, `${prog.items.length} упр. · ${totalSets} сет.` + (last ? ` · последняя ${fmtDate(last.startedAt)}` : " · ещё не выполнялась"))
-        );
+        selTitleEl.textContent = prog.name;
+        selSubEl.textContent = `${prog.items.length} упр. · ${totalSets} сет.` + (last ? ` · последняя ${fmtDate(last.startedAt)}` : " · ещё не выполнялась");
       } else {
-        selMetaBox.append(
-          h("strong", { class: "home-sel-title" }, "Свободная тренировка"),
-          h("small", { class: "muted" }, "Без шаблона · добавляйте упражнения по ходу тренировки")
-        );
+        selTitleEl.textContent = "Свободная тренировка";
+        selSubEl.textContent = "Без шаблона · добавляйте упражнения по ходу тренировки";
       }
 
-      clear(heroBox);
-      if (act) {
-        let actTotal = 0, actDone = 0;
-        for (const e of act.entries || []) {
-          if (e.skipped) continue;
-          for (const s of e.sets || []) { actTotal++; if (s.done) actDone++; }
-        }
-        heroBox.append(
-          h("div", { class: "home-orb-ring active-ring" },
-            h("button", { class: "home-orb", type: "button", onclick: () => open(act) },
-              icon("play", 28),
-              h("span", { class: "home-orb-label" }, "ПРОДОЛЖИТЬ"),
-              h("small", { class: "home-orb-sub" }, shortProgTitle(act.programName)),
-              h("small", { class: "home-orb-sub" }, `${actDone}/${actTotal} сет. · ${fmtDate(act.startedAt)}`))),
-          h("button", {
-            class: "btn small", type: "button",
-            onclick: async () => {
-              if (await confirmDialog("Удалить незавершённую тренировку? Все введённые данные будут удалены.", { ok: "Удалить", danger: true })) {
-                stopRest(); deleteSession(act.id); toast("Тренировка удалена"); home();
-              }
-            }
-          }, icon("trash", 15), "Удалить незавершённую тренировку")
-        );
-      } else {
-        heroBox.append(
-          h("div", { class: "home-orb-ring" },
-            h("button", {
-              class: "home-orb", type: "button",
-              onclick: () => open(startSession(prog))
-            },
-              icon("play", 30),
-              h("span", { class: "home-orb-label" }, "НАЧАТЬ"),
-              h("small", { class: "home-orb-sub" }, prog ? `${prog.items.length} упр. · ${totalSets} сет.` : "Свободная")))
-        );
+      if (!act) {
+        orbSubEl.textContent = prog ? `${prog.items.length} упр. · ${totalSets} сет.` : "Без шаблона";
       }
 
-      clear(previewBox);
+      if (animateSwitch) {
+        selMetaBox.classList.remove("swap-anim");
+        orbBtnEl.classList.remove("orb-switch");
+        previewBody.classList.remove("swap-anim");
+        void orbBtnEl.offsetWidth;
+        selMetaBox.classList.add("swap-anim");
+        orbBtnEl.classList.add("orb-switch");
+        previewBody.classList.add("swap-anim");
+      }
+
+      clear(previewBody);
       const byMuscle = new Map();
       const exChips = [];
       if (prog) {
@@ -360,25 +385,32 @@ export function mount(root) {
           const rec = byMuscle.get(mg);
           rec.sets += setsCnt;
           rec.exercises.push(ex.name);
-          exChips.push(h("div", { class: "home-ex-chip" },
+          exChips.push(h("div", { class: "home-ex-chip", style: `--i:${idx}` },
             h("span", { class: "home-ex-num" }, String(idx + 1)),
             h("span", { class: "grow home-ex-name" }, ex.name),
             h("small", { class: "muted home-ex-sets" }, `${setsCnt}×${it.targetReps || "8-10"}`)));
         });
       }
 
-      previewBox.append(
-        h("div", { class: "panel-head" },
-          h("h3", { class: "group", style: "margin:0" }, prog ? "Задействованные мышцы и упражнения" : "Карта мышц"),
-          prog ? h("small", { class: "muted" }, `${byMuscle.size} мышечн. гр.`) : null),
+      previewTitleEl.textContent = prog ? "Задействованные мышцы и упражнения" : "Карта мышц";
+      previewCountEl.textContent = prog ? `${byMuscle.size} мышечн. гр.` : "0 мышечн. гр.";
+
+      previewBody.append(
         renderBodyMap([...byMuscle.values()], { compact: true }),
         prog && exChips.length
           ? h("div", { class: "home-ex-list" }, ...exChips)
-          : h("p", { class: "muted small", style: "text-align:center" }, "В свободной тренировке упражнения выбираются из библиотеки прямо во время занятия.")
+          : h("p", { class: "muted small home-free-note" }, "В свободной тренировке упражнения выбираются из библиотеки прямо во время занятия.")
       );
     }
 
-    renderHomeParts();
+    const selectProg = id => {
+      if (id === selectedId) return;
+      selectedId = id;
+      localStorage.setItem(LS_HOME_PROG, id);
+      updateHomeContent(true);
+    };
+
+    updateHomeContent(false);
 
     view.append(
       h("section", { class: "panel home-selector-card" },
