@@ -4,6 +4,7 @@ import { sessionStats, loadIndex, pickBaseline, compareWithPrevious, personalRec
 import { entryCard, checkSetPR } from "./entryCard.js";
 import { pickExercise } from "./exercises.js";
 import { startRest, stopRest } from "../timer.js";
+import { renderBodyMap } from "../bodyMap.js";
 
 /* ---------- Screen Wake Lock ---------- */
 let wakeLock = null, wantLock = false;
@@ -163,6 +164,19 @@ export function showSummary(session) {
       btn);
   })() : null;
 
+  const sMuscles = new Map();
+  for (const e of session.entries || []) {
+    const workSets = (e.sets || []).filter(s => s.done && !s.isWarmup && s.reps > 0).length;
+    if (!workSets) continue;
+    const ex = getExercise(e.exerciseId);
+    const mg = (ex?.muscleGroup || "Другое").trim();
+    if (!sMuscles.has(mg)) sMuscles.set(mg, { muscle: mg, sets: 0, exercises: new Set() });
+    const rec = sMuscles.get(mg);
+    rec.sets += workSets;
+    rec.exercises.add(e.exerciseName || ex?.name || "");
+  }
+  const mapItems = [...sMuscles.values()].map(x => ({ ...x, exercises: [...x.exercises] }));
+
   const cell = (label, val, sub = "") => h("div", { class: "stat" }, h("small", { class: "muted" }, label), h("strong", {}, val), sub ? h("small", { class: "muted" }, sub) : null);
   const sign = n => (n > 0 ? "+" : "") + formatNum(n, 1);
   const sh = sheet(h("div", { class: "stack" },
@@ -172,6 +186,9 @@ export function showSummary(session) {
       cell("Индекс нагрузки", li ? formatNum(li.li, 1) : "—", base && base.id === session.id ? "это базовая тренировка" : ""),
       cell("К прошлой", cmp === null ? "—" : sign(cmp) + "%", "объём по общим упражнениям"),
       cell("Время", (session.durationMin ?? "—") + " мин")),
+    mapItems.length ? h("div", { class: "panel" },
+      h("h3", { class: "group" }, "Задействованные мышцы"),
+      renderBodyMap(mapItems, { compact: true })) : null,
     prItems.length ? h("div", { class: "panel" },
       h("h3", { class: "group" }, "Новые рекорды (PR)"),
       ...prItems.map(p => h("div", { class: "row gap" }, h("span", { class: "pr-badge" }, "PR"), h("strong", { class: "grow" }, p.name), h("small", { class: "muted" }, p.text)))

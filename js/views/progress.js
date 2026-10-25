@@ -1,6 +1,7 @@
 import { h, clear, sheet, toast, fmtDate, fmtNum, parseNum, icon } from "../ui.js";
 import { state, doneSessions, getExercise, getProgram, saveProgram, logBodyweight, unitLabel } from "../store.js";
 import { lineChart } from "../chart.js";
+import { renderBodyMap } from "../bodyMap.js";
 import {
   liSeries, movingAverage, changeOverWeeks, personalRecords, pickBaseline, byStart, formatNum,
   entryTopWeight, entryE1rm, entryVolume, fromKg, LI_WEIGHTS
@@ -14,6 +15,7 @@ function buildMuscleBalance(onChangePeriod) {
   const now = Date.now();
   const cutoff = muscleDays > 0 ? now - muscleDays * 864e5 : 0;
   const counts = new Map();
+  const exByMuscle = new Map();
   let totalSets = 0;
 
   for (const s of allDone) {
@@ -24,12 +26,19 @@ function buildMuscleBalance(onChangePeriod) {
       const ex = getExercise(e.exerciseId);
       const mg = (ex?.muscleGroup || e.muscleGroup || "Другое").trim();
       counts.set(mg, (counts.get(mg) || 0) + workSets);
+      if (!exByMuscle.has(mg)) exByMuscle.set(mg, new Set());
+      exByMuscle.get(mg).add(e.exerciseName || ex?.name || "");
       totalSets += workSets;
     }
   }
 
   const rows = [...counts.entries()].sort((a, b) => b[1] - a[1]);
   const maxVal = rows[0]?.[1] || 1;
+  const mapData = rows.map(([mg, cnt]) => ({
+    muscle: mg,
+    sets: cnt,
+    exercises: [...(exByMuscle.get(mg) || [])]
+  }));
 
   const periodBtn = (days, label) => h("button", {
     class: "btn small tag" + (muscleDays === days ? " on" : ""),
@@ -57,6 +66,7 @@ function buildMuscleBalance(onChangePeriod) {
         periodBtn(7, "7 дн."),
         periodBtn(30, "30 дн."),
         periodBtn(0, "Все"))),
+    renderBodyMap(mapData),
     bars);
 }
 

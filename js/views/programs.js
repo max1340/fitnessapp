@@ -2,6 +2,7 @@ import { h, clear, sheet, confirmDialog, toast, parseNum, fmtRest, icon, iconBtn
 import { state, saveProgram, deleteProgram, getExercise, activeSession, uid } from "../store.js";
 import { pickExercise } from "./exercises.js";
 import { startSession } from "./workout.js";
+import { renderBodyMap } from "../bodyMap.js";
 
 export function openProgramEditor(program) {
   const isNew = !program;
@@ -11,6 +12,7 @@ export function openProgramEditor(program) {
 
   const name = h("input", { type: "text", value: p.name, placeholder: "Название программы", autocomplete: "off" });
   const list = h("div", { class: "pitems" });
+  const mapBox = h("div", { class: "panel" });
   const err = h("p", { class: "error", hidden: true });
   let dirty = false;
   name.addEventListener("input", () => (dirty = true));
@@ -25,14 +27,32 @@ export function openProgramEditor(program) {
     paint();
   };
 
+  function paintMap() {
+    clear(mapBox);
+    const byMuscle = new Map();
+    for (const it of p.items) {
+      const ex = getExercise(it.exerciseId);
+      if (!ex) continue;
+      const mg = (ex.muscleGroup || "Другое").trim();
+      if (!byMuscle.has(mg)) byMuscle.set(mg, { muscle: mg, sets: 0, exercises: [] });
+      const rec = byMuscle.get(mg);
+      rec.sets += Number(it.sets) || 3;
+      rec.exercises.push(ex.name);
+    }
+    mapBox.append(
+      h("h3", { class: "group" }, "Покрытие мышц программой"),
+      renderBodyMap([...byMuscle.values()], { compact: true }));
+  }
+
   function paint() {
+    paintMap();
     clear(list);
     if (!p.items.length) list.append(h("p", { class: "empty" }, "Добавьте упражнения из библиотеки"));
     p.items.forEach((it, idx) => {
       const ex = getExercise(it.exerciseId);
       const field = (label, value, set, placeholder = "", mode = "numeric") => {
         const inp = h("input", { type: "text", inputmode: mode, value: value ?? "", placeholder, "aria-label": label });
-        inp.addEventListener("input", () => { set(inp.value); dirty = true; });
+        inp.addEventListener("input", () => { set(inp.value); dirty = true; paintMap(); });
         return h("label", { class: "field mini" }, h("span", {}, label), inp);
       };
       const restHint = h("span", { class: "muted" });
@@ -69,7 +89,9 @@ export function openProgramEditor(program) {
   };
 
   const body = h("div", { class: "stack" },
-    h("label", { class: "field" }, h("span", {}, "Название"), name), err, list,
+    h("label", { class: "field" }, h("span", {}, "Название"), name), err,
+    mapBox,
+    list,
     h("button", { class: "btn block", type: "button", onclick: () => pickExercise(ex => {
       p.items.push({ _key: uid(), exerciseId: ex.id, sets: ex.defaultSets || 3, targetReps: "", restSec: null, note: "" });
       dirty = true; paint();
