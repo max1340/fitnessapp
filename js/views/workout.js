@@ -248,36 +248,146 @@ export function mount(root) {
   document.addEventListener("visibilitychange", onHide);
   window.addEventListener("pagehide", onHide);
 
+  const LS_HOME_PROG = "fitness.home.programId";
+  const FREE_ID = "__free__";
+
+  function shortProgTitle(name = "") {
+    const clean = String(name).split(/[—–]/)[0].trim();
+    return clean.length > 26 ? clean.slice(0, 25) + "…" : (clean || name);
+  }
+
   function home() {
     mode = "home"; session = null; releaseLock(); clearInterval(clockTimer);
     clear(view);
     const act = activeSession();
-    if (act) {
-      view.append(
-        h("button", { class: "btn primary big block", type: "button", onclick: () => open(act) },
-          h("span", {}, "Продолжить тренировку"), h("small", {}, `${act.programName} · начата ${fmtDate(act.startedAt, true)}`)),
-        h("button", {
-          class: "btn small block", type: "button",
-          onclick: async () => {
-            if (await confirmDialog("Удалить незавершённую тренировку? Все введённые данные будут удалены.", { ok: "Удалить", danger: true })) {
-              stopRest(); deleteSession(act.id); toast("Тренировка удалена"); home();
-            }
-          }
-        }, icon("trash", 16), "Удалить незавершённую тренировку"));
-    }
-    view.append(h("h2", { class: "section" }, "Программы"));
     const programs = state.programs.filter(p => !p.archived).sort((a, b) => a.name.localeCompare(b.name));
-    if (!programs.length) view.append(h("p", { class: "empty" }, "Программ пока нет. Откройте настройки (⚙) и загрузите стартовую программу или создайте свою во вкладке «Программы»."));
-    for (const p of programs) {
-      const last = doneSessions(p.id).sort(byStart).pop();
-      view.append(h("div", { class: "card home-prog-card" },
-        h("div", { class: "grow" },
-          h("strong", {}, p.name),
-          h("small", { class: "muted" }, `${p.items.length} упр.` + (last ? ` · последняя ${fmtDate(last.startedAt)}` : " · ещё не выполнялась"))),
-        act ? null : h("button", { class: "btn primary small", type: "button", onclick: () => open(startSession(p)) }, icon("play", 16), "Начать")));
+
+    let selectedId = localStorage.getItem(LS_HOME_PROG);
+    if (selectedId !== FREE_ID && !programs.some(p => p.id === selectedId)) {
+      selectedId = programs[0]?.id || FREE_ID;
     }
-    if (act) view.append(h("p", { class: "muted small" }, "Чтобы начать другую тренировку, завершите или отмените текущую."));
-    else view.append(h("button", { class: "btn block", type: "button", onclick: () => open(startSession(null)) }, "Свободная тренировка"));
+
+    const pillsWrap = h("div", { class: "home-pills" });
+    const selMetaBox = h("div", { class: "home-sel-meta" });
+    const heroBox = h("div", { class: "home-hero" });
+    const previewBox = h("section", { class: "panel home-preview" });
+
+    const selectProg = id => {
+      selectedId = id;
+      localStorage.setItem(LS_HOME_PROG, id);
+      renderHomeParts();
+    };
+
+    function renderHomeParts() {
+      clear(pillsWrap);
+      for (const p of programs) {
+        pillsWrap.append(h("button", {
+          type: "button",
+          class: "btn tag home-pill" + (selectedId === p.id ? " on" : ""),
+          onclick: () => selectProg(p.id)
+        }, shortProgTitle(p.name)));
+      }
+      pillsWrap.append(h("button", {
+        type: "button",
+        class: "btn tag home-pill" + (selectedId === FREE_ID ? " on" : ""),
+        onclick: () => selectProg(FREE_ID)
+      }, "Свободная тренировка"));
+
+      const isFree = selectedId === FREE_ID;
+      const prog = isFree ? null : programs.find(p => p.id === selectedId) || null;
+      const totalSets = prog ? (prog.items || []).reduce((n, it) => n + (Number(it.sets) || 3), 0) : 0;
+      const last = prog ? doneSessions(prog.id).sort(byStart).pop() : null;
+
+      clear(selMetaBox);
+      if (prog) {
+        selMetaBox.append(
+          h("strong", { class: "home-sel-title" }, prog.name),
+          h("small", { class: "muted" }, `${prog.items.length} упр. · ${totalSets} сет.` + (last ? ` · последняя ${fmtDate(last.startedAt)}` : " · ещё не выполнялась"))
+        );
+      } else {
+        selMetaBox.append(
+          h("strong", { class: "home-sel-title" }, "Свободная тренировка"),
+          h("small", { class: "muted" }, "Без шаблона · добавляйте упражнения по ходу тренировки")
+        );
+      }
+
+      clear(heroBox);
+      if (act) {
+        let actTotal = 0, actDone = 0;
+        for (const e of act.entries || []) {
+          if (e.skipped) continue;
+          for (const s of e.sets || []) { actTotal++; if (s.done) actDone++; }
+        }
+        heroBox.append(
+          h("div", { class: "home-orb-ring active-ring" },
+            h("button", { class: "home-orb", type: "button", onclick: () => open(act) },
+              icon("play", 28),
+              h("span", { class: "home-orb-label" }, "ПРОДОЛЖИТЬ"),
+              h("small", { class: "home-orb-sub" }, shortProgTitle(act.programName)),
+              h("small", { class: "home-orb-sub" }, `${actDone}/${actTotal} сет. · ${fmtDate(act.startedAt)}`))),
+          h("button", {
+            class: "btn small", type: "button",
+            onclick: async () => {
+              if (await confirmDialog("Удалить незавершённую тренировку? Все введённые данные будут удалены.", { ok: "Удалить", danger: true })) {
+                stopRest(); deleteSession(act.id); toast("Тренировка удалена"); home();
+              }
+            }
+          }, icon("trash", 15), "Удалить незавершённую тренировку")
+        );
+      } else {
+        heroBox.append(
+          h("div", { class: "home-orb-ring" },
+            h("button", {
+              class: "home-orb", type: "button",
+              onclick: () => open(startSession(prog))
+            },
+              icon("play", 30),
+              h("span", { class: "home-orb-label" }, "НАЧАТЬ"),
+              h("small", { class: "home-orb-sub" }, prog ? `${prog.items.length} упр. · ${totalSets} сет.` : "Свободная")))
+        );
+      }
+
+      clear(previewBox);
+      const byMuscle = new Map();
+      const exChips = [];
+      if (prog) {
+        (prog.items || []).forEach((it, idx) => {
+          const ex = getExercise(it.exerciseId);
+          if (!ex) return;
+          const setsCnt = Number(it.sets) || 3;
+          const mg = (ex.muscleGroup || "Другое").trim();
+          if (!byMuscle.has(mg)) byMuscle.set(mg, { muscle: mg, sets: 0, exercises: [] });
+          const rec = byMuscle.get(mg);
+          rec.sets += setsCnt;
+          rec.exercises.push(ex.name);
+          exChips.push(h("div", { class: "home-ex-chip" },
+            h("span", { class: "home-ex-num" }, String(idx + 1)),
+            h("span", { class: "grow home-ex-name" }, ex.name),
+            h("small", { class: "muted home-ex-sets" }, `${setsCnt}×${it.targetReps || "8-10"}`)));
+        });
+      }
+
+      previewBox.append(
+        h("div", { class: "panel-head" },
+          h("h3", { class: "group", style: "margin:0" }, prog ? "Задействованные мышцы и упражнения" : "Карта мышц"),
+          prog ? h("small", { class: "muted" }, `${byMuscle.size} мышечн. гр.`) : null),
+        renderBodyMap([...byMuscle.values()], { compact: true }),
+        prog && exChips.length
+          ? h("div", { class: "home-ex-list" }, ...exChips)
+          : h("p", { class: "muted small", style: "text-align:center" }, "В свободной тренировке упражнения выбираются из библиотеки прямо во время занятия.")
+      );
+    }
+
+    renderHomeParts();
+
+    view.append(
+      h("section", { class: "panel home-selector-card" },
+        h("span", { class: "group", style: "margin:0" }, "Выбор тренировки"),
+        pillsWrap,
+        selMetaBox),
+      heroBox,
+      previewBox
+    );
   }
 
   function open(s) {
