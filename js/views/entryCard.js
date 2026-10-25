@@ -282,7 +282,6 @@ export function entryCard(entry, ctx) {
         subParts.length ? h("small", { class: "muted" }, subParts.join(" · ")) : null),
       allDone ? iconBtn("up", "Свернуть", () => { entry._expanded = false; ctx.rerender(); }) : null,
       ctx.onSwap ? iconBtn("swap", "Заменить упражнение", ctx.onSwap) : null,
-      ctx.reorder ? [iconBtn("up", "Выше", () => ctx.onMove(-1)), iconBtn("down", "Ниже", () => ctx.onMove(1))] : null,
       ctx.onSkip ? iconBtn("skip", "Пропустить упражнение", ctx.onSkip) : null,
       ctx.onRemove ? iconBtn("trash", "Убрать упражнение", ctx.onRemove) : null),
     progBanner,

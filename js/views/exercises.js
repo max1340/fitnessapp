@@ -118,21 +118,59 @@ export function openExerciseForm(ex, onSaved) {
 }
 
 /** Выбор упражнения из библиотеки. onPick(exercise). */
-export function pickExercise(onPick, { exclude = [], multi = false } = {}) {
+export function pickExercise(onPick, { exclude = [], inSessionIds = [], preferMuscle = "", title = "Выберите упражнение", multi = false } = {}) {
   const list = h("div", { class: "list" });
-  const search = h("input", { type: "search", placeholder: "Поиск", "aria-label": "Поиск" });
+  const search = h("input", { type: "search", placeholder: "Поиск…", "aria-label": "Поиск" });
+  const filter = h("select", { "aria-label": "Фильтр по мышце" },
+    h("option", { value: "" }, "Все мышцы"),
+    ...[...new Set(state.exercises.filter(x => !x.archived).map(e => e.muscleGroup).filter(Boolean))].sort().map(m =>
+      h("option", { value: m }, m)));
+
   const paint = () => {
     const q = search.value.trim().toLowerCase();
+    const f = filter.value;
     clear(list);
-    const items = state.exercises.filter(x => !x.archived && !exclude.includes(x.id) && (!q || (x.name + " " + x.muscleGroup).toLowerCase().includes(q)))
-      .sort((a, b) => (a.muscleGroup || "").localeCompare(b.muscleGroup || "") || a.name.localeCompare(b.name));
-    if (!items.length) list.append(h("p", { class: "empty" }, "Ничего не найдено. Создайте упражнение в разделе «Упражнения»."));
-    for (const x of items) list.append(h("button", { class: "list-item", type: "button", onclick: () => { onPick(x); if (!multi) sh.close(); else toast("Добавлено: " + x.name); } },
-      h("span", { class: "grow" }, h("strong", {}, x.name), h("small", { class: "muted" }, x.muscleGroup || "—")), icon("plus", 20)));
+    const items = state.exercises
+      .filter(x => !x.archived && !exclude.includes(x.id) && (!f || x.muscleGroup === f) && (!q || (x.name + " " + x.muscleGroup).toLowerCase().includes(q)))
+      .sort((a, b) => {
+        if (preferMuscle && !f) {
+          const aPref = a.muscleGroup === preferMuscle ? 0 : 1;
+          const bPref = b.muscleGroup === preferMuscle ? 0 : 1;
+          if (aPref !== bPref) return aPref - bPref;
+        }
+        const aIn = inSessionIds.includes(a.id) ? 1 : 0;
+        const bIn = inSessionIds.includes(b.id) ? 1 : 0;
+        if (aIn !== bIn) return aIn - bIn;
+        return (a.muscleGroup || "").localeCompare(b.muscleGroup || "") || a.name.localeCompare(b.name);
+      });
+
+    if (!items.length) list.append(h("p", { class: "empty" }, "Ничего не найдено. Создайте новое упражнение кнопкой ниже."));
+    let lastGroup = null;
+    for (const x of items) {
+      const grp = preferMuscle && !f && x.muscleGroup === preferMuscle
+        ? `На ту же мышцу · ${x.muscleGroup}`
+        : (x.muscleGroup || "Без группы");
+      if (grp !== lastGroup) {
+        lastGroup = grp;
+        list.append(h("h3", { class: "group" }, grp));
+      }
+      const inCurrent = inSessionIds.includes(x.id);
+      list.append(h("button", {
+        class: "list-item", type: "button",
+        onclick: () => { onPick(x); if (!multi) sh.close(); else toast("Добавлено: " + x.name); }
+      },
+        h("span", { class: "grow" },
+          h("strong", {}, x.name),
+          h("small", { class: "muted" }, (x.muscleGroup || "—") + (inCurrent ? " · уже в тренировке" : ""))),
+        icon("plus", 20)));
+    }
   };
   search.addEventListener("input", paint);
-  const sh = sheet(h("div", { class: "stack" }, search, list,
-    h("button", { class: "btn block", type: "button", onclick: () => openExerciseForm(null, x => { onPick(x); sh.close(); }) }, "+ Новое упражнение")), { title: "Выберите упражнение", full: true });
+  filter.addEventListener("change", paint);
+  const sh = sheet(h("div", { class: "stack" },
+    h("div", { class: "toolbar" }, search, filter),
+    h("button", { class: "btn block", type: "button", onclick: () => openExerciseForm(null, x => { onPick(x); sh.close(); }) }, "+ Создать своё упражнение"),
+    list), { title, full: true });
   paint();
 }
 

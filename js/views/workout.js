@@ -341,7 +341,12 @@ export function mount(root) {
           session.entries[i] = replaced;
           reindex(); persistNow(); paintEntries();
           toast("Заменено на: " + ex.name);
-        }, { exclude: session.entries.map(x => x.exerciseId) }),
+        }, {
+          exclude: [entry.exerciseId],
+          inSessionIds: session.entries.map(x => x.exerciseId),
+          preferMuscle: getExercise(entry.exerciseId)?.muscleGroup || "",
+          title: "Замена упражнения"
+        }),
         onSkip: () => { entry.skipped = true; persistNow(); paintEntries(); },
         onRemove: entry.extra ? () => { session.entries.splice(i, 1); reindex(); persistNow(); paintEntries(); } : null
       }));

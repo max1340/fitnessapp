@@ -158,9 +158,9 @@ export function mount(root) {
     const d4 = changeOverWeeks(series, 4), d12 = changeOverWeeks(series, 12);
     const sign = n => (n === null ? "—" : (n > 0 ? "+" : "") + formatNum(n, 1));
     content.append(h("section", { class: "panel" },
-      h("div", { class: "stats" },
-        h("div", { class: "stat" }, h("small", { class: "muted" }, "За 4 недели"), h("strong", {}, sign(d4))),
-        h("div", { class: "stat" }, h("small", { class: "muted" }, "За 12 недель"), h("strong", {}, sign(d12))),
+      h("div", { class: "stats stats-3" },
+        h("div", { class: "stat" }, h("small", { class: "muted" }, "За 4 нед."), h("strong", {}, sign(d4))),
+        h("div", { class: "stat" }, h("small", { class: "muted" }, "За 12 нед."), h("strong", {}, sign(d12))),
         h("div", { class: "stat" }, h("small", { class: "muted" }, "Тренировок"), h("strong", {}, String(done.length)))),
       h("p", { class: "muted small" }, `База индекса: ${base ? fmtDate(base.startedAt) : "—"}`),
       h("button", { class: "btn block", type: "button", onclick: () => resetBaseline(program, done) }, "Сбросить базу индекса")));

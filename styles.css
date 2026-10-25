@@ -87,11 +87,12 @@ body.timer-on .view { padding-bottom: calc(var(--nav-h) + var(--timer-h) + var(-
 .btn.primary.danger { border-style: dashed; border-width: 2px; }
 .btn.icon { width: 40px; min-height: 40px; padding: 0; background: transparent; border-color: transparent; }
 .btn.icon:active { background: var(--s2); }
-.btn.small { min-height: 36px; padding: 0 12px; font-size: 13px; }
+.btn.small { min-height: 36px; padding: 0 11px; font-size: 13px; white-space: nowrap; }
 .btn.block { width: 100%; }
 .btn.big { flex-direction: column; min-height: 68px; font-size: 19px; gap: 2px; border-radius: var(--r); }
 .btn.big small { font-weight: 400; opacity: .75; }
-.btn.tag.on { background: var(--fg); color: var(--bg); }
+.btn.tag { min-height: 32px; padding: 0 10px; font-size: 12px; white-space: nowrap; flex: none; }
+.btn.tag.on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
 
 input, select, textarea {
   font: inherit; font-size: 16px; /* 16px — чтобы iOS не зумил */ min-height: 44px; width: 100%; color: var(--fg);
@@ -148,11 +149,12 @@ input[type="checkbox"]:checked::after { transform: rotate(-45deg) scale(1); }
 .home-prog-card .grow { flex: 1 1 auto; }
 .empty { text-align: center; color: var(--mut); padding: 24px 12px; border: 1px dashed var(--line); border-radius: var(--r); }
 .panel { background: var(--s1); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: flex; flex-direction: column; gap: 12px; }
-.panel-head { display: flex; align-items: center; justify-content: space-between; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .bottom-actions { margin-top: 4px; }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
-.stat { display: flex; flex-direction: column; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--s2); }
-.stat strong { font-size: 22px; }
+.stats.stats-3 { grid-template-columns: repeat(3, 1fr); }
+.stat { display: flex; flex-direction: column; padding: 10px 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--s2); min-width: 0; }
+.stat strong { font-size: 20px; }
 .pr { display: flex; flex-direction: column; padding: 8px 0; border-top: 1px solid var(--line); }
 .active-top {
   position: sticky; top: calc(var(--safe-t) + 52px); z-index: 15;
@@ -179,7 +181,7 @@ input[type="checkbox"]:checked::after { transform: rotate(-45deg) scale(1); }
 .entry.skipped { border-style: dashed; color: var(--mut); }
 .entry.collapsed { padding: 8px 10px; background: var(--s2); }
 .entry.dragging { position: relative; z-index: 5; border: 3px solid var(--fg); background: var(--s1); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); user-select: none; }
-.entry-head { display: flex; align-items: center; gap: 2px; min-height: 32px; }
+.entry-head { display: flex; align-items: flex-start; gap: 2px; min-height: 32px; }
 .entry-head .grow { display: flex; flex-direction: column; padding-right: 4px; }
 .entry-title-btn, .entry-summary {
   background: none; border: 0; padding: 0 4px 0 0; text-align: left; color: inherit; font: inherit;
@@ -375,6 +377,7 @@ input[type="checkbox"]:checked::after { transform: rotate(-45deg) scale(1); }
 
 /* ---------- Анимации ---------- */
 @keyframes fade-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes sheet-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.14); } 100% { transform: scale(1); } }
@@ -402,7 +405,7 @@ input[type="checkbox"]:checked::after { transform: rotate(-45deg) scale(1); }
 .sheet-wrap.closing { pointer-events: none; animation: fade-in .18s reverse both; }
 .timer-bar:not([hidden]) { animation: slide-timer .26s cubic-bezier(.2, .8, .2, 1) both; }
 .timer-bar.over .timer-time { animation: pulse 1s ease-in-out infinite; }
-.toast:not([hidden]) { animation: fade-up .22s ease both; }
+.toast:not([hidden]) { animation: toast-in .22s ease both; }
 .pitem { transition: border-color .15s, box-shadow .15s; }
 .pitem.dragging { box-shadow: 0 8px 24px rgba(0, 0, 0, .35); transform-origin: center; }
 

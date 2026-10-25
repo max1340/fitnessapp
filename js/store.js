@@ -99,8 +99,10 @@ export function init(onProgress) {
         autoSeeded = true;
         if (!metaHasInit && !state.exercises.length && !state.programs.length && !state.sessions.length) {
           seedStarterData();
-          saveDoc("meta", { id: "init", createdAt: Date.now() }).catch(console.error);
+          saveDoc("meta", { id: "init", createdAt: Date.now(), catalogVersion: 2 }).catch(console.error);
           saveDoc("meta", { id: "settings", ...state.settings }).catch(console.error);
+        } else if (state.exercises.length <= 8) {
+          seedExtraExercises();
         }
       }
     };
@@ -240,21 +242,73 @@ export function lastValues(programId, ex) {
   return { sets: [], source: null };
 }
 
-/* ---------- Стартовые данные (раздел 7) ---------- */
+/* ---------- Стартовые данные и библиотека упражнений ---------- */
+const REST_DEFAULT = 210;
+const mkEx = (id, name, muscleGroup, startWeight = null, startReps = [], extra = {}) => ({
+  id, name, muscleGroup, unit: "kg", defaultSets: 3, defaultRestSec: REST_DEFAULT, trackRpe: false, note: "",
+  startWeight, startReps, isBodyweight: false, archived: false, ...extra
+});
+
+export const EXTRA_LIBRARY_EXERCISES = [
+  // Спина
+  mkEx("ex-lat-pulldown", "Тяга верхнего блока к груди", "Спина"),
+  mkEx("ex-seated-row", "Тяга горизонтального блока", "Спина"),
+  mkEx("ex-bb-row", "Тяга штанги в наклоне", "Спина"),
+  mkEx("ex-db-row", "Тяга гантели одной рукой", "Спина"),
+  mkEx("ex-pullover", "Пулловер в кроссовере", "Спина"),
+  // Грудь
+  mkEx("ex-bench-press", "Жим штанги лёжа", "Грудь"),
+  mkEx("ex-incline-db", "Жим гантелей на наклонной (30°)", "Грудь"),
+  mkEx("ex-chest-press", "Жим в тренажёре (Хаммер)", "Грудь"),
+  mkEx("ex-cable-fly", "Сведение рук в кроссовере / Бабочка", "Грудь"),
+  mkEx("ex-dips", "Отжимания на брусьях", "Грудь", null, [], { isBodyweight: true }),
+  // Бицепс
+  mkEx("ex-bb-curl", "Подъём EZ-штанги на бицепс", "Бицепс"),
+  mkEx("ex-hammer-curl", "Молотки с гантелями", "Бицепс"),
+  mkEx("ex-preacher-curl", "Бицепс на скамье Скотта", "Бицепс"),
+  mkEx("ex-cable-curl", "Сгибания на бицепс в блоке", "Бицепс"),
+  // Трицепс
+  mkEx("ex-skullcrusher", "Французский жим с EZ-штангой", "Трицепс"),
+  mkEx("ex-rope-pushdown", "Разгибания с канатом в блоке", "Трицепс (Lateral)"),
+  mkEx("ex-db-overhead-tri", "Французский жим гантели из-за головы", "Трицепс (Long)"),
+  // Дельты
+  mkEx("ex-db-lat-raise", "Махи гантелями в стороны", "Средняя дельта"),
+  mkEx("ex-ohp-db", "Жим гантелей сидя", "Дельты"),
+  mkEx("ex-rear-delt", "Обратная бабочка / Задняя дельта", "Задняя дельта"),
+  // Ноги и Пресс
+  mkEx("ex-squat", "Приседания со штангой", "Ноги"),
+  mkEx("ex-leg-press", "Жим ногами в тренажёре", "Ноги"),
+  mkEx("ex-rdl", "Румынская тяга", "Ноги"),
+  mkEx("ex-leg-ext", "Разгибания ног сидя", "Ноги"),
+  mkEx("ex-leg-curl", "Сгибания ног лёжа", "Ноги"),
+  mkEx("ex-cable-crunch", "Скручивания на пресс в блоке", "Пресс")
+];
+
+export function seedExtraExercises() {
+  const items = [];
+  for (const e of EXTRA_LIBRARY_EXERCISES) {
+    if (!getExercise(e.id)) {
+      items.push(["exercises", e]);
+      state.exercises.push(e);
+    }
+  }
+  if (items.length) {
+    bulkSave(items).catch(console.error);
+    emit();
+  }
+  return items.length;
+}
+
 export function seedStarterData() {
-  const REST = 210;
-  const mk = (id, name, muscleGroup, startWeight, startReps, extra = {}) => ({
-    id, name, muscleGroup, unit: "kg", defaultSets: 3, defaultRestSec: REST, trackRpe: false, note: "",
-    startWeight, startReps, archived: false, ...extra
-  });
+  const REST = REST_DEFAULT;
   const exs = [
-    mk("seed-pullups", "Подтягивания", "Спина", 15, [8, 7, 8], { note: "Доп. вес", isBodyweight: true }),
-    mk("seed-tbar", "Т-гриф широким хватом", "Спина", 62.5, [9, 8, 9]),
-    mk("seed-dbpress", "Жим гантелей", "Грудь", 32, [7, 6, 5]),
-    mk("seed-biceps", "Гантели", "Бицепс", 20, [7, 7, 5]),
-    mk("seed-tri-long", "Cable Overhead Extension", "Трицепс (Long)", 20, [], { note: "Рабочий вес 20–25 кг" }),
-    mk("seed-tri-lat", "Cable Lateral Head (разгибания)", "Трицепс (Lateral)", 72.5, []),
-    mk("seed-delts", "Кабель", "Средняя дельта", 15, [], { unit: "lb" })
+    mkEx("seed-pullups", "Подтягивания", "Спина", 15, [8, 7, 8], { note: "Доп. вес", isBodyweight: true }),
+    mkEx("seed-tbar", "Т-гриф широким хватом", "Спина", 62.5, [9, 8, 9]),
+    mkEx("seed-dbpress", "Жим гантелей", "Грудь", 32, [7, 6, 5]),
+    mkEx("seed-biceps", "Гантели", "Бицепс", 20, [7, 7, 5]),
+    mkEx("seed-tri-long", "Cable Overhead Extension", "Трицепс (Long)", 20, [], { note: "Рабочий вес 20–25 кг" }),
+    mkEx("seed-tri-lat", "Cable Lateral Head (разгибания)", "Трицепс (Lateral)", 72.5, []),
+    mkEx("seed-delts", "Кабель", "Средняя дельта", 15, [], { unit: "lb" })
   ];
   const program = {
     id: "seed-fullbody", name: "FULLBODY — классические сеты", archived: false,
@@ -262,7 +316,9 @@ export function seedStarterData() {
   };
   // не перезаписываем то, что пользователь уже мог отредактировать
   const items = [];
-  for (const e of exs) if (!getExercise(e.id)) { items.push(["exercises", e]); state.exercises.push(e); }
+  for (const e of [...exs, ...EXTRA_LIBRARY_EXERCISES]) {
+    if (!getExercise(e.id)) { items.push(["exercises", e]); state.exercises.push(e); }
+  }
   if (!getProgram(program.id)) { items.push(["programs", program]); state.programs.push(program); }
   if (items.length) bulkSave(items).catch(console.error);
   emit();

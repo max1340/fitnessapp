@@ -1,4 +1,4 @@
-﻿// Линейные графики на чистом SVG (без библиотек). Только оттенки серого через currentColor/CSS-классы.
+// Линейные графики на чистом SVG (без библиотек). Только оттенки серого через currentColor/CSS-классы.
 import { h, fmtShortDate } from "./ui.js";
 
 const NS = "http://www.w3.org/2000/svg";
@@ -18,8 +18,15 @@ export function lineChart(points, opts = {}) {
 
   const ys = points.map(p => p.y).concat(opts.smooth || [], opts.refY != null ? [opts.refY] : []);
   let min = Math.min(...ys), max = Math.max(...ys);
-  if (max - min < 1e-9) { min -= 1; max += 1; }
-  const padY = (max - min) * 0.12; min -= padY; max += padY;
+  if (max - min < 3) {
+    const mid = (min + max) / 2;
+    min = mid - 3;
+    max = mid + 3;
+  } else {
+    const padY = (max - min) * 0.12;
+    min -= padY;
+    max += padY;
+  }
   const x = i => (points.length === 1 ? (pl + W - pr) / 2 : pl + (i * (W - pl - pr)) / (points.length - 1));
   const y = v => pt + (1 - (v - min) / (max - min)) * (H - pt - pb);
 

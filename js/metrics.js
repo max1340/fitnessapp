@@ -180,8 +180,10 @@ export function changeOverWeeks(series, weeks) {
 export function personalRecords(doneSessions) {
   const prs = new Map();
   for (const s of [...doneSessions].sort(byStart)) {
+    const bw = num(s && s.bodyweightKg) ?? 0;
     for (const e of s.entries || []) {
-      const w = entryTopWeight(e), e1 = entryE1rm(e);
+      const w = entryTopWeight(e, bw), e1 = entryE1rm(e, bw);
+      if (w === null && e1 === null) continue;
       let pr = prs.get(e.exerciseId);
       if (!pr) { pr = { name: e.exerciseName, unit: e.unit, weightKg: null, e1rmKg: null }; prs.set(e.exerciseId, pr); }
       pr.name = e.exerciseName; pr.unit = e.unit;
