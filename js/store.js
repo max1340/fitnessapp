@@ -1,9 +1,35 @@
-// Хранилище состояния в памяти поверх Firestore. Данные приходят через onSnapshot,
-// записи применяются локально сразу (офлайн-кэш Firestore) и досинхронизируются позже.
+// Хранилище состояния в памяти поверх Firebase Realtime Database + локального офлайн-кэша.
 import { watchCollection, saveDoc, removeDoc, bulkSave, bulkRemove } from "./db.js";
 
 const COLLECTIONS = ["exercises", "programs", "sessions", "meta"];
 const LS_SETTINGS = "fitness.settings.v1";
+
+const toArray = v => Array.isArray(v) ? v : (v && typeof v === "object" ? Object.values(v) : []);
+
+function normalizeDoc(coll, d) {
+  if (!d || typeof d !== "object") return d;
+  if (coll === "exercises") {
+    return { archived: false, note: "", ...d, startReps: toArray(d.startReps) };
+  }
+  if (coll === "programs") {
+    return {
+      archived: false,
+      ...d,
+      items: toArray(d.items).map(it => ({ sets: 3, targetReps: "", note: "", ...it }))
+    };
+  }
+  if (coll === "sessions") {
+    return {
+      ...d,
+      entries: toArray(d.entries).map(e => ({
+        note: "",
+        ...e,
+        sets: toArray(e.sets).map(s => ({ reps: null, weight: null, rpe: null, done: false, isWarmup: false, ...s }))
+      }))
+    };
+  }
+  return d;
+}
 
 export const DEFAULT_SETTINGS = {
   defaultUnit: "kg",
@@ -37,18 +63,41 @@ export const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().t
 /** Запуск подписок. Возвращает промис, выполняющийся после первой загрузки всех коллекций. */
 export function init() {
   return new Promise(resolve => {
-    const check = () => { if (Object.values(state.loaded).every(Boolean)) resolve(); };
+    const serverLoaded = { exercises: false, programs: false, sessions: false, meta: false };
+    let metaHasInit = false;
+    let autoSeeded = false;
+
+    const check = () => {
+      if (Object.values(state.loaded).every(Boolean)) resolve();
+      if (!autoSeeded && Object.values(serverLoaded).every(Boolean)) {
+        autoSeeded = true;
+        if (!metaHasInit && !state.exercises.length && !state.programs.length && !state.sessions.length) {
+          seedStarterData();
+          saveDoc("meta", { id: "init", createdAt: Date.now() }).catch(console.error);
+          saveDoc("meta", { id: "settings", ...state.settings }).catch(console.error);
+        }
+      }
+    };
+
     for (const name of COLLECTIONS) {
       watchCollection(name, (docs, fromCache, pending) => {
         if (name === "meta") {
+          metaHasInit = docs.some(d => d.id === "init" || d.id === "settings");
           const s = docs.find(d => d.id === "settings");
-          if (s) { const { id, ...rest } = s; state.settings = { ...DEFAULT_SETTINGS, ...rest }; localStorage.setItem(LS_SETTINGS, JSON.stringify(state.settings)); }
-        } else state[name] = docs;
+          if (s) {
+            const { id, ...rest } = s;
+            state.settings = { ...DEFAULT_SETTINGS, ...rest };
+            localStorage.setItem(LS_SETTINGS, JSON.stringify(state.settings));
+          }
+        } else {
+          state[name] = docs.map(d => normalizeDoc(name, d));
+        }
         state.loaded[name] = true;
+        if (!fromCache) serverLoaded[name] = true;
         state.sync = { fromCache, pending, error: null };
         check(); emit();
       }, err => {
-        console.error("Firestore:", err);
+        console.error("Firebase RTDB:", err);
         state.sync = { ...state.sync, error: err.code || String(err) };
         state.loaded[name] = true; check(); emit();
       });

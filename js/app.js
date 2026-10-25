@@ -47,7 +47,7 @@ function route() {
 function paintSync() {
   const s = state.sync;
   let text = "", label = "";
-  if (s.error) { text = "Ошибка"; label = "Ошибка Firestore: " + s.error; }
+  if (s.error) { text = "Ошибка"; label = "Ошибка Firebase: " + s.error; }
   else if (!navigator.onLine) { text = "Офлайн"; label = "Нет сети. Данные сохраняются на устройстве и отправятся позже."; }
   // «идёт синхронизация» намеренно не показываем: при обычной работе это постоянный шум
   syncEl.textContent = text; syncEl.title = label; syncEl.hidden = !text;

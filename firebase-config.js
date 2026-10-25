@@ -5,8 +5,9 @@
  * "Your apps" → Web app → SDK setup and configuration → "Config".
  *
  * ВАЖНО: проект общий с другими вашими приложениями. Это приложение пишет
- * ТОЛЬКО в Firestore по пути  fitnessApp/{SPACE_ID}/...  и больше никуда
- * (Realtime Database и другие коллекции не затрагиваются). Firebase-приложение
+ * ТОЛЬКО в ветку  fitnessApp/...  внутри Realtime Database и больше никуда
+ * (соседние ветки finance, foodTracker, huji_study_app, kadr_website,
+ * outfitbuilder, users и др. НЕ затрагиваются). Firebase-приложение
  * инициализируется под отдельным именем "fitness", чтобы не конфликтовать
  * с другими проектами на том же домене.
  */

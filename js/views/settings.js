@@ -66,6 +66,6 @@ export function openSettings() {
     } }, "Экспорт JSON"),
     h("button", { class: "btn block", type: "button", onclick: () => file.click() }, "Импорт JSON"), file,
     h("button", { class: "btn block", type: "button", onclick: () => { const n = seedStarterData(); toast(n ? "Стартовая программа загружена" : "Стартовые данные уже загружены"); } }, "Загрузить мою текущую программу"),
-    h("p", { class: "muted small" }, `Облако: Firestore, офлайн-кэш: ${persistence === "persistent" ? "включён" : "недоступен"}. Авторизации нет — выходить не из чего. Настройки синхронизируются через Firestore.`),
+    h("p", { class: "muted small" }, `Облако: Firebase RTDB (ветка fitnessApp), офлайн-кэш: ${persistence === "persistent" ? "включён" : "недоступен"}. Авторизации нет — выходить не из чего. Настройки синхронизируются через Firebase.`),
     h("a", { class: "muted small", href: "tests.html" }, "Запустить юнит-тесты метрик")), { title: "Настройки" });
 }
