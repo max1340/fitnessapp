@@ -59,6 +59,15 @@ function buildNav() {
 }
 
 async function boot() {
+  const splash = document.getElementById("splash");
+  const splashBar = document.getElementById("splash-bar");
+  const splashText = document.getElementById("splash-text");
+  const setSplash = (pct, text) => {
+    if (splashBar) splashBar.style.width = `${Math.max(12, Math.min(100, Math.round(pct)))}%`;
+    if (splashText && text) splashText.textContent = text;
+  };
+  setSplash(18, "Подключение к облаку…");
+
   applyTheme();
   buildNav();
   initTimerBar(document.getElementById("timer-bar"));
@@ -74,15 +83,22 @@ async function boot() {
       current.update();
     }
   });
-  await init();
+  const t0 = performance.now();
+  await init((ratio, text) => setSplash(20 + ratio * 75, text));
+  setSplash(100, "Готово");
   first = false;
   route(); paintSync();
-  document.getElementById("splash")?.remove();
+  const waitMs = Math.max(180, 420 - (performance.now() - t0));
+  setTimeout(() => {
+    if (!splash) return;
+    splash.classList.add("hide");
+    setTimeout(() => splash.remove(), 280);
+  }, waitMs);
 }
 
 boot().catch(e => {
   console.error(e);
-  const s = document.getElementById("splash");
+  const s = document.getElementById("splash-text") || document.getElementById("splash");
   if (s) s.textContent = "Ошибка запуска: " + e.message;
 });
 

@@ -1,6 +1,6 @@
 // Карточка упражнения с сетами. Используется и в активной тренировке, и в редактировании истории.
 import { h, icon, iconBtn, fmtNum, parseNum, toast } from "../ui.js";
-import { stepFor, unitLabel } from "../store.js";
+import { getExercise, stepFor, unitLabel } from "../store.js";
 import { toKg, epley, MAX_E1RM_REPS } from "../metrics.js";
 import { openExerciseHistory } from "./exercises.js";
 
@@ -165,13 +165,13 @@ export function entryCard(entry, ctx) {
       const toggleWarm = () => { set.isWarmup = !set.isWarmup; ctx.onChange(); paintSets(); };
       const idxBtn = h("button", {
         class: "set-idx" + (set.isWarmup ? " warm" : ""), type: "button",
-        title: "Нажмите: разминочный / рабочий сет", "aria-label": set.isWarmup ? "Разминочный сет" : `Сет ${n}`,
+        title: "Тап: разминочный (Р) / рабочий сет", "aria-label": set.isWarmup ? "Разминочный сет" : `Сет ${n}`,
         onclick: toggleWarm
       }, set.isWarmup ? "Р" : String(n));
       const doneBtn = h("button", {
         class: "btn done-btn", type: "button", "aria-pressed": String(!!set.done), "aria-label": "Сет выполнен",
         onclick: () => toggleDone(set, row, doneBtn, rowA, prSlot)
-      }, icon("check", 20));
+      }, icon("check", 19));
       const rowA = h("div", { class: "set-main" },
         idxBtn,
         stepper(set, "weight", step, "0", "Вес"),
@@ -183,31 +183,31 @@ export function entryCard(entry, ctx) {
         return inp;
       })() : null;
 
-      // Тап по подсказке копирует вес и повторы прошлого раза в этот сет
-      const canApplyHint = set.hint && (set.hintWeight != null || set.hintReps != null);
-      const hintEl = canApplyHint
+      // Кнопка-чип подсказки показывается, если значения отличаются от подсказки (или повторы ещё пустые)
+      const hintDiffers = set.hint && !set.done && (
+        (set.hintWeight != null && set.weight !== set.hintWeight) ||
+        (set.hintReps != null && set.reps !== set.hintReps)
+      );
+      const hintEl = hintDiffers
         ? h("button", {
-            class: "hint hint-btn grow", type: "button", title: "Нажмите, чтобы подставить вес и повторы",
+            class: "hint-chip", type: "button", title: "Подставить вес и повторы",
             onclick: () => {
-              if (set.done) return;
               const oldW = set.weight;
               if (set.hintWeight != null) { set.weight = set.hintWeight; const wi = weightInputs.get(set); if (wi) wi.value = fmtNum(set.weight); propagateWeight(i, oldW); }
               if (set.hintReps != null) { set.reps = set.hintReps; const ri = repsInputs.get(set); if (ri) ri.value = fmtNum(set.reps); propagateReps(i); }
               ctx.onChange();
-              toast("Подставлено из прошлого подхода");
+              paintSets();
+              toast("Подставлено: " + set.hint);
             }
-          }, set.hint)
-        : h("small", { class: "hint grow" }, set.hint || "");
+          }, "↺ " + set.hint)
+        : null;
 
-      const prSlot = h("span", { class: "pr-slot" }, checkSetPR(set, unit, ctx.prBaseline) ? h("span", { class: "pr-badge", title: "Личный рекорд!" }, "PR") : null);
+      const hasPr = !!checkSetPR(set, unit, ctx.prBaseline);
+      const prSlot = h("span", { class: "pr-slot" }, hasPr ? h("span", { class: "pr-badge", title: "Личный рекорд!" }, "PR") : null);
 
+      const showSub = !!(hintEl || hasPr || rpeEl);
+      const rowB = h("div", { class: "set-sub", hidden: !showSub }, hintEl, prSlot, rpeEl);
       const delSet = () => { entry.sets.splice(i, 1); ctx.onChange(); paintSets(); };
-      const rowB = h("div", { class: "set-sub" },
-        hintEl,
-        prSlot,
-        rpeEl,
-        h("button", { class: "sub-act" + (set.isWarmup ? " on" : ""), type: "button", "aria-pressed": String(!!set.isWarmup), onclick: toggleWarm }, "Разм."),
-        h("button", { class: "sub-act del", type: "button", "aria-label": "Удалить сет", title: "Удалить сет (или свайп влево)", onclick: delSet }, "✕"));
       const row = h("div", { class: "set" + (set.done ? " done" : "") + (set.isWarmup ? " warm" : "") }, rowA, rowB);
       attachSwipeDelete(row, delSet);
       setsBox.append(row);
@@ -224,6 +224,8 @@ export function entryCard(entry, ctx) {
     btn.setAttribute("aria-pressed", String(set.done));
     const pr = checkSetPR(set, unit, ctx.prBaseline);
     prSlot.replaceChildren(pr ? h("span", { class: "pr-badge", title: "Личный рекорд!" }, "PR") : "");
+    const sub = row.querySelector(".set-sub");
+    if (sub) sub.hidden = !pr && !entry.trackRpe;
     if (!set.done) entry._expanded = true; // если сняли галочку — оставляем карточку открытой
     else if (entry.sets.every(s => s.done)) entry._expanded = false; // все сеты готовы — свернётся
     ctx.onChange();
@@ -234,8 +236,16 @@ export function entryCard(entry, ctx) {
   }
 
   paintSets();
-  const note = h("input", { type: "text", class: "entry-note", value: entry.note || "", placeholder: "Заметка к упражнению…", "aria-label": "Заметка к упражнению" });
+  const note = h("input", { type: "text", class: "entry-note", value: entry.note || "", placeholder: "Заметка…", "aria-label": "Заметка к упражнению" });
   note.addEventListener("input", () => { entry.note = note.value; ctx.onChange(); });
+
+  const exObj = getExercise(entry.exerciseId);
+  const muscle = exObj?.muscleGroup || "";
+  const firstHint = (entry.sets.find(s => s.hint) || {}).hint || "";
+  const subParts = [];
+  if (entry.targetReps) subParts.push("цель: " + entry.targetReps);
+  if (entry.programNote) subParts.push(entry.programNote);
+  else if (firstHint) subParts.push(firstHint);
 
   return h("article", { class: "entry", dataset: { key: cardKey } },
     h("div", { class: "entry-head" },
@@ -244,13 +254,20 @@ export function entryCard(entry, ctx) {
         class: "entry-title-btn grow", type: "button", title: "Нажмите: история и рекорды упражнения",
         onclick: () => openExerciseHistory(entry.exerciseId, entry.exerciseName, entry.unit)
       },
-        h("strong", {}, `${ctx.index + 1}. ${entry.exerciseName}`),
-        (entry.targetReps || entry.programNote) ? h("small", { class: "muted" }, [entry.targetReps ? "цель: " + entry.targetReps : "", entry.programNote || ""].filter(Boolean).join(" · ")) : null),
+        h("span", { class: "entry-title-row" },
+          h("strong", {}, `${ctx.index + 1}. ${entry.exerciseName}`),
+          muscle ? h("span", { class: "muscle-tag" }, muscle) : null,
+          icon("clock", 13)),
+        subParts.length ? h("small", { class: "muted" }, subParts.join(" · ")) : null),
       allDone ? iconBtn("up", "Свернуть", () => { entry._expanded = false; ctx.rerender(); }) : null,
       ctx.reorder ? [iconBtn("up", "Выше", () => ctx.onMove(-1)), iconBtn("down", "Ниже", () => ctx.onMove(1))] : null,
       ctx.onSkip ? iconBtn("skip", "Пропустить упражнение", ctx.onSkip) : null,
       ctx.onRemove ? iconBtn("trash", "Убрать упражнение", ctx.onRemove) : null),
-    h("div", { class: "set-cols" }, h("span", {}, "#"), h("span", {}, "Вес, " + unitLabel(unit)), h("span", {}, "Повторы"), h("span", {}, "✓")),
+    h("div", { class: "set-cols" },
+      h("span", { title: "Нажмите на номер подхода для разминки (Р)" }, "#/Р"),
+      h("span", {}, "Вес, " + unitLabel(unit)),
+      h("span", {}, "Повторы"),
+      h("span", {}, "Готово")),
     setsBox,
     h("div", { class: "entry-foot" },
       h("button", { class: "btn small add-set-btn", type: "button", onclick: () => {
@@ -259,5 +276,10 @@ export function entryCard(entry, ctx) {
         entry._expanded = true;
         ctx.onChange(); paintSets();
       } }, "+ Сет"),
+      h("button", { class: "btn small add-set-btn", type: "button", title: "Удалить последний сет", onclick: () => {
+        if (entry.sets.length <= 1) return;
+        entry.sets.pop();
+        ctx.onChange(); paintSets();
+      } }, "− Сет"),
       note));
 }

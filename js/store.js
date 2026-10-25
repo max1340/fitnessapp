@@ -61,14 +61,26 @@ function loadLocalSettings() {
 export const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
 
 /** Запуск подписок. Возвращает промис, выполняющийся после первой загрузки всех коллекций. */
-export function init() {
+export function init(onProgress) {
   return new Promise(resolve => {
     const serverLoaded = { exercises: false, programs: false, sessions: false, meta: false };
     let metaHasInit = false;
     let autoSeeded = false;
+    let resolved = false;
+    const labels = {
+      exercises: "Упражнения загружены…",
+      programs: "Программы загружены…",
+      sessions: "История синхронизирована…",
+      meta: "Настройки применены…"
+    };
 
-    const check = () => {
-      if (Object.values(state.loaded).every(Boolean)) resolve();
+    const check = lastLoaded => {
+      const doneCount = Object.values(state.loaded).filter(Boolean).length;
+      if (onProgress) onProgress(doneCount / COLLECTIONS.length, labels[lastLoaded] || "Синхронизация…");
+      if (!resolved && doneCount === COLLECTIONS.length) {
+        resolved = true;
+        resolve();
+      }
       if (!autoSeeded && Object.values(serverLoaded).every(Boolean)) {
         autoSeeded = true;
         if (!metaHasInit && !state.exercises.length && !state.programs.length && !state.sessions.length) {
@@ -95,15 +107,15 @@ export function init() {
         state.loaded[name] = true;
         if (!fromCache) serverLoaded[name] = true;
         state.sync = { fromCache, pending, error: null };
-        check(); emit();
+        check(name); emit();
       }, err => {
         console.error("Firebase RTDB:", err);
         state.sync = { ...state.sync, error: err.code || String(err) };
-        state.loaded[name] = true; check(); emit();
+        state.loaded[name] = true; check(name); emit();
       });
     }
     // не блокируем интерфейс навсегда, если снапшот не пришёл (например, нет сети и кэш пуст)
-    setTimeout(resolve, 2500);
+    setTimeout(() => { if (!resolved) { resolved = true; resolve(); } }, 2500);
   });
 }
 

@@ -135,7 +135,7 @@ export function pickExercise(onPick, { exclude = [], multi = false } = {}) {
 }
 
 export function mount(root) {
-  const search = h("input", { type: "search", placeholder: "Поиск упражнения", "aria-label": "Поиск" });
+  const search = h("input", { type: "search", placeholder: "Поиск…", "aria-label": "Поиск" });
   const filter = h("select", { "aria-label": "Фильтр по мышце" });
   const showArchived = h("input", { type: "checkbox" });
   const list = h("div", { class: "list" });
@@ -156,10 +156,11 @@ export function mount(root) {
     let lastGroup = null;
     for (const e of items) {
       if (e.muscleGroup !== lastGroup) { lastGroup = e.muscleGroup; list.append(h("h3", { class: "group" }, lastGroup || "Без группы")); }
+      const weightInfo = e.startWeight != null ? `${fmtNum(e.startWeight)} ${unitLabel(e.unit)} · ` : "";
       list.append(h("div", { class: "list-item" + (e.archived ? " archived" : "") },
         h("button", { class: "card-main grow", type: "button", onclick: () => openExerciseForm(e) },
           h("strong", {}, e.name),
-          h("small", { class: "muted" }, `${e.defaultSets} × · отдых ${fmtRest(e.defaultRestSec)} · ${unitLabel(e.unit)}${e.trackRpe ? " · RPE" : ""}${e.archived ? " · архив" : ""}`)),
+          h("small", { class: "muted" }, `${weightInfo}${e.defaultSets} сет. · отдых ${fmtRest(e.defaultRestSec)} · ${unitLabel(e.unit)}${e.trackRpe ? " · RPE" : ""}${e.archived ? " · архив" : ""}`)),
         iconBtn("clock", "История упражнения", () => openExerciseHistory(e.id, e.name, e.unit)),
         iconBtn("edit", "Редактировать", () => openExerciseForm(e))));
     }
@@ -167,7 +168,9 @@ export function mount(root) {
   [search, filter, showArchived].forEach(el => el.addEventListener("input", paint));
   root.append(
     h("div", { class: "toolbar" }, search, filter),
-    h("label", { class: "check small" }, showArchived, h("span", {}, "Показывать архивные")),
+    h("div", { class: "row gap", style: "justify-content:space-between" },
+      h("label", { class: "check small" }, showArchived, h("span", {}, "Показывать архивные")),
+      h("button", { class: "btn small primary", type: "button", onclick: () => openExerciseForm(null) }, "+ Упражнение")),
     list,
     h("div", { class: "bottom-actions" }, h("button", { class: "btn primary block", type: "button", onclick: () => openExerciseForm(null) }, "+ Новое упражнение")));
   paint();

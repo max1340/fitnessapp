@@ -79,7 +79,7 @@ function render() {
   els.time.textContent = over ? "Отдых окончен" : fmtRest(left);
   els.label.textContent = label;
   els.fill.style.width = (over ? 100 : Math.max(0, Math.min(100, ((total - left) / total) * 100))) + "%";
-  els.skip.textContent = over ? "Закрыть" : "Пропустить";
+  els.skip.textContent = over ? "Закрыть" : "Пропуск ✕";
 }
 
 function loop() { if (!ticking) ticking = setInterval(render, 250); render(); }
@@ -119,12 +119,12 @@ export function initTimerBar(container) {
   els.time = h("strong", { class: "timer-time", "aria-live": "off" });
   els.label = h("small", { class: "muted timer-label" });
   els.fill = h("div", { class: "timer-fill" });
-  els.skip = h("button", { class: "btn small", type: "button", onclick: stopRest }, "Пропустить");
+  els.skip = h("button", { class: "btn small", type: "button", onclick: stopRest }, "Пропуск ✕");
   bar.append(els.fill,
     h("div", { class: "timer-row" },
       h("div", { class: "grow" }, els.time, els.label),
-      h("button", { class: "btn small", type: "button", "aria-label": "Уменьшить отдых на 15 секунд", onclick: () => addRest(-15) }, "−15 с"),
-      h("button", { class: "btn small", type: "button", "aria-label": "Добавить 30 секунд отдыха", onclick: () => addRest(30) }, "+30 с"),
+      h("button", { class: "btn small", type: "button", "aria-label": "Уменьшить отдых на 15 секунд", onclick: () => addRest(-15) }, "−15с"),
+      h("button", { class: "btn small", type: "button", "aria-label": "Добавить 30 секунд отдыха", onclick: () => addRest(30) }, "+30с"),
       els.skip));
   bar.hidden = true;
   document.addEventListener("visibilitychange", () => {

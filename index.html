@@ -26,6 +26,18 @@
   </script>
 </head>
 <body>
+  <div id="splash" class="splash" role="status" aria-live="polite">
+    <div class="splash-box">
+      <svg class="splash-logo" viewBox="0 0 64 64" width="56" height="56" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M8 24v16M16 18v28M48 18v28M56 24v16M16 32h32"/>
+      </svg>
+      <strong class="splash-title">ТРЕНИРОВКИ</strong>
+      <div class="splash-track" aria-hidden="true">
+        <div id="splash-bar" class="splash-fill"></div>
+      </div>
+      <small id="splash-text" class="splash-sub">Загрузка данных…</small>
+    </div>
+  </div>
   <div id="app">
     <header class="topbar">
       <h1 id="title">Тренировка</h1>
@@ -34,7 +46,7 @@
         <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.2"/><circle cx="8" cy="17" r="2.2"/></svg>
       </button>
     </header>
-    <main id="view" class="view"><p id="splash" class="empty">Загрузка…</p></main>
+    <main id="view" class="view"></main>
     <div id="timer-bar" class="timer-bar" role="timer" hidden></div>
     <nav id="nav" class="nav" aria-label="Основная навигация"></nav>
   </div>

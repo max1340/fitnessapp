@@ -181,9 +181,11 @@ export function mount(root) {
     if (!programs.length) view.append(h("p", { class: "empty" }, "Программ пока нет. Откройте настройки (⚙) и загрузите стартовую программу или создайте свою во вкладке «Программы»."));
     for (const p of programs) {
       const last = doneSessions(p.id).sort(byStart).pop();
-      view.append(h("div", { class: "card" },
-        h("div", { class: "grow" }, h("strong", {}, p.name), h("small", { class: "muted" }, `${p.items.length} упр.` + (last ? ` · последняя ${fmtDate(last.startedAt)}` : " · ещё не выполнялась"))),
-        act ? null : h("button", { class: "btn primary", type: "button", onclick: () => open(startSession(p)) }, icon("play", 18), "Начать")));
+      view.append(h("div", { class: "card home-prog-card" },
+        h("div", { class: "grow" },
+          h("strong", {}, p.name),
+          h("small", { class: "muted" }, `${p.items.length} упр.` + (last ? ` · последняя ${fmtDate(last.startedAt)}` : " · ещё не выполнялась"))),
+        act ? null : h("button", { class: "btn primary small", type: "button", onclick: () => open(startSession(p)) }, icon("play", 16), "Начать")));
     }
     if (act) view.append(h("p", { class: "muted small" }, "Чтобы начать другую тренировку, завершите или отмените текущую."));
     else view.append(h("button", { class: "btn block", type: "button", onclick: () => open(startSession(null)) }, "Свободная тренировка (без программы)"));
@@ -194,8 +196,8 @@ export function mount(root) {
     session.entries.forEach(e => (e._key = e._key || uid()));
     priorPrs = personalRecords(doneSessions().filter(x => x.id !== session.id && x.startedAt < session.startedAt));
     clear(view);
-    clockEl = h("small", { class: "muted" });
-    progTextEl = h("small", { class: "muted" });
+    clockEl = h("span", { class: "active-clock" });
+    progTextEl = h("span", { class: "muted" });
     progFillEl = h("div", { class: "workout-prog-fill" });
     const tick = () => (clockEl.textContent = fmtRest((Date.now() - session.startedAt) / 1000));
     tick(); clockTimer = setInterval(tick, 1000);
@@ -206,9 +208,11 @@ export function mount(root) {
     });
     view.append(
       h("div", { class: "active-top" },
-        h("div", { class: "active-head" },
-          h("div", { class: "grow" }, h("h2", { class: "section" }, session.programName), h("div", { class: "row gap" }, clockEl, h("span", { class: "muted" }, "·"), progTextEl)),
-          h("button", { class: "btn small", type: "button", onclick: cancel }, icon("trash", 15), "Удалить"),
+        h("div", { class: "active-row1" },
+          h("h2", { class: "section grow" }, session.programName),
+          h("button", { class: "btn icon", type: "button", title: "Удалить тренировку", "aria-label": "Удалить тренировку", onclick: cancel }, icon("trash", 18))),
+        h("div", { class: "active-row2" },
+          h("div", { class: "active-meta" }, clockEl, h("span", { class: "muted" }, "·"), progTextEl),
           h("button", { class: "btn small primary", type: "button", onclick: finish }, "Завершить")),
         h("div", { class: "workout-prog" }, progFillEl)),
       entriesBox,

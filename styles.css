@@ -31,6 +31,26 @@ small, .small { font-size: 13px; }
 .error { font-weight: 700; text-decoration: underline; }
 a { color: inherit; }
 
+/* ---------- Экран загрузки (Splash) ---------- */
+.splash {
+  position: fixed; inset: 0; z-index: 100; background: var(--bg); color: var(--fg);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+  transition: opacity .26s ease, transform .26s ease;
+}
+.splash.hide { opacity: 0; transform: scale(1.02); pointer-events: none; }
+.splash-box { display: flex; flex-direction: column; align-items: center; gap: 12px; width: min(240px, 80vw); text-align: center; }
+.splash-logo { color: var(--fg); }
+.splash-title { font-size: 15px; font-weight: 800; letter-spacing: .16em; }
+.splash-track {
+  width: 100%; height: 6px; background: var(--s2); border: 1px solid var(--line);
+  border-radius: 99px; overflow: hidden;
+}
+.splash-fill {
+  height: 100%; width: 12%; background: var(--fg); border-radius: 99px;
+  transition: width .28s cubic-bezier(.2, .8, .2, 1);
+}
+.splash-sub { font-size: 12px; color: var(--mut); min-height: 18px; }
+
 /* ---------- Каркас ---------- */
 #app { max-width: var(--col); margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; overflow-x: clip; }
 .topbar {
@@ -102,7 +122,7 @@ input[type="checkbox"]:checked::after { transform: rotate(-45deg) scale(1); }
 .row.gap { gap: 8px; }
 .row.end { justify-content: flex-end; }
 .toolbar { display: grid; grid-template-columns: 1fr; gap: 8px; }
-.toolbar:has(> :nth-child(2)) { grid-template-columns: 1fr 1fr; }
+.toolbar:has(> :nth-child(2)) { grid-template-columns: 1.3fr 1fr; }
 
 /* ---------- Списки и карточки ---------- */
 #app, .view, .view > *, .stack, .list, .card, .list-item, .entry, .panel, .sheet-body { min-width: 0; max-width: 100%; }
@@ -122,6 +142,10 @@ input[type="checkbox"]:checked::after { transform: rotate(-45deg) scale(1); }
 .card-main { display: flex; flex-direction: column; flex: 1 1 100%; min-width: 0; overflow: hidden; background: none; border: 0; padding: 0; text-align: left; color: inherit; font: inherit; cursor: pointer; min-height: 42px; justify-content: center; }
 .list-item .grow small, .card-main small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .card .row { flex: 1 1 100%; }
+.card-actions { width: 100%; justify-content: space-between; gap: 8px; margin-top: 2px; }
+.card-icons { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; }
+.home-prog-card { flex-wrap: nowrap; }
+.home-prog-card .grow { flex: 1 1 auto; }
 .empty { text-align: center; color: var(--mut); padding: 24px 12px; border: 1px dashed var(--line); border-radius: var(--r); }
 .panel { background: var(--s1); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: flex; flex-direction: column; gap: 12px; }
 .panel-head { display: flex; align-items: center; justify-content: space-between; }
@@ -130,8 +154,17 @@ input[type="checkbox"]:checked::after { transform: rotate(-45deg) scale(1); }
 .stat { display: flex; flex-direction: column; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--s2); }
 .stat strong { font-size: 22px; }
 .pr { display: flex; flex-direction: column; padding: 8px 0; border-top: 1px solid var(--line); }
-.active-top { display: flex; flex-direction: column; gap: 8px; }
-.active-head { display: flex; align-items: center; gap: 6px; }
+.active-top {
+  position: sticky; top: calc(var(--safe-t) + 52px); z-index: 15;
+  background: var(--bg); padding: 6px 0 8px; border-bottom: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.active-row1 { display: flex; align-items: center; gap: 6px; }
+.active-row1 h2 { font-size: 17px; line-height: 1.25; }
+.active-row1 .btn.icon { width: 34px; min-height: 34px; height: 34px; color: var(--mut); }
+.active-row2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.active-meta { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
+.active-clock { font-weight: 700; color: var(--fg); }
 .workout-prog { height: 5px; width: 100%; background: var(--s2); border: 1px solid var(--line); border-radius: 99px; overflow: hidden; }
 .workout-prog-fill { height: 100%; width: 0%; background: var(--fg); transition: width .28s ease; }
 .code { background: var(--s2); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 10px; overflow-x: auto; font-size: 13px; margin: 0; white-space: pre-wrap; word-break: break-word; }
@@ -150,12 +183,18 @@ input[type="checkbox"]:checked::after { transform: rotate(-45deg) scale(1); }
 .entry-head .grow { display: flex; flex-direction: column; padding-right: 4px; }
 .entry-title-btn, .entry-summary {
   background: none; border: 0; padding: 0 4px 0 0; text-align: left; color: inherit; font: inherit;
-  cursor: pointer; display: flex; flex-direction: column; min-width: 0;
+  cursor: pointer; display: flex; flex-direction: column; min-width: 0; gap: 1px;
 }
-.entry-title-btn strong { text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; text-decoration-color: var(--mut); }
+.entry-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.entry-title-row svg { color: var(--mut); opacity: .7; flex: none; }
+.muscle-tag {
+  display: inline-flex; align-items: center; height: 18px; padding: 0 6px;
+  border: 1px solid var(--line); border-radius: 99px; background: var(--s2);
+  font-size: 11px; font-weight: 500; color: var(--mut);
+}
 .entry-summary-title { display: flex; align-items: center; gap: 6px; }
 .entry-head strong, .pitem-head strong { font-size: 15px; line-height: 1.25; overflow-wrap: anywhere; }
-.entry-head .btn.icon { width: 34px; min-height: 34px; height: 34px; color: var(--mut); }
+.entry-head .btn.icon { width: 32px; min-height: 32px; height: 32px; color: var(--mut); }
 
 .pr-slot { display: inline-flex; align-items: center; }
 .pr-badge {
@@ -163,33 +202,32 @@ input[type="checkbox"]:checked::after { transform: rotate(-45deg) scale(1); }
   height: 18px; padding: 0 6px; border-radius: 5px;
   background: var(--fg); color: var(--bg); font-size: 10px; font-weight: 800; letter-spacing: .04em;
 }
-.set.done .pr-badge { background: var(--inv-fg); color: var(--inv-bg); }
 
 .set-cols, .set-main {
-  display: grid; grid-template-columns: 26px 1.2fr 1fr 40px; gap: 6px; align-items: center;
+  display: grid; grid-template-columns: 28px 1.2fr 1fr 40px; gap: 6px; align-items: center;
 }
 .set-cols {
   padding: 0 4px; font-size: 11px; font-weight: 600; color: var(--mut); text-align: center;
   letter-spacing: .02em;
 }
-.sets { display: flex; flex-direction: column; gap: 5px; }
+.sets { display: flex; flex-direction: column; gap: 4px; }
 .set {
-  border: 1px solid var(--line); border-radius: 10px; padding: 5px 6px 4px;
+  border: 1px solid var(--line); border-radius: 10px; padding: 4px 5px;
   display: flex; flex-direction: column; gap: 3px; background: var(--s2); --field: var(--s1);
 }
 .set.warm { border-style: dashed; }
 
 .set-idx {
-  width: 26px; height: 38px; padding: 0; border: 1px solid transparent; border-radius: 8px;
-  background: transparent; color: var(--mut); font: inherit; font-size: 13px; font-weight: 700;
+  width: 28px; height: 36px; padding: 0; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--field); color: var(--mut); font: inherit; font-size: 12px; font-weight: 700;
   display: inline-flex; align-items: center; justify-content: center; cursor: pointer; touch-action: manipulation;
 }
-.set-idx.warm { border-color: var(--mut); border-style: dashed; color: var(--fg); }
+.set-idx.warm { border-color: var(--fg); border-style: dashed; color: var(--fg); }
 
 /* Единая капсула степпера: [ −  62,5  + ] */
 .stepper {
-  display: flex; width: 100%; height: 38px; align-items: center; min-width: 0;
-  background: var(--field); border: 1px solid var(--line); border-radius: 9px; overflow: hidden;
+  display: flex; width: 100%; height: 36px; align-items: center; min-width: 0;
+  background: var(--field); border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
 }
 .stepper input {
   flex: 1; min-width: 0; height: 100%; min-height: 0; padding: 0 2px;
@@ -205,52 +243,38 @@ input[type="checkbox"]:checked::after { transform: rotate(-45deg) scale(1); }
 .stepper .step:active { background: var(--line); color: var(--fg); }
 
 .set .done-btn {
-  width: 40px; min-width: 40px; height: 38px; min-height: 38px; padding: 0; margin: 0;
-  border-radius: 9px; background: transparent; border: 1.5px solid var(--fg);
+  width: 40px; min-width: 40px; height: 36px; min-height: 36px; padding: 0; margin: 0;
+  border-radius: 8px; background: var(--field); border: 1.5px solid var(--line); color: var(--mut);
 }
+.set .done-btn svg { opacity: .4; transition: opacity .15s, transform .2s; }
 
-/* Тонкая нижняя строка сета: подсказка прошлого раза + Разм. + Удалить */
+/* Опциональная подстрока сета (только если есть отличие от подсказки, PR или RPE) */
 .set-sub {
-  display: flex; align-items: center; gap: 6px; min-height: 20px; padding: 0 2px 0 32px;
+  display: flex; align-items: center; gap: 6px; padding: 0 2px 0 34px;
 }
-.set-sub .hint {
-  font-size: 11.5px; color: var(--mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.hint-chip {
+  background: var(--field); border: 1px dashed var(--line); border-radius: 6px;
+  padding: 2px 8px; font: inherit; font-size: 11px; color: var(--mut); cursor: pointer;
 }
-.set-sub .hint-btn {
-  background: none; border: 0; padding: 0; text-align: left; font: inherit; font-size: 11.5px;
-  color: var(--mut); cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 2px;
-}
-.set-sub .hint-btn:active { opacity: .6; }
+.hint-chip:active { opacity: .65; }
 .set-sub .rpe {
   width: 48px; height: 24px; min-height: 24px; padding: 0 4px; font-size: 12px;
-  text-align: center; border-radius: 6px; background: var(--field);
+  text-align: center; border-radius: 6px; background: var(--field); margin-left: auto;
 }
-.sub-act {
-  height: 22px; padding: 0 7px; border: 1px solid var(--line); border-radius: 6px;
-  background: transparent; color: var(--mut); font: inherit; font-size: 11px; font-weight: 600;
-  display: inline-flex; align-items: center; justify-content: center; cursor: pointer; touch-action: manipulation;
-}
-.sub-act.on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
-.sub-act.del { padding: 0 6px; border-color: transparent; font-size: 12px; }
-.sub-act:active { opacity: .7; }
 
-/* Выполненный сет: инверсия — светлая заливка с тёмным текстом */
+/* Выполненный сет: чёткая залитая галочка и спокойный контур строки без тяжёлой чёрной плашки */
 .set.done {
-  background: var(--inv-bg); color: var(--inv-fg); border-color: var(--inv-bg);
-  --fg: var(--inv-fg); --mut: var(--inv-fg); --line: rgba(128, 128, 128, .38); --field: rgba(128, 128, 128, .12);
+  background: var(--s1); border-color: var(--fg);
+  --field: var(--s2);
 }
-.set.done input { color: var(--inv-fg); }
-.set.done .done-btn { background: var(--inv-fg); color: var(--inv-bg); border-color: var(--inv-fg); }
-.set.done .sub-act { color: var(--inv-fg); border-color: rgba(128, 128, 128, .4); }
-.set.done .sub-act.del { border-color: transparent; opacity: .7; }
-.set.done .sub-act.on { background: var(--inv-fg); color: var(--inv-bg); border-color: var(--inv-fg); }
-.set.done .hint, .set.done .set-idx { color: var(--inv-fg); opacity: .7; }
-.set.done :focus-visible { outline-color: var(--inv-fg); }
+.set.done .done-btn { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.set.done .done-btn svg { opacity: 1; }
+.set.done .set-idx { color: var(--fg); border-color: var(--fg); }
 
-/* Нижняя строка карточки: [+ Сет] и [Заметка…] в одну линию */
-.entry-foot { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
-.entry-foot .add-set-btn { flex: none; min-height: 36px; height: 36px; padding: 0 12px; font-size: 13px; border-radius: 9px; }
-.entry-foot .entry-note { flex: 1; min-height: 36px; height: 36px; font-size: 13px; padding: 0 10px; border-radius: 9px; }
+/* Нижняя строка карточки: [+ Сет] [− Сет] и [Заметка…] в одну линию */
+.entry-foot { display: flex; align-items: center; gap: 5px; margin-top: 2px; }
+.entry-foot .add-set-btn { flex: none; min-height: 34px; height: 34px; padding: 0 10px; font-size: 12.5px; border-radius: 8px; }
+.entry-foot .entry-note { flex: 1; min-height: 34px; height: 34px; font-size: 13px; padding: 0 10px; border-radius: 8px; }
 
 /* ---------- Таймер отдыха ---------- */
 .timer-bar {
@@ -271,7 +295,13 @@ input[type="checkbox"]:checked::after { transform: rotate(-45deg) scale(1); }
 .pitem { background: var(--s2); border: 1px solid var(--line); border-radius: var(--r); padding: 8px; display: flex; flex-direction: column; gap: 8px; background-clip: padding-box; }
 .pitem-head { display: flex; align-items: center; gap: 0; }
 .pitem-head .grow { display: flex; flex-direction: column; padding: 0 4px; }
+.pitem-fields { align-items: flex-end; }
 .pitem-fields .field { flex: 1; }
+.pitem-fields .field > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sheet-sticky-foot {
+  position: sticky; bottom: -16px; margin: 4px -16px -16px; padding: 10px 16px;
+  background: var(--bg); border-top: 1px solid var(--line); z-index: 5;
+}
 .drag-handle { touch-action: none; cursor: grab; color: var(--mut); }
 .pitem.dragging { position: relative; z-index: 5; border: 3px solid var(--fg); background: var(--s1); user-select: none; }
 .pitem.dragging .drag-handle { cursor: grabbing; }

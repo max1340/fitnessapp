@@ -35,8 +35,11 @@ export function openProgramEditor(program) {
         inp.addEventListener("input", () => { set(inp.value); dirty = true; });
         return h("label", { class: "field mini" }, h("span", {}, label), inp);
       };
-      const restHint = h("span", { class: "muted small" });
-      const showRest = () => (restHint.textContent = it.restSec ? fmtRest(it.restSec) : ex ? "по умолч. " + fmtRest(ex.defaultRestSec) : "");
+      const restHint = h("span", { class: "muted" });
+      const showRest = () => {
+        const sec = it.restSec || (ex ? ex.defaultRestSec : null);
+        restHint.textContent = sec ? ` (${fmtRest(sec)})` : "";
+      };
       showRest();
       list.append(h("div", { class: "pitem", dataset: { key: it._key } },
         h("div", { class: "pitem-head" },
@@ -47,9 +50,8 @@ export function openProgramEditor(program) {
         h("div", { class: "row gap pitem-fields" },
           field("Сеты", it.sets, v => (it.sets = Math.max(1, Math.round(parseNum(v) || 1)))),
           field("Повторы", it.targetReps, v => (it.targetReps = v.trim()), "8-10", "text"),
-          h("div", { class: "field mini" }, h("span", {}, "Отдых, сек"),
-            (() => { const i = h("input", { type: "text", inputmode: "numeric", value: it.restSec ?? "", placeholder: ex ? String(ex.defaultRestSec) : "", "aria-label": "Отдых, сек" }); i.addEventListener("input", () => { it.restSec = parseNum(i.value); dirty = true; showRest(); }); return i; })(),
-            restHint)),
+          h("label", { class: "field mini" }, h("span", {}, "Отдых, с", restHint),
+            (() => { const i = h("input", { type: "text", inputmode: "numeric", value: it.restSec ?? "", placeholder: ex ? String(ex.defaultRestSec) : "", "aria-label": "Отдых, сек" }); i.addEventListener("input", () => { it.restSec = parseNum(i.value); dirty = true; showRest(); }); return i; })())),
         h("input", { class: "pitem-note", type: "text", value: it.note || "", placeholder: "Заметка к позиции", "aria-label": "Заметка", oninput: ev => { it.note = ev.target.value; dirty = true; } })));
     });
   }
@@ -72,12 +74,13 @@ export function openProgramEditor(program) {
       p.items.push({ _key: uid(), exerciseId: ex.id, sets: ex.defaultSets || 3, targetReps: "", restSec: null, note: "" });
       dirty = true; paint();
     }, { multi: true }) }, "+ Добавить упражнение"),
-    h("button", { class: "btn primary block", type: "button", onclick: save }, "Сохранить программу"),
     !isNew ? h("button", { class: "btn block", type: "button", onclick: async () => {
       if (await confirmDialog(`Удалить программу «${p.name}»? Проведённые по ней тренировки в истории останутся.`, { ok: "Удалить", danger: true })) {
         dirty = false; deleteProgram(p.id); sh.close(); toast("Программа удалена");
       }
-    } }, "Удалить программу") : null);
+    } }, "Удалить программу") : null,
+    h("div", { class: "sheet-sticky-foot" },
+      h("button", { class: "btn primary block", type: "button", onclick: save }, "Сохранить программу")));
   const sh = sheet(body, {
     title: isNew ? "Новая программа" : "Программа", full: true,
     beforeClose: () => (!dirty ? true : confirmDialog("Закрыть без сохранения изменений?", { ok: "Закрыть", cancel: "Остаться", danger: true }))
@@ -101,25 +104,26 @@ export function mount(root) {
         h("button", { class: "card-main", type: "button", onclick: () => openProgramEditor(p) },
           h("strong", {}, p.name + (p.archived ? " (архив)" : "")),
           h("small", { class: "muted" }, `${p.items.length} упр.: ${names.join(", ") || "—"}`)),
-        h("div", { class: "row gap end" },
+        h("div", { class: "row card-actions" },
           !p.archived && (!act || isCurrentActive) ? h("button", {
-            class: "btn small primary", type: "button",
+            class: "btn small primary start-btn", type: "button",
             onclick: () => {
               if (!act) startSession(p);
               sessionStorage.setItem("fitness.openActive", "1");
               location.hash = "#/workout";
             }
-          }, icon("play", 15), isCurrentActive ? "Продолжить" : "Начать") : null,
-          iconBtn("copy", "Дублировать", () => { saveProgram({ ...p, id: uid(), name: p.name + " (копия)", baselineSessionId: null }); toast("Программа продублирована"); }),
-          iconBtn("archive", p.archived ? "Вернуть из архива" : "В архив", async () => {
-            if (p.archived || await confirmDialog(`Архивировать «${p.name}»? История останется.`, { ok: "В архив" })) saveProgram({ ...p, archived: !p.archived });
-          }),
-          iconBtn("trash", "Удалить программу", async () => {
-            if (await confirmDialog(`Удалить программу «${p.name}»? Проведённые по ней тренировки в истории останутся.`, { ok: "Удалить", danger: true })) {
-              deleteProgram(p.id); toast("Программа удалена");
-            }
-          }),
-          iconBtn("edit", "Редактировать", () => openProgramEditor(p)))));
+          }, icon("play", 15), isCurrentActive ? "Продолжить" : "Начать") : h("span", { class: "grow" }),
+          h("div", { class: "card-icons" },
+            iconBtn("copy", "Дублировать", () => { saveProgram({ ...p, id: uid(), name: p.name + " (копия)", baselineSessionId: null }); toast("Программа продублирована"); }),
+            iconBtn("archive", p.archived ? "Вернуть из архива" : "В архив", async () => {
+              if (p.archived || await confirmDialog(`Архивировать «${p.name}»? История останется.`, { ok: "В архив" })) saveProgram({ ...p, archived: !p.archived });
+            }),
+            iconBtn("trash", "Удалить программу", async () => {
+              if (await confirmDialog(`Удалить программу «${p.name}»? Проведённые по ней тренировки в истории останутся.`, { ok: "Удалить", danger: true })) {
+                deleteProgram(p.id); toast("Программа удалена");
+              }
+            }),
+            iconBtn("edit", "Редактировать", () => openProgramEditor(p))))));
     }
   };
   showArchived.addEventListener("input", paint);
