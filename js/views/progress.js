@@ -126,11 +126,10 @@ export function showFormula() {
   const pct = n => Math.round(n * 100) + "%";
   sheet(h("div", { class: "stack formula" },
     h("p", {}, t("progress.formulaP1")),
-    h("pre", { class: "code" }, `LI = 100 × (${LI_WEIGHTS.volume.toFixed(2)}·rV + ${LI_WEIGHTS.e1rm.toFixed(2)}·rE + ${LI_WEIGHTS.density.toFixed(2)}·rD)`),
     h("ul", {},
-      h("li", {}, h("strong", {}, "rV"), t("progress.formulaRv", { pct: pct(LI_WEIGHTS.volume) })),
-      h("li", {}, h("strong", {}, "rE"), t("progress.formulaRe", { pct: pct(LI_WEIGHTS.e1rm) })),
-      h("li", {}, h("strong", {}, "rD"), t("progress.formulaRd", { pct: pct(LI_WEIGHTS.density) }))),
+      h("li", {}, h("strong", {}, t("progress.formulaRvTitle", { pct: pct(LI_WEIGHTS.volume) })), t("progress.formulaRv")),
+      h("li", {}, h("strong", {}, t("progress.formulaReTitle", { pct: pct(LI_WEIGHTS.e1rm) })), t("progress.formulaRe")),
+      h("li", {}, h("strong", {}, t("progress.formulaRdTitle", { pct: pct(LI_WEIGHTS.density) })), t("progress.formulaRd"))),
     h("p", { class: "muted" }, t("progress.formulaP2")),
     h("p", { class: "muted" }, t("progress.formulaP3"))), { title: t("progress.formulaTitle") });
 }
@@ -172,12 +171,8 @@ export function mount(root) {
       smooth, refY: 100, label: t("progress.loadIndex"), fmt: v => formatNum(v, 0), height: 210,
       onSelect: i => {
         const p = series[i]; if (!p) return;
-        const d = p.detail;
         detail.textContent = t("progress.liDetail", {
           vol: formatNum(p.stats.volume, 0),
-          rv: formatNum(d.rV, 2),
-          re: d.rE != null ? ` · rE ${formatNum(d.rE, 2)}` : "",
-          rd: d.rD != null ? ` · rD ${formatNum(d.rD, 2)}` : "",
           sm: formatNum(smooth[i], 1)
         });
       }

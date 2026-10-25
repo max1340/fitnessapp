@@ -1,6 +1,5 @@
 import { h, clear, sheet, toast, confirmDialog, parseNum, fmtNum } from "../ui.js";
-import { state, updateSettings, exportData, importData, downloadCsv, seedStarterData, seedCommonExercises, unitLabel, logoutProfile } from "../store.js";
-import { persistence } from "../db.js";
+import { state, updateSettings, exportData, importData, downloadCsv, unitLabel, logoutProfile } from "../store.js";
 import { t, getLang } from "../i18n.js";
 
 export function applyTheme() {
@@ -82,8 +81,6 @@ export function openSettings() {
         }, t("settings.logoutBtn")))
     );
 
-    const isMax = curUsername === "max_134";
-
     wrap.append(
       profileBox,
       h("label", { class: "field" }, h("span", {}, t("settings.lang")), sel("lang", [["ru", "Русский"], ["en", "English"]], renderContent)),
@@ -112,13 +109,7 @@ export function openSettings() {
         const a = h("a", { href: URL.createObjectURL(blob), download: `fitness-backup-${curUsername}-${new Date().toISOString().slice(0, 10)}.json` });
         document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
       } }, t("settings.exportJsonBtn")),
-      h("button", { class: "btn block", type: "button", onclick: () => file.click() }, t("settings.importJsonBtn")), file,
-      h("button", { class: "btn block", type: "button", onclick: () => {
-        const n = isMax ? seedStarterData() : seedCommonExercises();
-        toast(n ? t("settings.seededToast") : t("settings.alreadySeededToast"));
-      } }, t("settings.seedBtn")),
-      h("p", { class: "muted small" }, t("settings.cloudInfo", { cache: persistence === "persistent" ? t("settings.cacheOn") : t("settings.cacheOff") })),
-      h("a", { class: "muted small", href: "tests.html" }, t("settings.runTests"))
+      h("button", { class: "btn block", type: "button", onclick: () => file.click() }, t("settings.importJsonBtn")), file
     );
   }
 
