@@ -1,5 +1,5 @@
 import { h, clear, sheet, confirmDialog, toast, parseNum, fmtRest, icon, iconBtn, enableDragSort } from "../ui.js";
-import { state, saveProgram, getExercise, activeSession, uid } from "../store.js";
+import { state, saveProgram, deleteProgram, getExercise, activeSession, uid } from "../store.js";
 import { pickExercise } from "./exercises.js";
 import { startSession } from "./workout.js";
 
@@ -72,7 +72,12 @@ export function openProgramEditor(program) {
       p.items.push({ _key: uid(), exerciseId: ex.id, sets: ex.defaultSets || 3, targetReps: "", restSec: null, note: "" });
       dirty = true; paint();
     }, { multi: true }) }, "+ Добавить упражнение"),
-    h("button", { class: "btn primary block", type: "button", onclick: save }, "Сохранить программу"));
+    h("button", { class: "btn primary block", type: "button", onclick: save }, "Сохранить программу"),
+    !isNew ? h("button", { class: "btn block", type: "button", onclick: async () => {
+      if (await confirmDialog(`Удалить программу «${p.name}»? Проведённые по ней тренировки в истории останутся.`, { ok: "Удалить", danger: true })) {
+        dirty = false; deleteProgram(p.id); sh.close(); toast("Программа удалена");
+      }
+    } }, "Удалить программу") : null);
   const sh = sheet(body, {
     title: isNew ? "Новая программа" : "Программа", full: true,
     beforeClose: () => (!dirty ? true : confirmDialog("Закрыть без сохранения изменений?", { ok: "Закрыть", cancel: "Остаться", danger: true }))
@@ -108,6 +113,11 @@ export function mount(root) {
           iconBtn("copy", "Дублировать", () => { saveProgram({ ...p, id: uid(), name: p.name + " (копия)", baselineSessionId: null }); toast("Программа продублирована"); }),
           iconBtn("archive", p.archived ? "Вернуть из архива" : "В архив", async () => {
             if (p.archived || await confirmDialog(`Архивировать «${p.name}»? История останется.`, { ok: "В архив" })) saveProgram({ ...p, archived: !p.archived });
+          }),
+          iconBtn("trash", "Удалить программу", async () => {
+            if (await confirmDialog(`Удалить программу «${p.name}»? Проведённые по ней тренировки в истории останутся.`, { ok: "Удалить", danger: true })) {
+              deleteProgram(p.id); toast("Программа удалена");
+            }
           }),
           iconBtn("edit", "Редактировать", () => openProgramEditor(p)))));
     }

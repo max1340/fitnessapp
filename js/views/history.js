@@ -1,4 +1,4 @@
-import { h, clear, sheet, confirmDialog, toast, fmtDate, fmtShortDate, toLocalInput, fromLocalInput, parseNum } from "../ui.js";
+import { h, clear, sheet, confirmDialog, toast, fmtDate, fmtShortDate, toLocalInput, fromLocalInput, parseNum, iconBtn } from "../ui.js";
 import { state, saveSession, deleteSession } from "../store.js";
 import { sessionStats, formatNum } from "../metrics.js";
 import { entryCard } from "./entryCard.js";
@@ -136,9 +136,16 @@ export function mount(root) {
     for (const s of items) {
       const st = sessionStats(s);
       const sets = (s.entries || []).reduce((n, e) => n + e.sets.filter(x => x.done && !x.isWarmup).length, 0);
-      list.append(h("button", { class: "list-item", type: "button", onclick: () => openEditor(s) },
-        h("span", { class: "grow" }, h("strong", {}, s.programName), h("small", { class: "muted" }, `${fmtDate(s.startedAt, true)} · ${s.durationMin ?? "?"} мин`),
-          h("small", { class: "muted" }, `${sets} сетов · объём ${formatNum(st.volume, 0)} кг`))));
+      list.append(h("div", { class: "list-item" },
+        h("button", { class: "card-main grow", type: "button", onclick: () => openEditor(s) },
+          h("strong", {}, s.programName),
+          h("small", { class: "muted" }, `${fmtDate(s.startedAt, true)} · ${s.durationMin ?? "?"} мин`),
+          h("small", { class: "muted" }, `${sets} сетов · объём ${formatNum(st.volume, 0)} кг`)),
+        iconBtn("trash", "Удалить тренировку", async () => {
+          if (await confirmDialog(`Удалить тренировку «${s.programName}» (${fmtDate(s.startedAt)})?`, { ok: "Удалить", danger: true })) {
+            deleteSession(s.id); toast("Тренировка удалена");
+          }
+        })));
     }
     wrap.append(list);
   };

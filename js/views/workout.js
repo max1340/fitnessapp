@@ -164,8 +164,17 @@ export function mount(root) {
     clear(view);
     const act = activeSession();
     if (act) {
-      view.append(h("button", { class: "btn primary big block", type: "button", onclick: () => open(act) },
-        h("span", {}, "Продолжить тренировку"), h("small", {}, `${act.programName} · начата ${fmtDate(act.startedAt, true)}`)));
+      view.append(
+        h("button", { class: "btn primary big block", type: "button", onclick: () => open(act) },
+          h("span", {}, "Продолжить тренировку"), h("small", {}, `${act.programName} · начата ${fmtDate(act.startedAt, true)}`)),
+        h("button", {
+          class: "btn small block", type: "button",
+          onclick: async () => {
+            if (await confirmDialog("Удалить незавершённую тренировку? Все введённые данные будут удалены.", { ok: "Удалить", danger: true })) {
+              stopRest(); deleteSession(act.id); toast("Тренировка удалена"); home();
+            }
+          }
+        }, icon("trash", 16), "Удалить незавершённую тренировку"));
     }
     view.append(h("h2", { class: "section" }, "Программы"));
     const programs = state.programs.filter(p => !p.archived).sort((a, b) => a.name.localeCompare(b.name));
@@ -199,7 +208,7 @@ export function mount(root) {
       h("div", { class: "active-top" },
         h("div", { class: "active-head" },
           h("div", { class: "grow" }, h("h2", { class: "section" }, session.programName), h("div", { class: "row gap" }, clockEl, h("span", { class: "muted" }, "·"), progTextEl)),
-          h("button", { class: "btn small", type: "button", onclick: cancel }, "Отменить"),
+          h("button", { class: "btn small", type: "button", onclick: cancel }, icon("trash", 15), "Удалить"),
           h("button", { class: "btn small primary", type: "button", onclick: finish }, "Завершить")),
         h("div", { class: "workout-prog" }, progFillEl)),
       entriesBox,

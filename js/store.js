@@ -102,6 +102,7 @@ export function saveSession(s, { silent = false } = {}) {
   return upsert("sessions", obj);
 }
 export const deleteSession = id => remove("sessions", id);
+export const deleteProgram = id => remove("programs", id);
 export const deleteExercise = id => remove("exercises", id);
 
 export const isExerciseUsed = id =>
