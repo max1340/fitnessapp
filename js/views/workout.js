@@ -1,10 +1,11 @@
-import { h, clear, sheet, confirmDialog, toast, fmtDate, fmtNum, fmtRest, parseNum, icon, debounce, enableDragSort } from "../ui.js";
-import { state, getExercise, getProgram, saveProgram, saveSession, deleteSession, activeSession, doneSessions, lastValues, stepFor, logBodyweight, uid, unitLabel } from "../store.js";
+import { h, clear, sheet, confirmDialog, toast, fmtDate, fmtNum, fmtRest, icon, debounce, enableDragSort } from "../ui.js";
+import { state, getExercise, getProgram, saveProgram, saveSession, deleteSession, activeSession, doneSessions, lastValues, stepFor, uid, unitLabel, warmupSymbol } from "../store.js";
 import { sessionStats, loadIndex, pickBaseline, compareWithPrevious, personalRecords, formatNum, fromKg, byStart } from "../metrics.js";
 import { entryCard, checkSetPR } from "./entryCard.js";
 import { pickExercise } from "./exercises.js";
 import { startRest, stopRest } from "../timer.js";
 import { renderBodyMap } from "../bodyMap.js";
+import { t } from "../i18n.js";
 
 /* ---------- Screen Wake Lock ---------- */
 let wakeLock = null, wantLock = false;
@@ -14,7 +15,7 @@ async function acquireLock() {
   try {
     wakeLock = await navigator.wakeLock.request("screen");
     wakeLock.addEventListener("release", () => { wakeLock = null; });
-  } catch (e) { console.info("Wake Lock отклонён:", e.name); wakeLock = null; } // отказ — не критично
+  } catch (e) { console.info("Wake Lock:", e.name); wakeLock = null; } // отказ — не критично
 }
 function releaseLock() { wantLock = false; if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; } }
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && wantLock) acquireLock(); });
@@ -46,9 +47,9 @@ export function buildEntry(ex, programId, order, item = {}) {
       hintWeight = src.weight ?? null;
       hintReps = src.reps ?? null;
       const txt = fmtSet(src, ex.unit);
-      if (lv.source === "program") { reps = src.reps ?? null; hint = `прошлый раз: ${txt}`; }
-      else if (lv.source === "other") { hint = `из «${lv.fromProgram}»: ${txt}`; } // только вес — повторы по тапу на подсказку или вручную
-      else { reps = src.reps ?? null; hint = `стартовое: ${txt}`; }
+      if (lv.source === "program") { reps = src.reps ?? null; hint = t("workout.hintPrev", { txt }); }
+      else if (lv.source === "other") { hint = t("workout.hintOther", { prog: lv.fromProgram, txt }); } // только вес — повторы по тапу на подсказку или вручную
+      else { reps = src.reps ?? null; hint = t("workout.hintStart", { txt }); }
     }
     return { reps, weight, rpe: null, done: false, isWarmup: false, completedAt: null, hint, hintWeight, hintReps };
   });
@@ -84,7 +85,7 @@ export function startSession(program) {
     if (ex) entries.push(buildEntry(ex, program.id, entries.length, it));
   });
   return saveSession({
-    id: uid(), programId: program ? program.id : null, programName: program ? program.name : "Свободная тренировка",
+    id: uid(), programId: program ? program.id : null, programName: program ? program.name : t("workout.freeWorkout"),
     bodyweightKg: state.settings.bodyweightKg || null,
     startedAt: Date.now(), finishedAt: null, durationMin: null, status: "active", entries
   });
@@ -130,7 +131,7 @@ export function showSummary(session) {
     if (bestW !== null || bestE1 !== null) {
       const u = unitLabel(e.unit);
       const parts = [];
-      if (bestW !== null) parts.push(`вес ${formatNum(fromKg(bestW, e.unit), 1)} ${u}`);
+      if (bestW !== null) parts.push(t("workout.prWeight", { val: formatNum(fromKg(bestW, e.unit), 1), u }));
       if (bestE1 !== null) parts.push(`e1RM ${formatNum(fromKg(bestE1, e.unit), 1)} ${u}`);
       prItems.push({ name: e.exerciseName, text: parts.join(" · ") });
     }
@@ -155,12 +156,12 @@ export function showSummary(session) {
         });
         saveProgram({ ...program, items: newItems });
         btn.disabled = true;
-        btn.textContent = "✓ Шаблон программы обновлён";
-        toast("Шаблон программы обновлён");
+        btn.textContent = t("workout.templateUpdatedBtn");
+        toast(t("workout.templateUpdatedToast"));
       }
-    }, "Обновить шаблон программы");
+    }, t("workout.updateTemplateBtn"));
     return h("div", { class: "panel" },
-      h("small", { class: "muted" }, `Состав упражнений или количество сетов отличаются от шаблона «${program.name}».`),
+      h("small", { class: "muted" }, t("workout.templateDiffNote", { name: program.name })),
       btn);
   })() : null;
 
@@ -169,7 +170,7 @@ export function showSummary(session) {
     const workSets = (e.sets || []).filter(s => s.done && !s.isWarmup && s.reps > 0).length;
     if (!workSets) continue;
     const ex = getExercise(e.exerciseId);
-    const mg = (ex?.muscleGroup || "Другое").trim();
+    const mg = (ex?.muscleGroup || t("common.other")).trim();
     if (!sMuscles.has(mg)) sMuscles.set(mg, { muscle: mg, sets: 0, exercises: new Set() });
     const rec = sMuscles.get(mg);
     rec.sets += workSets;
@@ -177,46 +178,48 @@ export function showSummary(session) {
   }
   const mapItems = [...sMuscles.values()].map(x => ({ ...x, exercises: [...x.exercises] }));
 
+  const kg = unitLabel("kg");
   const cell = (label, val, sub = "") => h("div", { class: "stat" }, h("small", { class: "muted" }, label), h("strong", {}, val), sub ? h("small", { class: "muted" }, sub) : null);
   const sign = n => (n > 0 ? "+" : "") + formatNum(n, 1);
   const sh = sheet(h("div", { class: "stack" },
     h("div", { class: "stats" },
-      cell("Объём", formatNum(stats.volume, 0) + " кг"),
-      cell("Лучший e1RM", stats.bestE1rm ? formatNum(stats.bestE1rm, 1) + " кг" : "—"),
-      cell("Индекс нагрузки", li ? formatNum(li.li, 1) : "—", base && base.id === session.id ? "это базовая тренировка" : ""),
-      cell("К прошлой", cmp === null ? "—" : sign(cmp) + "%", "объём по общим упражнениям"),
-      cell("Время", (session.durationMin ?? "—") + " мин")),
+      cell(t("workout.sumVolume"), `${formatNum(stats.volume, 0)} ${kg}`),
+      cell(t("workout.sumBestE1rm"), stats.bestE1rm ? `${formatNum(stats.bestE1rm, 1)} ${kg}` : "—"),
+      cell(t("workout.sumLoadIndex"), li ? formatNum(li.li, 1) : "—", base && base.id === session.id ? t("workout.sumBaselineSub") : ""),
+      cell(t("workout.sumVsPrev"), cmp === null ? "—" : sign(cmp) + "%", t("workout.sumVsPrevSub")),
+      cell(t("workout.sumTime"), `${session.durationMin ?? "—"} ${t("workout.minUnit")}`)),
     mapItems.length ? h("div", { class: "panel" },
-      h("h3", { class: "group" }, "Задействованные мышцы"),
+      h("h3", { class: "group" }, t("workout.musclesWorked")),
       renderBodyMap(mapItems, { compact: true })) : null,
     prItems.length ? h("div", { class: "panel" },
-      h("h3", { class: "group" }, "Новые рекорды (PR)"),
+      h("h3", { class: "group" }, t("workout.newPRs")),
       ...prItems.map(p => h("div", { class: "row gap" }, h("span", { class: "pr-badge" }, "PR"), h("strong", { class: "grow" }, p.name), h("small", { class: "muted" }, p.text)))
     ) : null,
     syncProgramBlock,
-    h("button", { class: "btn primary block", type: "button", onclick: () => sh.close() }, "Готово")), { title: "Тренировка завершена" });
+    h("button", { class: "btn primary block", type: "button", onclick: () => sh.close() }, t("common.done"))), { title: t("workout.finishedTitle") });
 }
 
 /* ---------- Подсказка следующего подхода для таймера ---------- */
 function buildNextLabel(session, curEntry) {
   let workIdx = 0;
+  const wSym = warmupSymbol();
   for (const s of curEntry.sets || []) {
     if (!s.isWarmup) workIdx++;
     if (!s.done) {
       const w = s.weight != null ? `${fmtNum(s.weight)} ${unitLabel(curEntry.unit)}` : "";
       const r = s.reps != null ? `× ${s.reps}` : "";
       const detail = [w, r].filter(Boolean).join(" ");
-      return `Далее: сет ${s.isWarmup ? "Р" : workIdx}${detail ? ` · ${detail}` : ""}`;
+      return t("workout.nextSet", { idx: s.isWarmup ? wSym : workIdx, detail: detail ? ` · ${detail}` : "" });
     }
   }
   const idx = session.entries.indexOf(curEntry);
   for (let j = idx + 1; j < session.entries.length; j++) {
     const next = session.entries[j];
     if (!next.skipped && next.sets.some(s => !s.done)) {
-      return `Далее: ${next.exerciseName}`;
+      return t("workout.nextEx", { name: next.exerciseName });
     }
   }
-  return `Все сеты выполнены`;
+  return t("workout.allSetsDone");
 }
 
 /* ---------- Вид ---------- */
@@ -239,7 +242,7 @@ export function mount(root) {
     }
     const pct = total > 0 ? Math.round((done / total) * 100) : 0;
     progFillEl.style.width = pct + "%";
-    progTextEl.textContent = `${done}/${total} сет. (${pct}%)`;
+    progTextEl.textContent = t("workout.progressSets", { done, total, pct });
   };
 
   const persist = debounce(() => { if (session) { saveSession(session, { silent: true }); updateProgress(); } }, 350);
@@ -285,7 +288,7 @@ export function mount(root) {
       type: "button",
       class: "btn tag home-pill" + (selectedId === FREE_ID ? " on" : ""),
       onclick: () => selectProg(FREE_ID)
-    }, "Свободная тренировка");
+    }, t("workout.freeWorkout"));
     pillBtns.set(FREE_ID, freeBtn);
     pillsWrap.append(freeBtn);
 
@@ -305,10 +308,10 @@ export function mount(root) {
         if (e.skipped) continue;
         for (const s of e.sets || []) { actTotal++; if (s.done) actDone++; }
       }
-      orbSubEl.textContent = `${actDone}/${actTotal} сет. · ${fmtDate(act.startedAt)}`;
+      orbSubEl.textContent = t("workout.activeOrbSub", { done: actDone, total: actTotal, date: fmtDate(act.startedAt) });
       orbBtnEl = h("button", { class: "home-orb", type: "button", onclick: () => open(act) },
         icon("play", 28),
-        h("span", { class: "home-orb-label" }, "ПРОДОЛЖИТЬ"),
+        h("span", { class: "home-orb-label" }, t("workout.resumeCaps")),
         h("small", { class: "home-orb-sub" }, shortProgTitle(act.programName)),
         orbSubEl);
       orbRingEl = h("div", { class: "home-orb-ring active-ring" }, orbBtnEl);
@@ -317,11 +320,11 @@ export function mount(root) {
         h("button", {
           class: "btn small", type: "button",
           onclick: async () => {
-            if (await confirmDialog("Удалить незавершённую тренировку? Все введённые данные будут удалены.", { ok: "Удалить", danger: true })) {
-              stopRest(); deleteSession(act.id); toast("Тренировка удалена"); home();
+            if (await confirmDialog(t("workout.deleteActiveConfirm"), { ok: t("common.delete"), danger: true })) {
+              stopRest(); deleteSession(act.id); toast(t("workout.deletedToast")); home();
             }
           }
-        }, icon("trash", 15), "Удалить незавершённую тренировку")
+        }, icon("trash", 15), t("workout.deleteActiveBtn"))
       );
     } else {
       orbBtnEl = h("button", {
@@ -329,7 +332,7 @@ export function mount(root) {
         onclick: () => open(startSession(getSelectedProg()))
       },
         icon("play", 30),
-        h("span", { class: "home-orb-label" }, "НАЧАТЬ"),
+        h("span", { class: "home-orb-label" }, t("workout.startCaps")),
         orbSubEl);
       orbRingEl = h("div", { class: "home-orb-ring" }, orbBtnEl);
       heroBox.append(orbRingEl);
@@ -352,14 +355,15 @@ export function mount(root) {
 
       if (prog) {
         selTitleEl.textContent = prog.name;
-        selSubEl.textContent = `${prog.items.length} упр. · ${totalSets} сет.` + (last ? ` · последняя ${fmtDate(last.startedAt)}` : " · ещё не выполнялась");
+        const baseMeta = t("workout.progMeta", { exCount: prog.items.length, setsCount: totalSets });
+        selSubEl.textContent = baseMeta + (last ? t("workout.progMetaLast", { date: fmtDate(last.startedAt) }) : t("workout.progMetaNever"));
       } else {
-        selTitleEl.textContent = "Свободная тренировка";
-        selSubEl.textContent = "Без шаблона · добавляйте упражнения по ходу тренировки";
+        selTitleEl.textContent = t("workout.freeWorkout");
+        selSubEl.textContent = t("workout.freeMetaSub");
       }
 
       if (!act) {
-        orbSubEl.textContent = prog ? `${prog.items.length} упр. · ${totalSets} сет.` : "Без шаблона";
+        orbSubEl.textContent = prog ? t("workout.progMeta", { exCount: prog.items.length, setsCount: totalSets }) : t("workout.noTemplate");
       }
 
       if (animateSwitch) {
@@ -380,7 +384,7 @@ export function mount(root) {
           const ex = getExercise(it.exerciseId);
           if (!ex) return;
           const setsCnt = Number(it.sets) || 3;
-          const mg = (ex.muscleGroup || "Другое").trim();
+          const mg = (ex.muscleGroup || t("common.other")).trim();
           if (!byMuscle.has(mg)) byMuscle.set(mg, { muscle: mg, sets: 0, exercises: [] });
           const rec = byMuscle.get(mg);
           rec.sets += setsCnt;
@@ -392,14 +396,14 @@ export function mount(root) {
         });
       }
 
-      previewTitleEl.textContent = prog ? "Задействованные мышцы и упражнения" : "Карта мышц";
-      previewCountEl.textContent = prog ? `${byMuscle.size} мышечн. гр.` : "0 мышечн. гр.";
+      previewTitleEl.textContent = prog ? t("workout.previewTitleProg") : t("workout.previewTitleFree");
+      previewCountEl.textContent = t("workout.previewMuscleCount", { n: prog ? byMuscle.size : 0 });
 
       previewBody.append(
         renderBodyMap([...byMuscle.values()], { compact: true }),
         prog && exChips.length
           ? h("div", { class: "home-ex-list" }, ...exChips)
-          : h("p", { class: "muted small home-free-note" }, "В свободной тренировке упражнения выбираются из библиотеки прямо во время занятия.")
+          : h("p", { class: "muted small home-free-note" }, t("workout.freePreviewNote"))
       );
     }
 
@@ -414,7 +418,7 @@ export function mount(root) {
 
     view.append(
       h("section", { class: "panel home-selector-card" },
-        h("span", { class: "group", style: "margin:0" }, "Выбор тренировки"),
+        h("span", { class: "group", style: "margin:0" }, t("workout.selectWorkout")),
         pillsWrap,
         selMetaBox),
       heroBox,
@@ -441,16 +445,16 @@ export function mount(root) {
       h("div", { class: "active-top" },
         h("div", { class: "active-row1" },
           h("h2", { class: "section grow" }, session.programName),
-          h("button", { class: "btn icon", type: "button", title: "Удалить тренировку", "aria-label": "Удалить тренировку", onclick: cancel }, icon("trash", 18))),
+          h("button", { class: "btn icon", type: "button", title: t("workout.deleteWorkoutTitle"), "aria-label": t("workout.deleteWorkoutTitle"), onclick: cancel }, icon("trash", 18))),
         h("div", { class: "active-row2" },
           h("div", { class: "active-meta" }, clockEl, h("span", { class: "muted" }, "·"), progTextEl),
-          h("button", { class: "btn small primary", type: "button", onclick: finish }, "Завершить")),
+          h("button", { class: "btn small primary", type: "button", onclick: finish }, t("workout.finishShort"))),
         h("div", { class: "workout-prog" }, progFillEl)),
       entriesBox,
       h("button", { class: "btn block", type: "button", onclick: () => pickExercise(ex => {
         session.entries.push({ ...buildEntry(ex, session.programId, session.entries.length), extra: true }); persistNow(); paintEntries();
-      }, { multi: true }) }, "+ Добавить упражнение"),
-      h("button", { class: "btn primary block", type: "button", onclick: finish }, "Завершить тренировку"));
+      }, { multi: true }) }, t("workout.addExerciseBtn")),
+      h("button", { class: "btn primary block", type: "button", onclick: finish }, t("workout.finishFull")));
     paintEntries();
     updateProgress();
   }
@@ -468,7 +472,7 @@ export function mount(root) {
         rerender: () => { paintEntries(); updateProgress(); },
         onSetDone: (e, set, pr) => {
           updateProgress();
-          if (pr) toast(`Новый рекорд (PR): ${e.exerciseName}!`);
+          if (pr) toast(t("workout.newPrToast", { name: e.exerciseName }));
           if (!set.isWarmup) startRest(e.restSec ?? state.settings.restSec, buildNextLabel(session, e));
         },
         onMove: d => { const j = i + d; if (j < 0 || j >= session.entries.length) return; [session.entries[i], session.entries[j]] = [session.entries[j], session.entries[i]]; reindex(); persistNow(); paintEntries(); },
@@ -477,12 +481,12 @@ export function mount(root) {
           const replaced = buildEntry(ex, session.programId, i, { sets: workCount, targetReps: entry.targetReps });
           session.entries[i] = replaced;
           reindex(); persistNow(); paintEntries();
-          toast("Заменено на: " + ex.name);
+          toast(t("workout.swappedToast", { name: ex.name }));
         }, {
           exclude: [entry.exerciseId],
           inSessionIds: session.entries.map(x => x.exerciseId),
           preferMuscle: getExercise(entry.exerciseId)?.muscleGroup || "",
-          title: "Замена упражнения"
+          title: t("workout.swapTitle")
         }),
         onSkip: () => { entry.skipped = true; persistNow(); paintEntries(); },
         onRemove: entry.extra ? () => { session.entries.splice(i, 1); reindex(); persistNow(); paintEntries(); } : null
@@ -491,14 +495,14 @@ export function mount(root) {
   }
 
   async function cancel() {
-    if (!(await confirmDialog("Отменить тренировку? Все введённые данные будут удалены.", { ok: "Удалить тренировку", cancel: "Назад", danger: true }))) return;
+    if (!(await confirmDialog(t("workout.cancelConfirm"), { ok: t("workout.deleteWorkoutTitle"), cancel: t("common.back"), danger: true }))) return;
     const id = session.id; stopRest(); persist.flush();
     session = null; deleteSession(id); home();
   }
 
   async function finish() {
     const doneCount = session.entries.reduce((n, e) => n + (e.skipped ? 0 : e.sets.filter(s => s.done).length), 0);
-    if (!doneCount && !(await confirmDialog("Нет ни одного выполненного сета. Завершить всё равно?", { ok: "Завершить" }))) return;
+    if (!doneCount && !(await confirmDialog(t("workout.finishEmptyConfirm"), { ok: t("workout.finishShort") }))) return;
     persist.flush();
     const now = Date.now();
     session.entries = session.entries.filter(e => !e.skipped || e.sets.some(s => s.done)).map(({ _key, _expanded, progression, ...rest }) => rest);
@@ -509,7 +513,7 @@ export function mount(root) {
     stopRest(); home(); showSummary(saved);
   }
 
-  // Если перешли с вкладки «Программы» по кнопке «Начать» — сразу открываем активную тренировку
+  // Если перешли с вкладки «Программы» по кнопке «Начать» (или переключили язык во время активной тренировки)
   const actOnMount = activeSession();
   if (actOnMount && sessionStorage.getItem("fitness.openActive") === "1") {
     sessionStorage.removeItem("fitness.openActive");
@@ -520,9 +524,12 @@ export function mount(root) {
 
   return {
     update() { if (mode === "home") home(); }, // во время тренировки не перерисовываем (не сбиваем ввод)
-    destroy() {
+    destroy(opts = {}) {
       clearInterval(clockTimer); releaseLock();
-      if (mode === "active") persistNow();
+      if (mode === "active") {
+        persistNow();
+        if (opts && opts.preserveMode) sessionStorage.setItem("fitness.openActive", "1");
+      }
       document.removeEventListener("visibilitychange", onHide); window.removeEventListener("pagehide", onHide);
     }
   };

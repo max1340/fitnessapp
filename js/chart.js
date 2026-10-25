@@ -1,5 +1,6 @@
 // Линейные графики на чистом SVG (без библиотек). Только оттенки серого через currentColor/CSS-классы.
 import { h, fmtShortDate } from "./ui.js";
+import { t, isEn } from "./i18n.js";
 
 const NS = "http://www.w3.org/2000/svg";
 const s = (tag, attrs = {}) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
@@ -11,10 +12,10 @@ const s = (tag, attrs = {}) => { const e = document.createElementNS(NS, tag); fo
  */
 export function lineChart(points, opts = {}) {
   const W = 360, H = opts.height || 190, pl = 38, pr = 12, pt = 14, pb = 26;
-  const fmt = opts.fmt || (v => String(Math.round(v * 10) / 10).replace(".", ","));
+  const fmt = opts.fmt || (v => { const str = String(Math.round(v * 10) / 10); return isEn() ? str : str.replace(".", ","); });
   const wrap = h("div", { class: "chart" });
-  const caption = h("div", { class: "chart-caption muted", "aria-live": "polite" }, points.length ? "Нажмите на точку" : "Недостаточно данных");
-  if (!points.length) { wrap.append(h("div", { class: "chart-empty" }, "Пока нет данных"), caption); return wrap; }
+  const caption = h("div", { class: "chart-caption muted", "aria-live": "polite" }, points.length ? t("chart.tapPoint") : t("chart.notEnoughData"));
+  if (!points.length) { wrap.append(h("div", { class: "chart-empty" }, t("chart.noData")), caption); return wrap; }
 
   const ys = points.map(p => p.y).concat(opts.smooth || [], opts.refY != null ? [opts.refY] : []);
   let min = Math.min(...ys), max = Math.max(...ys);
@@ -30,7 +31,7 @@ export function lineChart(points, opts = {}) {
   const x = i => (points.length === 1 ? (pl + W - pr) / 2 : pl + (i * (W - pl - pr)) / (points.length - 1));
   const y = v => pt + (1 - (v - min) / (max - min)) * (H - pt - pb);
 
-  const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, class: "chart-svg", role: "img", "aria-label": opts.label || "График" });
+  const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, class: "chart-svg", role: "img", "aria-label": opts.label || t("chart.defaultLabel") });
   // сетка и подписи оси Y
   for (let i = 0; i <= 3; i++) {
     const v = min + ((max - min) * i) / 3, yy = y(v);

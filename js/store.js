@@ -1,5 +1,6 @@
 // Хранилище состояния в памяти поверх Firebase Realtime Database + локального офлайн-кэша.
 import { watchCollection, saveDoc, removeDoc, bulkSave, bulkRemove } from "./db.js";
+import { t, detectDefaultLang, setLang, isEn, localizeExercise, localizeProgram, localizeSession, localizeState, tMuscle } from "./i18n.js";
 
 const COLLECTIONS = ["exercises", "programs", "sessions", "meta"];
 const LS_SETTINGS = "fitness.settings.v1";
@@ -10,35 +11,36 @@ const toArray = v => Array.isArray(v) ? v : (v && typeof v === "object" ? Object
 function normalizeDoc(coll, d) {
   if (!d || typeof d !== "object") return d;
   if (coll === "exercises") {
-    return {
+    return localizeExercise({
       archived: false,
       note: "",
       isBodyweight: Boolean(d.isBodyweight || d.id === "seed-pullups"),
       ...d,
       startReps: toArray(d.startReps)
-    };
+    });
   }
   if (coll === "programs") {
-    return {
+    return localizeProgram({
       archived: false,
       ...d,
       items: toArray(d.items).map(it => ({ sets: 3, targetReps: "", note: "", ...it }))
-    };
+    });
   }
   if (coll === "sessions") {
-    return {
+    return localizeSession({
       ...d,
       entries: toArray(d.entries).map(e => ({
         note: "",
         ...e,
         sets: toArray(e.sets).map(s => ({ reps: null, weight: null, rpe: null, done: false, isWarmup: false, ...s }))
       }))
-    };
+    });
   }
   return d;
 }
 
 export const DEFAULT_SETTINGS = {
+  lang: detectDefaultLang(),
   defaultUnit: "kg",
   stepKg: 2.5,
   stepLb: 5,
@@ -57,6 +59,7 @@ export const state = {
   settings: loadLocalSettings(),
   sync: { fromCache: false, pending: false, error: null }
 };
+setLang(state.settings.lang);
 
 const listeners = new Set();
 export function subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }
@@ -82,15 +85,15 @@ export function init(onProgress) {
     let autoSeeded = false;
     let resolved = false;
     const labels = {
-      exercises: "Упражнения загружены…",
-      programs: "Программы загружены…",
-      sessions: "История синхронизирована…",
-      meta: "Настройки применены…"
+      exercises: () => t("store.loadedExercises"),
+      programs: () => t("store.loadedPrograms"),
+      sessions: () => t("store.loadedSessions"),
+      meta: () => t("store.loadedMeta")
     };
 
     const check = lastLoaded => {
       const doneCount = Object.values(state.loaded).filter(Boolean).length;
-      if (onProgress) onProgress(doneCount / COLLECTIONS.length, labels[lastLoaded] || "Синхронизация…");
+      if (onProgress) onProgress(doneCount / COLLECTIONS.length, labels[lastLoaded] ? labels[lastLoaded]() : t("store.syncing"));
       if (!resolved && doneCount === COLLECTIONS.length) {
         resolved = true;
         resolve();
@@ -114,8 +117,13 @@ export function init(onProgress) {
           const s = docs.find(d => d.id === "settings");
           if (s) {
             const { id, ...rest } = s;
+            const prevLang = state.settings.lang;
             state.settings = { ...DEFAULT_SETTINGS, ...rest };
             localStorage.setItem(LS_SETTINGS, JSON.stringify(state.settings));
+            if (state.settings.lang && state.settings.lang !== prevLang) {
+              setLang(state.settings.lang);
+              localizeState(state);
+            }
           }
           const bw = docs.find(d => d.id === "bodyweight");
           if (bw) {
@@ -142,7 +150,12 @@ export function init(onProgress) {
 
 /* ---------- Настройки и собственный вес тела ---------- */
 export function updateSettings(patch) {
+  const langChanged = patch.lang && patch.lang !== state.settings.lang;
   state.settings = { ...state.settings, ...patch };
+  if (langChanged) {
+    setLang(state.settings.lang);
+    localizeState(state);
+  }
   localStorage.setItem(LS_SETTINGS, JSON.stringify(state.settings));
   saveDoc("meta", { id: "settings", ...state.settings }).catch(console.error);
   emit();
@@ -286,8 +299,9 @@ export const EXTRA_LIBRARY_EXERCISES = [
 
 export function seedExtraExercises() {
   const items = [];
-  for (const e of EXTRA_LIBRARY_EXERCISES) {
-    if (!getExercise(e.id)) {
+  for (const raw of EXTRA_LIBRARY_EXERCISES) {
+    if (!getExercise(raw.id)) {
+      const e = localizeExercise(raw);
       items.push(["exercises", e]);
       state.exercises.push(e);
     }
@@ -310,14 +324,18 @@ export function seedStarterData() {
     mkEx("seed-tri-lat", "Cable Lateral Head (разгибания)", "Трицепс (Lateral)", 72.5, []),
     mkEx("seed-delts", "Кабель", "Средняя дельта", 15, [], { unit: "lb" })
   ];
-  const program = {
+  const program = localizeProgram({
     id: "seed-fullbody", name: "FULLBODY — классические сеты", archived: false,
     items: exs.map(e => ({ exerciseId: e.id, sets: 3, targetReps: "8-10", restSec: REST, note: "" }))
-  };
+  });
   // не перезаписываем то, что пользователь уже мог отредактировать
   const items = [];
-  for (const e of [...exs, ...EXTRA_LIBRARY_EXERCISES]) {
-    if (!getExercise(e.id)) { items.push(["exercises", e]); state.exercises.push(e); }
+  for (const raw of [...exs, ...EXTRA_LIBRARY_EXERCISES]) {
+    if (!getExercise(raw.id)) {
+      const e = localizeExercise(raw);
+      items.push(["exercises", e]);
+      state.exercises.push(e);
+    }
   }
   if (!getProgram(program.id)) { items.push(["programs", program]); state.programs.push(program); }
   if (items.length) bulkSave(items).catch(console.error);
@@ -340,11 +358,9 @@ export function exportCsv() {
     const s = v === null || v === undefined ? "" : String(v);
     return /[;"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  const numStr = v => (v === null || v === undefined || v === "" ? "" : String(v).replace(".", ","));
-  const rows = [[
-    "Дата", "Время", "Программа", "Длительность (мин)", "Свой вес (кг)",
-    "№", "Мышца", "Упражнение", "Сет №", "Тип сета", "Вес", "Ед.", "Повторы", "RPE", "Заметка"
-  ].join(";")];
+  const numStr = v => (v === null || v === undefined || v === "" ? "" : (isEn() ? String(v).replace(",", ".") : String(v).replace(".", ",")));
+  const headers = t("csv.headers");
+  const rows = [(Array.isArray(headers) ? headers : []).join(";")];
 
   const done = [...state.sessions].filter(s => s.status === "done").sort((a, b) => b.startedAt - a.startedAt);
   for (const s of done) {
@@ -354,7 +370,7 @@ export function exportCsv() {
     const bw = s.bodyweightKg ?? state.settings.bodyweightKg ?? "";
     (s.entries || []).forEach((e, eIdx) => {
       const ex = getExercise(e.exerciseId);
-      const muscle = ex?.muscleGroup || e.muscleGroup || "";
+      const muscle = tMuscle(ex?.muscleGroup || e.muscleGroup || "");
       let workIdx = 0;
       (e.sets || []).forEach(set => {
         if (!set.done) return;
@@ -368,8 +384,8 @@ export function exportCsv() {
           esc(eIdx + 1),
           esc(muscle),
           esc(e.exerciseName || ""),
-          esc(set.isWarmup ? "Р" : workIdx),
-          esc(set.isWarmup ? "Разминочный" : "Рабочий"),
+          esc(set.isWarmup ? t("store.warmupSym") : workIdx),
+          esc(set.isWarmup ? t("csv.warmup") : t("csv.working")),
           esc(numStr(set.weight ?? 0)),
           esc(unitLabel(e.unit)),
           esc(set.reps ?? ""),
@@ -395,11 +411,12 @@ export function downloadCsv() {
 
 export function importData(json) {
   const data = JSON.parse(json);
-  if (data.app !== "fitness-tracker") throw new Error("Это не файл резервной копии приложения");
+  if (data.app !== "fitness-tracker") throw new Error(t("settings.importInvalid"));
   const items = [];
   for (const name of ["exercises", "programs", "sessions"]) {
-    for (const obj of data[name] || []) {
-      if (!obj.id) continue;
+    for (const raw of data[name] || []) {
+      if (!raw.id) continue;
+      const obj = normalizeDoc(name, raw);
       items.push([name, obj]);
       const list = state[name], i = list.findIndex(x => x.id === obj.id);
       if (i >= 0) list[i] = obj; else list.push(obj);
@@ -419,5 +436,6 @@ export function wipeAll() {
   emit();
 }
 
-export const unitLabel = u => (u === "lb" ? "lb" : "кг");
+export const unitLabel = u => (u === "lb" ? "lb" : t("store.unitKg"));
+export const warmupSymbol = () => t("store.warmupSym");
 export function stepFor(unit) { return unit === "lb" ? Number(state.settings.stepLb) || 5 : Number(state.settings.stepKg) || 2.5; }

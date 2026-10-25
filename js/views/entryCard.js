@@ -1,8 +1,9 @@
 // Карточка упражнения с сетами. Используется и в активной тренировке, и в редактировании истории.
 import { h, icon, iconBtn, fmtNum, parseNum, toast } from "../ui.js";
-import { state, getExercise, stepFor, unitLabel } from "../store.js";
+import { state, getExercise, stepFor, unitLabel, warmupSymbol } from "../store.js";
 import { toKg, epley, MAX_E1RM_REPS } from "../metrics.js";
 import { openExerciseHistory } from "./exercises.js";
+import { t } from "../i18n.js";
 
 const round = n => Math.round(n * 100) / 100;
 
@@ -27,9 +28,9 @@ export function entryCard(entry, ctx) {
   if (entry.skipped) {
     return h("article", { class: "entry skipped", dataset: { key: cardKey } },
       h("div", { class: "entry-head" },
-        ctx.reorder ? h("button", { class: "btn icon drag-handle", type: "button", "aria-label": "Перетащить" }, icon("drag", 18)) : null,
-        h("div", { class: "grow" }, h("strong", {}, `${ctx.index + 1}. ${entry.exerciseName}`), h("small", { class: "muted" }, "Пропущено")),
-        h("button", { class: "btn small", type: "button", onclick: () => { entry.skipped = false; ctx.onChange(); ctx.rerender(); } }, "Вернуть")));
+        ctx.reorder ? h("button", { class: "btn icon drag-handle", type: "button", "aria-label": t("entry.dragAria") }, icon("drag", 18)) : null,
+        h("div", { class: "grow" }, h("strong", {}, `${ctx.index + 1}. ${entry.exerciseName}`), h("small", { class: "muted" }, t("entry.skipped"))),
+        h("button", { class: "btn small", type: "button", onclick: () => { entry.skipped = false; ctx.onChange(); ctx.rerender(); } }, t("entry.restore"))));
   }
 
   const unit = entry.unit, step = stepFor(unit);
@@ -41,17 +42,19 @@ export function entryCard(entry, ctx) {
     const workSets = entry.sets.filter(s => !s.isWarmup && s.done);
     const weights = [...new Set(workSets.map(s => fmtNum(s.weight ?? 0)))].join("/");
     const reps = workSets.map(s => s.reps ?? 0).join("/");
-    const summary = workSets.length ? `${workSets.length} сет. · ${weights} ${unitLabel(unit)} × ${reps}` : `${entry.sets.length} сет.`;
+    const summary = workSets.length
+      ? t("entry.summaryWork", { count: workSets.length, weights, u: unitLabel(unit), reps })
+      : t("entry.summarySets", { count: entry.sets.length });
     return h("article", { class: "entry collapsed", dataset: { key: cardKey } },
       h("div", { class: "entry-head" },
-        ctx.reorder ? h("button", { class: "btn icon drag-handle", type: "button", "aria-label": "Перетащить" }, icon("drag", 18)) : null,
+        ctx.reorder ? h("button", { class: "btn icon drag-handle", type: "button", "aria-label": t("entry.dragAria") }, icon("drag", 18)) : null,
         h("button", { class: "entry-summary grow", type: "button", onclick: () => { entry._expanded = true; ctx.rerender(); } },
           h("span", { class: "entry-summary-title" },
             icon("check", 16),
             h("strong", {}, `${ctx.index + 1}. ${entry.exerciseName}`),
             hasEntryPR ? h("span", { class: "pr-badge" }, "PR") : null),
           h("small", { class: "muted" }, summary)),
-        iconBtn("down", "Развернуть", () => { entry._expanded = true; ctx.rerender(); })));
+        iconBtn("down", t("entry.expand"), () => { entry._expanded = true; ctx.rerender(); })));
   }
 
   const setsBox = h("div", { class: "sets" });
@@ -107,9 +110,9 @@ export function entryCard(entry, ctx) {
       ctx.onChange();
     };
     return h("div", { class: "stepper" },
-      h("button", { class: "btn step", type: "button", "aria-label": label + " минус", onclick: () => bump(-stepSize) }, icon("minus", 14)),
+      h("button", { class: "btn step", type: "button", "aria-label": t("entry.minusAria", { label }), onclick: () => bump(-stepSize) }, icon("minus", 14)),
       inp,
-      h("button", { class: "btn step", type: "button", "aria-label": label + " плюс", onclick: () => bump(stepSize) }, icon("plus", 14)));
+      h("button", { class: "btn step", type: "button", "aria-label": t("entry.plusAria", { label }), onclick: () => bump(stepSize) }, icon("plus", 14)));
   }
 
   function attachSwipeDelete(row, onDelete) {
@@ -160,22 +163,23 @@ export function entryCard(entry, ctx) {
     setsBox.replaceChildren();
     weightInputs.clear(); repsInputs.clear();
     let n = 0;
+    const wSym = warmupSymbol();
     entry.sets.forEach((set, i) => {
       if (!set.isWarmup) n++;
       const toggleWarm = () => { set.isWarmup = !set.isWarmup; ctx.onChange(); paintSets(); };
       const idxBtn = h("button", {
         class: "set-idx" + (set.isWarmup ? " warm" : ""), type: "button",
-        title: "Тап: разминочный (Р) / рабочий сет", "aria-label": set.isWarmup ? "Разминочный сет" : `Сет ${n}`,
+        title: t("entry.warmupTapTitle"), "aria-label": set.isWarmup ? t("entry.warmupAria") : t("entry.setAria", { n }),
         onclick: toggleWarm
-      }, set.isWarmup ? "Р" : String(n));
+      }, set.isWarmup ? wSym : String(n));
       const doneBtn = h("button", {
-        class: "btn done-btn", type: "button", "aria-pressed": String(!!set.done), "aria-label": "Сет выполнен",
+        class: "btn done-btn", type: "button", "aria-pressed": String(!!set.done), "aria-label": t("entry.setDoneAria"),
         onclick: () => toggleDone(set, row, doneBtn, rowA, prSlot)
       }, icon("check", 19));
       const rowA = h("div", { class: "set-main" },
         idxBtn,
-        stepper(set, "weight", step, "0", "Вес"),
-        stepper(set, "reps", 1, "0", "Повторы"),
+        stepper(set, "weight", step, "0", t("entry.weightLabel")),
+        stepper(set, "reps", 1, "0", t("entry.repsLabel")),
         doneBtn);
       const rpeEl = entry.trackRpe ? (() => {
         const inp = h("input", { type: "text", inputmode: "decimal", value: fmtNum(set.rpe), placeholder: "RPE", "aria-label": "RPE", class: "rpe" });
@@ -190,20 +194,20 @@ export function entryCard(entry, ctx) {
       );
       const hintEl = hintDiffers
         ? h("button", {
-            class: "hint-chip", type: "button", title: "Подставить вес и повторы",
+            class: "hint-chip", type: "button", title: t("entry.applyHintTitle"),
             onclick: () => {
               const oldW = set.weight;
               if (set.hintWeight != null) { set.weight = set.hintWeight; const wi = weightInputs.get(set); if (wi) wi.value = fmtNum(set.weight); propagateWeight(i, oldW); }
               if (set.hintReps != null) { set.reps = set.hintReps; const ri = repsInputs.get(set); if (ri) ri.value = fmtNum(set.reps); propagateReps(i); }
               ctx.onChange();
               paintSets();
-              toast("Подставлено: " + set.hint);
+              toast(t("entry.appliedToast", { hint: set.hint }));
             }
           }, "↺ " + set.hint)
         : null;
 
       const hasPr = !!checkSetPR(set, unit, ctx.prBaseline);
-      const prSlot = h("span", { class: "pr-slot" }, hasPr ? h("span", { class: "pr-badge", title: "Личный рекорд!" }, "PR") : null);
+      const prSlot = h("span", { class: "pr-slot" }, hasPr ? h("span", { class: "pr-badge", title: t("entry.prTitle") }, "PR") : null);
 
       const showSub = !!(hintEl || hasPr || rpeEl);
       const rowB = h("div", { class: "set-sub", hidden: !showSub }, hintEl, prSlot, rpeEl);
@@ -223,7 +227,7 @@ export function entryCard(entry, ctx) {
     row.classList.toggle("done", set.done);
     btn.setAttribute("aria-pressed", String(set.done));
     const pr = checkSetPR(set, unit, ctx.prBaseline);
-    prSlot.replaceChildren(pr ? h("span", { class: "pr-badge", title: "Личный рекорд!" }, "PR") : "");
+    prSlot.replaceChildren(pr ? h("span", { class: "pr-badge", title: t("entry.prTitle") }, "PR") : "");
     const sub = row.querySelector(".set-sub");
     if (sub) sub.hidden = !pr && !entry.trackRpe;
     if (!set.done) entry._expanded = true; // если сняли галочку — оставляем карточку открытой
@@ -236,7 +240,7 @@ export function entryCard(entry, ctx) {
   }
 
   paintSets();
-  const note = h("input", { type: "text", class: "entry-note", value: entry.note || "", placeholder: "Заметка…", "aria-label": "Заметка к упражнению" });
+  const note = h("input", { type: "text", class: "entry-note", value: entry.note || "", placeholder: t("entry.notePlaceholder"), "aria-label": t("entry.noteAria") });
   note.addEventListener("input", () => { entry.note = note.value; ctx.onChange(); });
 
   const exObj = getExercise(entry.exerciseId);
@@ -244,8 +248,8 @@ export function entryCard(entry, ctx) {
   const isBw = !!(entry.isBodyweight || exObj?.isBodyweight);
   const firstHint = (entry.sets.find(s => s.hint) || {}).hint || "";
   const subParts = [];
-  if (isBw && state.settings.bodyweightKg) subParts.push(`свой вес ${fmtNum(state.settings.bodyweightKg)} кг`);
-  if (entry.targetReps) subParts.push("цель: " + entry.targetReps);
+  if (isBw && state.settings.bodyweightKg) subParts.push(t("entry.bwSub", { bw: fmtNum(state.settings.bodyweightKg) }));
+  if (entry.targetReps) subParts.push(t("entry.targetSub", { target: entry.targetReps }));
   if (entry.programNote) subParts.push(entry.programNote);
   else if (firstHint) subParts.push(firstHint);
 
@@ -263,16 +267,21 @@ export function entryCard(entry, ctx) {
           entry.progression = null;
           ctx.onChange();
           ctx.rerender();
-          toast(`Вес увеличен на +${fmtNum(st)} ${unitLabel(unit)}`);
+          toast(t("entry.progIncreasedToast", { step: fmtNum(st), u: unitLabel(unit) }));
         }
-      }, `↑ Все сеты закрыты (${entry.progression.maxTarget}+) — добавить +${fmtNum(entry.progression.step)} ${unitLabel(unit)} → ${fmtNum(entry.progression.nextWeight)} ${unitLabel(unit)}`)
+      }, t("entry.progBanner", {
+        max: entry.progression.maxTarget,
+        step: fmtNum(entry.progression.step),
+        u: unitLabel(unit),
+        next: fmtNum(entry.progression.nextWeight)
+      }))
     : null;
 
   return h("article", { class: "entry", dataset: { key: cardKey } },
     h("div", { class: "entry-head" },
-      ctx.reorder ? h("button", { class: "btn icon drag-handle", type: "button", "aria-label": "Перетащить упражнение", title: "Перетащите для смены порядка" }, icon("drag", 18)) : null,
+      ctx.reorder ? h("button", { class: "btn icon drag-handle", type: "button", "aria-label": t("entry.dragExAria"), title: t("entry.dragExTitle") }, icon("drag", 18)) : null,
       h("button", {
-        class: "entry-title-btn grow", type: "button", title: "Нажмите: история и рекорды упражнения",
+        class: "entry-title-btn grow", type: "button", title: t("entry.historyTitle"),
         onclick: () => openExerciseHistory(entry.exerciseId, entry.exerciseName, entry.unit)
       },
         h("span", { class: "entry-title-row" },
@@ -280,16 +289,16 @@ export function entryCard(entry, ctx) {
           muscle ? h("span", { class: "muscle-tag" }, muscle) : null,
           icon("clock", 13)),
         subParts.length ? h("small", { class: "muted" }, subParts.join(" · ")) : null),
-      allDone ? iconBtn("up", "Свернуть", () => { entry._expanded = false; ctx.rerender(); }) : null,
-      ctx.onSwap ? iconBtn("swap", "Заменить упражнение", ctx.onSwap) : null,
-      ctx.onSkip ? iconBtn("skip", "Пропустить упражнение", ctx.onSkip) : null,
-      ctx.onRemove ? iconBtn("trash", "Убрать упражнение", ctx.onRemove) : null),
+      allDone ? iconBtn("up", t("entry.collapse"), () => { entry._expanded = false; ctx.rerender(); }) : null,
+      ctx.onSwap ? iconBtn("swap", t("entry.swapEx"), ctx.onSwap) : null,
+      ctx.onSkip ? iconBtn("skip", t("entry.skipEx"), ctx.onSkip) : null,
+      ctx.onRemove ? iconBtn("trash", t("entry.removeEx"), ctx.onRemove) : null),
     progBanner,
     h("div", { class: "set-cols" },
-      h("span", { title: "Нажмите на номер подхода для разминки (Р)" }, "#/Р"),
-      h("span", {}, (isBw ? "Доп. вес, " : "Вес, ") + unitLabel(unit)),
-      h("span", {}, "Повторы"),
-      h("span", {}, "Готово")),
+      h("span", { title: t("entry.colNumTitle") }, t("entry.colNum")),
+      h("span", {}, t(isBw ? "entry.colWeightAdded" : "entry.colWeight", { u: unitLabel(unit) })),
+      h("span", {}, t("entry.colReps")),
+      h("span", {}, t("entry.colDone"))),
     setsBox,
     h("div", { class: "entry-foot" },
       h("button", { class: "btn small add-set-btn", type: "button", onclick: () => {
@@ -297,11 +306,11 @@ export function entryCard(entry, ctx) {
         entry.sets.push({ reps: prev ? prev.reps : null, weight: prev ? prev.weight : null, rpe: null, done: false, isWarmup: false, completedAt: null, hint: "", hintWeight: prev ? prev.weight : null, hintReps: prev ? prev.reps : null });
         entry._expanded = true;
         ctx.onChange(); paintSets();
-      } }, "+ Сет"),
-      h("button", { class: "btn small add-set-btn", type: "button", title: "Удалить последний сет", onclick: () => {
+      } }, t("entry.addSet")),
+      h("button", { class: "btn small add-set-btn", type: "button", title: t("entry.removeSetTitle"), onclick: () => {
         if (entry.sets.length <= 1) return;
         entry.sets.pop();
         ctx.onChange(); paintSets();
-      } }, "− Сет"),
+      } }, t("entry.removeSet")),
       note));
 }

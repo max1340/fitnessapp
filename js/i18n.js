@@ -1,0 +1,943 @@
+// Модуль локализации (RU / EN) без внешних зависимостей.
+// Поддерживает интерфейс, стандартные мышечные группы и встроенный каталог упражнений/программ.
+
+const LS_SETTINGS = "fitness.settings.v1";
+
+export function detectDefaultLang() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LS_SETTINGS) || "{}").lang;
+    if (saved === "ru" || saved === "en") return saved;
+  } catch { /* ignore */ }
+  const nav = (typeof navigator !== "undefined" && (navigator.language || (navigator.languages && navigator.languages[0]))) || "ru";
+  return /^(ru|uk|be|kk)\b/i.test(String(nav)) ? "ru" : "en";
+}
+
+let currentLang = detectDefaultLang();
+
+export const getLang = () => currentLang;
+export const isEn = () => currentLang === "en";
+
+export function setLang(lang) {
+  if (lang !== "ru" && lang !== "en") return currentLang;
+  currentLang = lang;
+  if (typeof document !== "undefined") {
+    document.documentElement.lang = currentLang;
+    const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+    if (appleTitle) appleTitle.content = t("app.name");
+    const desc = document.querySelector('meta[name="description"]');
+    if (desc) desc.content = t("app.description");
+  }
+  return currentLang;
+}
+
+/* ---------- Стандартные мышечные группы (RU <-> EN) ---------- */
+const MUSCLE_PAIRS = [
+  ["Спина", "Back"],
+  ["Грудь", "Chest"],
+  ["Ноги", "Legs"],
+  ["Бицепс", "Biceps"],
+  ["Трицепс", "Triceps"],
+  ["Трицепс (Lateral)", "Triceps (Lateral)"],
+  ["Трицепс (Long)", "Triceps (Long)"],
+  ["Дельты", "Shoulders"],
+  ["Средняя дельта", "Side Delts"],
+  ["Задняя дельта", "Rear Delts"],
+  ["Пресс", "Abs"],
+  ["Предплечья", "Forearms"],
+  ["Икры", "Calves"],
+  ["Ягодицы", "Glutes"],
+  ["Трапеции", "Traps"],
+  ["Квадрицепс", "Quads"],
+  ["Бицепс бедра", "Hamstrings"],
+  ["Другое", "Other"],
+  ["Без группы", "Uncategorized"]
+];
+
+const RU_TO_EN_MUSCLE = new Map();
+const EN_TO_RU_MUSCLE = new Map();
+for (const [ru, en] of MUSCLE_PAIRS) {
+  RU_TO_EN_MUSCLE.set(ru.toLowerCase(), en);
+  EN_TO_RU_MUSCLE.set(en.toLowerCase(), ru);
+}
+
+/** Переводит название стандартной мышечной группы на текущий язык (пользовательские названия не меняет). */
+export function tMuscle(muscleGroup) {
+  const s = String(muscleGroup || "").trim();
+  if (!s) return "";
+  const low = s.toLowerCase();
+  if (currentLang === "en") {
+    return RU_TO_EN_MUSCLE.get(low) || EN_TO_RU_MUSCLE.has(low) && MUSCLE_PAIRS.find(([, en]) => en.toLowerCase() === low)[1] || s;
+  }
+  return EN_TO_RU_MUSCLE.get(low) || RU_TO_EN_MUSCLE.has(low) && MUSCLE_PAIRS.find(([ru]) => ru.toLowerCase() === low)[0] || s;
+}
+
+export function getMuscleHints() {
+  const main = MUSCLE_PAIRS.slice(0, 15);
+  return main.map(([ru, en]) => (currentLang === "en" ? en : ru));
+}
+
+/* ---------- Встроенный каталог упражнений и программ ---------- */
+export const BUILTIN_EXERCISES = {
+  "seed-pullups": { ru: "Подтягивания", en: "Pull-Ups", muscleRu: "Спина", muscleEn: "Back", noteRu: "Доп. вес", noteEn: "Added weight" },
+  "seed-tbar": { ru: "Т-гриф широким хватом", en: "Wide-Grip T-Bar Row", muscleRu: "Спина", muscleEn: "Back" },
+  "seed-dbpress": { ru: "Жим гантелей", en: "Dumbbell Bench Press", muscleRu: "Грудь", muscleEn: "Chest" },
+  "seed-biceps": { ru: "Гантели", en: "Dumbbell Curls", muscleRu: "Бицепс", muscleEn: "Biceps" },
+  "seed-tri-long": { ru: "Cable Overhead Extension", en: "Cable Overhead Extension", muscleRu: "Трицепс (Long)", muscleEn: "Triceps (Long)", noteRu: "Рабочий вес 20–25 кг", noteEn: "Working weight 20–25 kg" },
+  "seed-tri-lat": { ru: "Cable Lateral Head (разгибания)", en: "Cable Triceps Pushdown (Lateral)", muscleRu: "Трицепс (Lateral)", muscleEn: "Triceps (Lateral)" },
+  "seed-delts": { ru: "Кабель", en: "Cable Lateral Raise", muscleRu: "Средняя дельта", muscleEn: "Side Delts" },
+
+  "ex-lat-pulldown": { ru: "Тяга верхнего блока к груди", en: "Lat Pulldown", muscleRu: "Спина", muscleEn: "Back" },
+  "ex-seated-row": { ru: "Тяга горизонтального блока", en: "Seated Cable Row", muscleRu: "Спина", muscleEn: "Back" },
+  "ex-bb-row": { ru: "Тяга штанги в наклоне", en: "Barbell Bent-Over Row", muscleRu: "Спина", muscleEn: "Back" },
+  "ex-db-row": { ru: "Тяга гантели одной рукой", en: "One-Arm Dumbbell Row", muscleRu: "Спина", muscleEn: "Back" },
+  "ex-pullover": { ru: "Пулловер в кроссовере", en: "Cable Pullover", muscleRu: "Спина", muscleEn: "Back" },
+
+  "ex-bench-press": { ru: "Жим штанги лёжа", en: "Barbell Bench Press", muscleRu: "Грудь", muscleEn: "Chest" },
+  "ex-incline-db": { ru: "Жим гантелей на наклонной (30°)", en: "Incline Dumbbell Press (30°)", muscleRu: "Грудь", muscleEn: "Chest" },
+  "ex-chest-press": { ru: "Жим в тренажёре (Хаммер)", en: "Machine Chest Press (Hammer)", muscleRu: "Грудь", muscleEn: "Chest" },
+  "ex-cable-fly": { ru: "Сведение рук в кроссовере / Бабочка", en: "Cable Fly / Pec Deck", muscleRu: "Грудь", muscleEn: "Chest" },
+  "ex-dips": { ru: "Отжимания на брусьях", en: "Parallel Bar Dips", muscleRu: "Грудь", muscleEn: "Chest" },
+
+  "ex-bb-curl": { ru: "Подъём EZ-штанги на бицепс", en: "EZ-Bar Curl", muscleRu: "Бицепс", muscleEn: "Biceps" },
+  "ex-hammer-curl": { ru: "Молотки с гантелями", en: "Dumbbell Hammer Curl", muscleRu: "Бицепс", muscleEn: "Biceps" },
+  "ex-preacher-curl": { ru: "Бицепс на скамье Скотта", en: "Preacher Curl", muscleRu: "Бицепс", muscleEn: "Biceps" },
+  "ex-cable-curl": { ru: "Сгибания на бицепс в блоке", en: "Cable Biceps Curl", muscleRu: "Бицепс", muscleEn: "Biceps" },
+
+  "ex-skullcrusher": { ru: "Французский жим с EZ-штангой", en: "EZ-Bar Skullcrusher", muscleRu: "Трицепс", muscleEn: "Triceps" },
+  "ex-rope-pushdown": { ru: "Разгибания с канатом в блоке", en: "Rope Triceps Pushdown", muscleRu: "Трицепс (Lateral)", muscleEn: "Triceps (Lateral)" },
+  "ex-db-overhead-tri": { ru: "Французский жим гантели из-за головы", en: "Overhead Dumbbell Triceps Extension", muscleRu: "Трицепс (Long)", muscleEn: "Triceps (Long)" },
+
+  "ex-db-lat-raise": { ru: "Махи гантелями в стороны", en: "Dumbbell Lateral Raise", muscleRu: "Средняя дельта", muscleEn: "Side Delts" },
+  "ex-ohp-db": { ru: "Жим гантелей сидя", en: "Seated Dumbbell Shoulder Press", muscleRu: "Дельты", muscleEn: "Shoulders" },
+  "ex-rear-delt": { ru: "Обратная бабочка / Задняя дельта", en: "Reverse Pec Deck / Rear Delt Fly", muscleRu: "Задняя дельта", muscleEn: "Rear Delts" },
+
+  "ex-squat": { ru: "Приседания со штангой", en: "Barbell Squat", muscleRu: "Ноги", muscleEn: "Legs" },
+  "ex-leg-press": { ru: "Жим ногами в тренажёре", en: "Leg Press", muscleRu: "Ноги", muscleEn: "Legs" },
+  "ex-rdl": { ru: "Румынская тяга", en: "Romanian Deadlift (RDL)", muscleRu: "Ноги", muscleEn: "Legs" },
+  "ex-leg-ext": { ru: "Разгибания ног сидя", en: "Seated Leg Extension", muscleRu: "Ноги", muscleEn: "Legs" },
+  "ex-leg-curl": { ru: "Сгибания ног лёжа", en: "Lying Leg Curl", muscleRu: "Ноги", muscleEn: "Legs" },
+  "ex-cable-crunch": { ru: "Скручивания на пресс в блоке", en: "Cable Crunch", muscleRu: "Пресс", muscleEn: "Abs" }
+};
+
+export const BUILTIN_PROGRAMS = {
+  "seed-fullbody": {
+    ru: "FULLBODY — классические сеты",
+    en: "FULLBODY — Classic Sets"
+  }
+};
+
+const FREE_WORKOUT_NAMES = new Set(["Свободная тренировка", "Free Workout"]);
+
+export function localizeProgramName(name, programId = null) {
+  if (!name) return "";
+  if (FREE_WORKOUT_NAMES.has(name)) return t("workout.freeWorkout");
+  const bp = (programId && BUILTIN_PROGRAMS[programId]) || Object.values(BUILTIN_PROGRAMS).find(p => p.ru === name || p.en === name);
+  if (bp && (name === bp.ru || name === bp.en)) {
+    return currentLang === "en" ? bp.en : bp.ru;
+  }
+  return name;
+}
+
+export function localizeExerciseName(exerciseId, currentName) {
+  const b = exerciseId && BUILTIN_EXERCISES[exerciseId];
+  if (b && (!currentName || currentName === b.ru || currentName === b.en)) {
+    return currentLang === "en" ? b.en : b.ru;
+  }
+  return currentName || "";
+}
+
+export function localizeExercise(ex) {
+  if (!ex || typeof ex !== "object") return ex;
+  const b = ex.id && BUILTIN_EXERCISES[ex.id];
+  let name = ex.name;
+  let note = ex.note;
+  if (b) {
+    if (!name || name === b.ru || name === b.en) name = currentLang === "en" ? b.en : b.ru;
+    if (b.noteRu && (note === b.noteRu || note === b.noteEn)) note = currentLang === "en" ? b.noteEn : b.noteRu;
+  }
+  const muscleGroup = ex.muscleGroup ? tMuscle(ex.muscleGroup) : ex.muscleGroup;
+  return { ...ex, name, note, muscleGroup };
+}
+
+export function localizeProgram(p) {
+  if (!p || typeof p !== "object") return p;
+  return {
+    ...p,
+    name: localizeProgramName(p.name, p.id)
+  };
+}
+
+function localizeHintString(hint) {
+  if (!hint || typeof hint !== "string") return hint;
+  let s = hint;
+  if (currentLang === "en") {
+    s = s.replace(/^прошлый раз:\s*/i, "last time: ")
+         .replace(/^стартовое:\s*/i, "starter: ")
+         .replace(/^из «([^»]+)»:\s*/i, (_, prog) => `from "${localizeProgramName(prog)}": `)
+         .replace(/(\d),(\d)/g, "$1.$2")
+         .replace(/\sкг\b/g, " kg");
+  } else {
+    s = s.replace(/^last time:\s*/i, "прошлый раз: ")
+         .replace(/^starter:\s*/i, "стартовое: ")
+         .replace(/^from "([^"]+)":\s*/i, (_, prog) => `из «${localizeProgramName(prog)}»: `)
+         .replace(/(\d)\.(\d)/g, "$1,$2")
+         .replace(/\skg\b/g, " кг");
+  }
+  return s;
+}
+
+export function localizeSession(s) {
+  if (!s || typeof s !== "object") return s;
+  return {
+    ...s,
+    programName: localizeProgramName(s.programName, s.programId),
+    entries: (s.entries || []).map(e => ({
+      ...e,
+      exerciseName: localizeExerciseName(e.exerciseId, e.exerciseName),
+      muscleGroup: e.muscleGroup ? tMuscle(e.muscleGroup) : e.muscleGroup,
+      sets: (e.sets || []).map(st => (st && st.hint ? { ...st, hint: localizeHintString(st.hint) } : st))
+    }))
+  };
+}
+
+export function localizeState(state) {
+  if (!state) return;
+  if (Array.isArray(state.exercises)) state.exercises = state.exercises.map(localizeExercise);
+  if (Array.isArray(state.programs)) state.programs = state.programs.map(localizeProgram);
+  if (Array.isArray(state.sessions)) state.sessions = state.sessions.map(localizeSession);
+}
+
+/* ---------- Словари интерфейса ---------- */
+export const MONTHS = {
+  ru: ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"],
+  en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+};
+
+const DICT = {
+  ru: {
+    "app.name": "Тренировки",
+    "app.splashTitle": "ТРЕНИРОВКИ",
+    "app.description": "Учёт силовых тренировок: программы, сеты, таймер отдыха, прогресс.",
+    "app.loadingData": "Загрузка данных…",
+    "app.connectingCloud": "Подключение к облаку…",
+    "app.ready": "Готово",
+    "app.bootError": "Ошибка запуска: {msg}",
+    "app.navAria": "Основная навигация",
+    "app.settingsAria": "Настройки",
+    "app.syncError": "Ошибка",
+    "app.syncErrorTitle": "Ошибка Firebase: {err}",
+    "app.offline": "Офлайн",
+    "app.offlineTitle": "Нет сети. Данные сохраняются на устройстве и отправятся позже.",
+
+    "store.loadedExercises": "Упражнения загружены…",
+    "store.loadedPrograms": "Программы загружены…",
+    "store.loadedSessions": "История синхронизирована…",
+    "store.loadedMeta": "Настройки применены…",
+    "store.syncing": "Синхронизация…",
+    "store.unitKg": "кг",
+    "store.warmupSym": "Р",
+
+    "nav.workout": "Тренировка",
+    "nav.programs": "Программы",
+    "nav.exercises": "Упражнения",
+    "nav.progress": "Прогресс",
+    "nav.history": "История",
+
+    "common.close": "Закрыть",
+    "common.yes": "Да",
+    "common.cancel": "Отмена",
+    "common.back": "Назад",
+    "common.save": "Сохранить",
+    "common.delete": "Удалить",
+    "common.edit": "Редактировать",
+    "common.stay": "Остаться",
+    "common.done": "Готово",
+    "common.search": "Поиск…",
+    "common.searchAria": "Поиск",
+    "common.confirmTitle": "Подтверждение",
+    "common.unsavedConfirm": "Закрыть без сохранения изменений?",
+    "common.enterName": "Введите название",
+    "common.showArchived": "Показывать архивные",
+    "common.other": "Другое",
+    "common.uncategorized": "Без группы",
+
+    "timer.restOver": "Отдых окончен",
+    "timer.nextSetBody": "Пора делать следующий подход",
+    "timer.skip": "Пропуск ✕",
+    "timer.minus15": "−15с",
+    "timer.plus30": "+30с",
+    "timer.minus15Aria": "Уменьшить отдых на 15 секунд",
+    "timer.plus30Aria": "Добавить 30 секунд отдыха",
+
+    "chart.tapPoint": "Нажмите на точку",
+    "chart.notEnoughData": "Недостаточно данных",
+    "chart.noData": "Пока нет данных",
+    "chart.defaultLabel": "График",
+
+    "bodyMap.aria": "Карта мышц: вид спереди и вид сзади",
+    "bodyMap.tapHint": "Нажмите на мышцу на силуэте для деталей",
+    "bodyMap.empty": "Мышцы пока не нагружены",
+    "bodyMap.front": "СПЕРЕДИ",
+    "bodyMap.back": "СЗАДИ",
+    "bodyMap.zoneAria": "{label}: {sets} сетов",
+    "bodyMap.zoneActive": "{label}: {sets} раб. сет.{ex}",
+    "bodyMap.zoneZero": "{label}: 0 рабочих сетов",
+    "bodyMap.zone.chest": "Грудь",
+    "bodyMap.zone.delts_front": "Дельты (передняя / средняя)",
+    "bodyMap.zone.biceps": "Бицепс",
+    "bodyMap.zone.forearms_f": "Предплечья",
+    "bodyMap.zone.abs": "Пресс и кор",
+    "bodyMap.zone.quads": "Квадрицепс (Ноги)",
+    "bodyMap.zone.calves_f": "Икры",
+    "bodyMap.zone.traps": "Трапеции",
+    "bodyMap.zone.back": "Спина (широчайшие)",
+    "bodyMap.zone.rear_delts": "Дельты (задняя / средняя)",
+    "bodyMap.zone.triceps": "Трицепс",
+    "bodyMap.zone.forearms_b": "Предплечья",
+    "bodyMap.zone.glutes": "Ягодицы",
+    "bodyMap.zone.hamstrings": "Бицепс бедра",
+    "bodyMap.zone.calves_b": "Икры",
+
+    "workout.freeWorkout": "Свободная тренировка",
+    "workout.hintPrev": "прошлый раз: {txt}",
+    "workout.hintOther": "из «{prog}»: {txt}",
+    "workout.hintStart": "стартовое: {txt}",
+    "workout.updateTemplateBtn": "Обновить шаблон программы",
+    "workout.templateUpdatedBtn": "✓ Шаблон программы обновлён",
+    "workout.templateUpdatedToast": "Шаблон программы обновлён",
+    "workout.templateDiffNote": "Состав упражнений или количество сетов отличаются от шаблона «{name}».",
+    "workout.sumVolume": "Объём",
+    "workout.sumBestE1rm": "Лучший e1RM",
+    "workout.sumLoadIndex": "Индекс нагрузки",
+    "workout.sumBaselineSub": "это базовая тренировка",
+    "workout.sumVsPrev": "К прошлой",
+    "workout.sumVsPrevSub": "объём по общим упражнениям",
+    "workout.sumTime": "Время",
+    "workout.minUnit": "мин",
+    "workout.musclesWorked": "Задействованные мышцы",
+    "workout.newPRs": "Новые рекорды (PR)",
+    "workout.prWeight": "вес {val} {u}",
+    "workout.finishedTitle": "Тренировка завершена",
+    "workout.nextSet": "Далее: сет {idx}{detail}",
+    "workout.nextEx": "Далее: {name}",
+    "workout.allSetsDone": "Все сеты выполнены",
+    "workout.progressSets": "{done}/{total} сет. ({pct}%)",
+    "workout.activeOrbSub": "{done}/{total} сет. · {date}",
+    "workout.resumeCaps": "ПРОДОЛЖИТЬ",
+    "workout.startCaps": "НАЧАТЬ",
+    "workout.deleteActiveConfirm": "Удалить незавершённую тренировку? Все введённые данные будут удалены.",
+    "workout.deletedToast": "Тренировка удалена",
+    "workout.deleteActiveBtn": "Удалить незавершённую тренировку",
+    "workout.progMeta": "{exCount} упр. · {setsCount} сет.",
+    "workout.progMetaLast": " · последняя {date}",
+    "workout.progMetaNever": " · ещё не выполнялась",
+    "workout.freeMetaSub": "Без шаблона · добавляйте упражнения по ходу тренировки",
+    "workout.noTemplate": "Без шаблона",
+    "workout.previewTitleProg": "Задействованные мышцы и упражнения",
+    "workout.previewTitleFree": "Карта мышц",
+    "workout.previewMuscleCount": "{n} мышечн. гр.",
+    "workout.freePreviewNote": "В свободной тренировке упражнения выбираются из библиотеки прямо во время занятия.",
+    "workout.selectWorkout": "Выбор тренировки",
+    "workout.deleteWorkoutTitle": "Удалить тренировку",
+    "workout.finishShort": "Завершить",
+    "workout.addExerciseBtn": "+ Добавить упражнение",
+    "workout.finishFull": "Завершить тренировку",
+    "workout.newPrToast": "Новый рекорд (PR): {name}!",
+    "workout.swappedToast": "Заменено на: {name}",
+    "workout.swapTitle": "Замена упражнения",
+    "workout.cancelConfirm": "Отменить тренировку? Все введённые данные будут удалены.",
+    "workout.finishEmptyConfirm": "Нет ни одного выполненного сета. Завершить всё равно?",
+
+    "entry.dragAria": "Перетащить",
+    "entry.dragExAria": "Перетащить упражнение",
+    "entry.dragExTitle": "Перетащите для смены порядка",
+    "entry.skipped": "Пропущено",
+    "entry.restore": "Вернуть",
+    "entry.summaryWork": "{count} сет. · {weights} {u} × {reps}",
+    "entry.summarySets": "{count} сет.",
+    "entry.expand": "Развернуть",
+    "entry.collapse": "Свернуть",
+    "entry.minusAria": "{label} минус",
+    "entry.plusAria": "{label} плюс",
+    "entry.warmupTapTitle": "Тап: разминочный (Р) / рабочий сет",
+    "entry.warmupAria": "Разминочный сет",
+    "entry.setAria": "Сет {n}",
+    "entry.setDoneAria": "Сет выполнен",
+    "entry.weightLabel": "Вес",
+    "entry.repsLabel": "Повторы",
+    "entry.applyHintTitle": "Подставить вес и повторы",
+    "entry.appliedToast": "Подставлено: {hint}",
+    "entry.prTitle": "Личный рекорд!",
+    "entry.notePlaceholder": "Заметка…",
+    "entry.noteAria": "Заметка к упражнению",
+    "entry.bwSub": "свой вес {bw} кг",
+    "entry.targetSub": "цель: {target}",
+    "entry.progIncreasedToast": "Вес увеличен на +{step} {u}",
+    "entry.progBanner": "↑ Все сеты закрыты ({max}+) — добавить +{step} {u} → {next} {u}",
+    "entry.historyTitle": "Нажмите: история и рекорды упражнения",
+    "entry.swapEx": "Заменить упражнение",
+    "entry.skipEx": "Пропустить упражнение",
+    "entry.removeEx": "Убрать упражнение",
+    "entry.colNumTitle": "Нажмите на номер подхода для разминки (Р)",
+    "entry.colNum": "#/Р",
+    "entry.colWeightAdded": "Доп. вес, {u}",
+    "entry.colWeight": "Вес, {u}",
+    "entry.colReps": "Повторы",
+    "entry.colDone": "Готово",
+    "entry.addSet": "+ Сет",
+    "entry.removeSet": "− Сет",
+    "entry.removeSetTitle": "Удалить последний сет",
+
+    "programs.namePlaceholder": "Название программы",
+    "programs.muscleCoverage": "Покрытие мышц программой",
+    "programs.emptyItems": "Добавьте упражнения из библиотеки",
+    "programs.dragTitle": "Перетащите, чтобы изменить порядок",
+    "programs.exDeleted": "(упражнение удалено)",
+    "programs.moveUp": "Вверх",
+    "programs.moveDown": "Вниз",
+    "programs.removeFromProg": "Убрать из программы",
+    "programs.sets": "Сеты",
+    "programs.reps": "Повторы",
+    "programs.restSecShort": "Отдых, с",
+    "programs.restSecAria": "Отдых, сек",
+    "programs.itemNotePlaceholder": "Заметка к позиции",
+    "programs.itemNoteAria": "Заметка",
+    "programs.savedToast": "Программа сохранена",
+    "programs.nameLabel": "Название",
+    "programs.deleteConfirm": "Удалить программу «{name}»? Проведённые по ней тренировки в истории останутся.",
+    "programs.deletedToast": "Программа удалена",
+    "programs.deleteBtn": "Удалить программу",
+    "programs.saveBtn": "Сохранить программу",
+    "programs.newTitle": "Новая программа",
+    "programs.editTitle": "Программа",
+    "programs.emptyList": "Программ пока нет. Создайте свою или загрузите стартовую в настройках (⚙).",
+    "programs.archivedSuffix": " (архив)",
+    "programs.cardSub": "{count} упр.: {names}",
+    "programs.resume": "Продолжить",
+    "programs.start": "Начать",
+    "programs.duplicate": "Дублировать",
+    "programs.copySuffix": " (копия)",
+    "programs.duplicatedToast": "Программа продублирована",
+    "programs.unarchive": "Вернуть из архива",
+    "programs.archive": "В архив",
+    "programs.archiveConfirm": "Архивировать «{name}»? История останется.",
+    "programs.newBtn": "+ Новая программа",
+
+    "exercises.defaultName": "Упражнение",
+    "exercises.weightPR": "Рекорд веса",
+    "exercises.bestE1rm": "Лучший e1RM",
+    "exercises.noPRs": "Рекордов по этому упражнению пока нет.",
+    "exercises.noHistory": "Это упражнение ещё не выполнялось в завершённых тренировках.",
+    "exercises.notePrefix": "Заметка: {note}",
+    "exercises.recentWorkouts": "Последние тренировки",
+    "exercises.namePlaceholder": "Например, Жим лёжа",
+    "exercises.musclePlaceholder": "Спина, грудь, ноги…",
+    "exercises.notePlaceholder": "Заметка (настройка тренажёра, хват…)",
+    "exercises.unarchivedToast": "Возвращено из архива",
+    "exercises.archivedToast": "Перенесено в архив",
+    "exercises.unarchiveBtn": "Возвратить из архива",
+    "exercises.archiveBtn": "В архив",
+    "exercises.deleteConfirm": "Удалить «{name}»?",
+    "exercises.cannotDelete": "Упражнение есть в истории — удалить нельзя, только архивировать.",
+    "exercises.nameLabel": "Название",
+    "exercises.muscleLabel": "Мышца",
+    "exercises.unitsLabel": "Единицы",
+    "exercises.defaultSetsLabel": "Сетов по умолч.",
+    "exercises.defaultRestLabel": "Отдых по умолчанию, сек ",
+    "exercises.isBwLabel": "Упражнение со своим весом (+ доп. вес)",
+    "exercises.trackRpeLabel": "Вести RPE",
+    "exercises.noteLabel": "Заметка",
+    "exercises.newTitle": "Новое упражнение",
+    "exercises.editTitle": "Упражнение",
+    "exercises.pickTitle": "Выберите упражнение",
+    "exercises.filterMuscleAria": "Фильтр по мышце",
+    "exercises.allMuscles": "Все мышцы",
+    "exercises.nothingFoundCreate": "Ничего не найдено. Создайте новое упражнение кнопкой ниже.",
+    "exercises.sameMuscleGroup": "На ту же мышцу · {muscle}",
+    "exercises.addedToast": "Добавлено: {name}",
+    "exercises.alreadyInWorkout": " · уже в тренировке",
+    "exercises.createCustomBtn": "+ Создать своё упражнение",
+    "exercises.nothingFound": "Ничего не найдено",
+    "exercises.emptyLibrary": "Библиотека пуста. Добавьте упражнение или загрузите стартовые данные в настройках.",
+    "exercises.cardSub": "{weight}{sets} сет. · отдых {rest} · {unit}{bw}{rpe}{arch}",
+    "exercises.cardBw": " · свой вес",
+    "exercises.cardArch": " · архив",
+    "exercises.historyBtnAria": "История упражнения",
+    "exercises.addShortBtn": "+ Упражнение",
+    "exercises.addNewBtn": "+ Новое упражнение",
+
+    "progress.muscleRowSets": "{cnt} сет. ({pct}%)",
+    "progress.noSetsInPeriod": "За выбранный период нет выполненных рабочих сетов.",
+    "progress.muscleBalance": "Баланс по мышцам",
+    "progress.period7d": "7 дн.",
+    "progress.period30d": "30 дн.",
+    "progress.periodAll": "Все",
+    "progress.bwPlaceholder": "80,0",
+    "progress.bwAria": "Собственный вес тела, кг",
+    "progress.bwInvalidToast": "Введите корректный вес в кг",
+    "progress.bwSavedToast": "Вес тела записан: {w} кг",
+    "progress.bwChange": " · изменение {diff} кг",
+    "progress.bwLabel": "{w} кг",
+    "progress.bwTitle": "Собственный вес тела",
+    "progress.bwCurrent": "Текущий: {w} кг",
+    "progress.bwNotSet": "Не указан",
+    "progress.bwSaveBtn": "Записать",
+    "progress.bwChartLabel": "Вес тела, кг",
+    "progress.formulaP1": "Индекс нагрузки показывает, насколько тренировка «тяжелее» базовой (первой тренировки программы).",
+    "progress.formulaRv": " ({pct}) — объём V = Σ вес×повторы, делённый на объём базовой.",
+    "progress.formulaRe": " ({pct}) — среднее отношение e1RM по упражнениям. e1RM = вес × (1 + повт./30) (Эпли); при RPE повт. = повт. + (10 − RPE); сеты > 12 повторов не считаются.",
+    "progress.formulaRd": " ({pct}) — плотность D = V / минуты. Если время неизвестно или > 180 мин, компонент выпадает, а его вес делится между остальными.",
+    "progress.formulaP2": "Учитываются только выполненные неразминочные сеты и только упражнения, которые есть и в тренировке, и в базовой. Всё приводится к кг (1 lb = 0,4536 кг). 100 — уровень старта, 110 — на 10% тяжелее.",
+    "progress.formulaP3": "Сплошная линия — индекс по тренировкам, пунктирная толстая — скользящее среднее по 4 точкам.",
+    "progress.formulaTitle": "Как считается индекс",
+    "progress.programAria": "Программа",
+    "progress.noPrograms": "Нет программ. Создайте программу и проведите первую тренировку.",
+    "progress.noDoneSessions": "У этой программы ещё нет завершённых тренировок.",
+    "progress.loadIndex": "Индекс нагрузки",
+    "progress.liDetail": "Объём {vol} кг · rV {rv}{re}{rd} · сглаж. {sm}",
+    "progress.legendIndex": " индекс  ",
+    "progress.legendSmooth": " среднее (4)  ",
+    "progress.legendRef": " уровень 100",
+    "progress.stat4w": "За 4 нед.",
+    "progress.stat12w": "За 12 нед.",
+    "progress.statWorkouts": "Тренировок",
+    "progress.baselineDate": "База индекса: {date}",
+    "progress.resetBaselineBtn": "Сбросить базу индекса",
+    "progress.exerciseAria": "Упражнение",
+    "progress.workingWeight": "Рабочий вес",
+    "progress.volume": "Объём",
+    "progress.byExercise": "По упражнению",
+    "progress.personalRecords": "Личные рекорды",
+    "progress.prWeight": "вес {val}",
+    "progress.baselineUpdatedToast": "База индекса обновлена",
+    "progress.baselineAuto": "Автоматически — первая тренировка",
+    "progress.baselineDesc": "Выберите тренировку, которая станет уровнем 100. Более ранние тренировки исчезнут с графика индекса (сами данные сохранятся).",
+    "progress.baselineTitle": "База индекса",
+
+    "history.tapDay": "Нажмите на день в сетке",
+    "history.mon": "Пн",
+    "history.wed": "Ср",
+    "history.fri": "Пт",
+    "history.sun": "Вс",
+    "history.cellAria": "{date}: тренировок {count}",
+    "history.noWorkoutsOnDate": "{date} · без тренировок",
+    "history.activity12w": "Активность за 12 недель",
+    "history.count12w": "{count} трен.",
+    "history.startAria": "Дата и время начала",
+    "history.durPlaceholder": "мин",
+    "history.durAria": "Длительность, мин",
+    "history.savedToast": "Тренировка сохранена, метрики пересчитаны",
+    "history.startLabel": "Начало",
+    "history.minutesLabel": "Минут",
+    "history.deleteConfirm": "Удалить эту тренировку из истории?",
+    "history.deleteBtn": "Удалить тренировку",
+    "history.empty": "История пуста. Завершённые тренировки появятся здесь.",
+    "history.cardSetsVol": "{sets} сетов · объём {vol} кг",
+    "history.deleteItemConfirm": "Удалить тренировку «{name}» ({date})?",
+    "history.csvDownloadedToast": "История выгружена в CSV",
+    "history.downloadCsvBtn": "Скачать историю в CSV (Excel)",
+
+    "settings.title": "Настройки",
+    "settings.lang": "Язык / Language",
+    "settings.defaultUnits": "Единицы по умолч.",
+    "settings.theme": "Тема",
+    "settings.themeDark": "Тёмная",
+    "settings.themeLight": "Светлая",
+    "settings.themeSystem": "Системная",
+    "settings.stepKg": "Шаг, кг",
+    "settings.stepLb": "Шаг, lb",
+    "settings.restSec": "Отдых, сек",
+    "settings.sound": "Звук таймера",
+    "settings.vibration": "Вибрация таймера",
+    "settings.notifications": "Системные уведомления таймера",
+    "settings.dataGroup": "Данные",
+    "settings.exportCsvBtn": "Экспорт в CSV (Excel / Таблица)",
+    "settings.csvExportedToast": "Таблица CSV выгружена",
+    "settings.exportJsonBtn": "Экспорт JSON (полный бэкап)",
+    "settings.importJsonBtn": "Импорт JSON",
+    "settings.importConfirm": "Импортировать данные из файла? Записи с совпадающими id будут перезаписаны, остальные сохранятся.",
+    "settings.importOk": "Импорт",
+    "settings.importedToast": "Импортировано записей: {n}",
+    "settings.importError": "Ошибка импорта: {msg}",
+    "settings.importInvalid": "Это не файл резервной копии приложения",
+    "settings.seedBtn": "Загрузить мою текущую программу",
+    "settings.seededToast": "Стартовая программа загружена",
+    "settings.alreadySeededToast": "Стартовые данные уже загружены",
+    "settings.cloudInfo": "Облако: Firebase RTDB (ветка fitnessApp), офлайн-кэш: {cache}. Авторизации нет — выходить не из чего. Настройки синхронизируются через Firebase.",
+    "settings.cacheOn": "включён",
+    "settings.cacheOff": "недоступен",
+    "settings.runTests": "Запустить юнит-тесты метрик",
+
+    "csv.headers": ["Дата", "Время", "Программа", "Длительность (мин)", "Свой вес (кг)", "№", "Мышца", "Упражнение", "Сет №", "Тип сета", "Вес", "Ед.", "Повторы", "RPE", "Заметка"],
+    "csv.warmup": "Разминочный",
+    "csv.working": "Рабочий"
+  },
+
+  en: {
+    "app.name": "Workouts",
+    "app.splashTitle": "WORKOUTS",
+    "app.description": "Strength training tracker: programs, sets, rest timer, progress.",
+    "app.loadingData": "Loading data…",
+    "app.connectingCloud": "Connecting to cloud…",
+    "app.ready": "Ready",
+    "app.bootError": "Startup error: {msg}",
+    "app.navAria": "Main navigation",
+    "app.settingsAria": "Settings",
+    "app.syncError": "Error",
+    "app.syncErrorTitle": "Firebase error: {err}",
+    "app.offline": "Offline",
+    "app.offlineTitle": "You are offline. Data is saved on device and will sync later.",
+
+    "store.loadedExercises": "Exercises loaded…",
+    "store.loadedPrograms": "Programs loaded…",
+    "store.loadedSessions": "History synced…",
+    "store.loadedMeta": "Settings applied…",
+    "store.syncing": "Syncing…",
+    "store.unitKg": "kg",
+    "store.warmupSym": "W",
+
+    "nav.workout": "Workout",
+    "nav.programs": "Programs",
+    "nav.exercises": "Exercises",
+    "nav.progress": "Progress",
+    "nav.history": "History",
+
+    "common.close": "Close",
+    "common.yes": "Yes",
+    "common.cancel": "Cancel",
+    "common.back": "Back",
+    "common.save": "Save",
+    "common.delete": "Delete",
+    "common.edit": "Edit",
+    "common.stay": "Stay",
+    "common.done": "Done",
+    "common.search": "Search…",
+    "common.searchAria": "Search",
+    "common.confirmTitle": "Confirm",
+    "common.unsavedConfirm": "Close without saving changes?",
+    "common.enterName": "Enter a name",
+    "common.showArchived": "Show archived",
+    "common.other": "Other",
+    "common.uncategorized": "Uncategorized",
+
+    "timer.restOver": "Rest finished",
+    "timer.nextSetBody": "Time for your next set",
+    "timer.skip": "Skip ✕",
+    "timer.minus15": "−15s",
+    "timer.plus30": "+30s",
+    "timer.minus15Aria": "Reduce rest by 15 seconds",
+    "timer.plus30Aria": "Add 30 seconds of rest",
+
+    "chart.tapPoint": "Tap a point",
+    "chart.notEnoughData": "Not enough data",
+    "chart.noData": "No data yet",
+    "chart.defaultLabel": "Chart",
+
+    "bodyMap.aria": "Muscle map: front and back view",
+    "bodyMap.tapHint": "Tap a muscle on the body map for details",
+    "bodyMap.empty": "No muscles worked yet",
+    "bodyMap.front": "FRONT",
+    "bodyMap.back": "BACK",
+    "bodyMap.zoneAria": "{label}: {sets} sets",
+    "bodyMap.zoneActive": "{label}: {sets} work sets{ex}",
+    "bodyMap.zoneZero": "{label}: 0 work sets",
+    "bodyMap.zone.chest": "Chest",
+    "bodyMap.zone.delts_front": "Shoulders (Front / Side)",
+    "bodyMap.zone.biceps": "Biceps",
+    "bodyMap.zone.forearms_f": "Forearms",
+    "bodyMap.zone.abs": "Abs & Core",
+    "bodyMap.zone.quads": "Quads (Legs)",
+    "bodyMap.zone.calves_f": "Calves",
+    "bodyMap.zone.traps": "Traps",
+    "bodyMap.zone.back": "Back (Lats)",
+    "bodyMap.zone.rear_delts": "Shoulders (Rear / Side)",
+    "bodyMap.zone.triceps": "Triceps",
+    "bodyMap.zone.forearms_b": "Forearms",
+    "bodyMap.zone.glutes": "Glutes",
+    "bodyMap.zone.hamstrings": "Hamstrings",
+    "bodyMap.zone.calves_b": "Calves",
+
+    "workout.freeWorkout": "Free Workout",
+    "workout.hintPrev": "last time: {txt}",
+    "workout.hintOther": "from \"{prog}\": {txt}",
+    "workout.hintStart": "starter: {txt}",
+    "workout.updateTemplateBtn": "Update Program Template",
+    "workout.templateUpdatedBtn": "✓ Program template updated",
+    "workout.templateUpdatedToast": "Program template updated",
+    "workout.templateDiffNote": "Exercises or set counts differ from the \"{name}\" template.",
+    "workout.sumVolume": "Volume",
+    "workout.sumBestE1rm": "Best e1RM",
+    "workout.sumLoadIndex": "Load Index",
+    "workout.sumBaselineSub": "baseline workout",
+    "workout.sumVsPrev": "Vs Previous",
+    "workout.sumVsPrevSub": "volume on shared exercises",
+    "workout.sumTime": "Duration",
+    "workout.minUnit": "min",
+    "workout.musclesWorked": "Muscles Worked",
+    "workout.newPRs": "New Personal Records (PR)",
+    "workout.prWeight": "weight {val} {u}",
+    "workout.finishedTitle": "Workout Complete",
+    "workout.nextSet": "Next: set {idx}{detail}",
+    "workout.nextEx": "Next: {name}",
+    "workout.allSetsDone": "All sets completed",
+    "workout.progressSets": "{done}/{total} sets ({pct}%)",
+    "workout.activeOrbSub": "{done}/{total} sets · {date}",
+    "workout.resumeCaps": "RESUME",
+    "workout.startCaps": "START",
+    "workout.deleteActiveConfirm": "Discard unfinished workout? All entered data will be lost.",
+    "workout.deletedToast": "Workout deleted",
+    "workout.deleteActiveBtn": "Discard unfinished workout",
+    "workout.progMeta": "{exCount} ex. · {setsCount} sets",
+    "workout.progMetaLast": " · last {date}",
+    "workout.progMetaNever": " · never performed",
+    "workout.freeMetaSub": "No template · add exercises as you go",
+    "workout.noTemplate": "No template",
+    "workout.previewTitleProg": "Muscles & Exercises",
+    "workout.previewTitleFree": "Muscle Map",
+    "workout.previewMuscleCount": "{n} muscle grp.",
+    "workout.freePreviewNote": "In a free workout, pick exercises from the library right during your session.",
+    "workout.selectWorkout": "Select Workout",
+    "workout.deleteWorkoutTitle": "Delete workout",
+    "workout.finishShort": "Finish",
+    "workout.addExerciseBtn": "+ Add Exercise",
+    "workout.finishFull": "Finish Workout",
+    "workout.newPrToast": "New Personal Record (PR): {name}!",
+    "workout.swappedToast": "Replaced with: {name}",
+    "workout.swapTitle": "Swap Exercise",
+    "workout.cancelConfirm": "Cancel workout? All entered data will be deleted.",
+    "workout.finishEmptyConfirm": "No completed sets yet. Finish workout anyway?",
+
+    "entry.dragAria": "Drag",
+    "entry.dragExAria": "Drag exercise",
+    "entry.dragExTitle": "Drag to reorder",
+    "entry.skipped": "Skipped",
+    "entry.restore": "Restore",
+    "entry.summaryWork": "{count} sets · {weights} {u} × {reps}",
+    "entry.summarySets": "{count} sets",
+    "entry.expand": "Expand",
+    "entry.collapse": "Collapse",
+    "entry.minusAria": "{label} minus",
+    "entry.plusAria": "{label} plus",
+    "entry.warmupTapTitle": "Tap: warmup (W) / working set",
+    "entry.warmupAria": "Warmup set",
+    "entry.setAria": "Set {n}",
+    "entry.setDoneAria": "Set completed",
+    "entry.weightLabel": "Weight",
+    "entry.repsLabel": "Reps",
+    "entry.applyHintTitle": "Fill weight and reps",
+    "entry.appliedToast": "Applied: {hint}",
+    "entry.prTitle": "Personal Record!",
+    "entry.notePlaceholder": "Note…",
+    "entry.noteAria": "Exercise note",
+    "entry.bwSub": "bodyweight {bw} kg",
+    "entry.targetSub": "target: {target}",
+    "entry.progIncreasedToast": "Weight increased by +{step} {u}",
+    "entry.progBanner": "↑ All sets hit ({max}+) — add +{step} {u} → {next} {u}",
+    "entry.historyTitle": "Tap: exercise history & records",
+    "entry.swapEx": "Swap exercise",
+    "entry.skipEx": "Skip exercise",
+    "entry.removeEx": "Remove exercise",
+    "entry.colNumTitle": "Tap set number to toggle warmup (W)",
+    "entry.colNum": "#/W",
+    "entry.colWeightAdded": "Added wt, {u}",
+    "entry.colWeight": "Weight, {u}",
+    "entry.colReps": "Reps",
+    "entry.colDone": "Done",
+    "entry.addSet": "+ Set",
+    "entry.removeSet": "− Set",
+    "entry.removeSetTitle": "Remove last set",
+
+    "programs.namePlaceholder": "Program name",
+    "programs.muscleCoverage": "Program Muscle Coverage",
+    "programs.emptyItems": "Add exercises from the library",
+    "programs.dragTitle": "Drag to reorder",
+    "programs.exDeleted": "(exercise deleted)",
+    "programs.moveUp": "Move up",
+    "programs.moveDown": "Move down",
+    "programs.removeFromProg": "Remove from program",
+    "programs.sets": "Sets",
+    "programs.reps": "Reps",
+    "programs.restSecShort": "Rest, s",
+    "programs.restSecAria": "Rest, sec",
+    "programs.itemNotePlaceholder": "Item note",
+    "programs.itemNoteAria": "Note",
+    "programs.savedToast": "Program saved",
+    "programs.nameLabel": "Name",
+    "programs.deleteConfirm": "Delete program \"{name}\"? Past workouts in history will remain.",
+    "programs.deletedToast": "Program deleted",
+    "programs.deleteBtn": "Delete Program",
+    "programs.saveBtn": "Save Program",
+    "programs.newTitle": "New Program",
+    "programs.editTitle": "Program",
+    "programs.emptyList": "No programs yet. Create one or load starter data in Settings (⚙).",
+    "programs.archivedSuffix": " (archived)",
+    "programs.cardSub": "{count} ex.: {names}",
+    "programs.resume": "Resume",
+    "programs.start": "Start",
+    "programs.duplicate": "Duplicate",
+    "programs.copySuffix": " (copy)",
+    "programs.duplicatedToast": "Program duplicated",
+    "programs.unarchive": "Unarchive",
+    "programs.archive": "Archive",
+    "programs.archiveConfirm": "Archive \"{name}\"? Workout history will remain.",
+    "programs.newBtn": "+ New Program",
+
+    "exercises.defaultName": "Exercise",
+    "exercises.weightPR": "Weight PR",
+    "exercises.bestE1rm": "Best e1RM",
+    "exercises.noPRs": "No personal records for this exercise yet.",
+    "exercises.noHistory": "This exercise has not been performed in completed workouts yet.",
+    "exercises.notePrefix": "Note: {note}",
+    "exercises.recentWorkouts": "Recent Workouts",
+    "exercises.namePlaceholder": "e.g., Bench Press",
+    "exercises.musclePlaceholder": "Back, Chest, Legs…",
+    "exercises.notePlaceholder": "Note (machine setting, grip…)",
+    "exercises.unarchivedToast": "Restored from archive",
+    "exercises.archivedToast": "Moved to archive",
+    "exercises.unarchiveBtn": "Unarchive",
+    "exercises.archiveBtn": "Archive",
+    "exercises.deleteConfirm": "Delete \"{name}\"?",
+    "exercises.cannotDelete": "Exercise is used in workout history — cannot delete, only archive.",
+    "exercises.nameLabel": "Name",
+    "exercises.muscleLabel": "Muscle Group",
+    "exercises.unitsLabel": "Units",
+    "exercises.defaultSetsLabel": "Default Sets",
+    "exercises.defaultRestLabel": "Default rest, sec ",
+    "exercises.isBwLabel": "Bodyweight exercise (+ added weight)",
+    "exercises.trackRpeLabel": "Track RPE",
+    "exercises.noteLabel": "Note",
+    "exercises.newTitle": "New Exercise",
+    "exercises.editTitle": "Exercise",
+    "exercises.pickTitle": "Pick Exercise",
+    "exercises.filterMuscleAria": "Filter by muscle",
+    "exercises.allMuscles": "All muscles",
+    "exercises.nothingFoundCreate": "Nothing found. Create a custom exercise below.",
+    "exercises.sameMuscleGroup": "Same muscle · {muscle}",
+    "exercises.addedToast": "Added: {name}",
+    "exercises.alreadyInWorkout": " · already in workout",
+    "exercises.createCustomBtn": "+ Create Custom Exercise",
+    "exercises.nothingFound": "Nothing found",
+    "exercises.emptyLibrary": "Library is empty. Add an exercise or load starter data in Settings.",
+    "exercises.cardSub": "{weight}{sets} sets · rest {rest} · {unit}{bw}{rpe}{arch}",
+    "exercises.cardBw": " · bodyweight",
+    "exercises.cardArch": " · archived",
+    "exercises.historyBtnAria": "Exercise history",
+    "exercises.addShortBtn": "+ Exercise",
+    "exercises.addNewBtn": "+ New Exercise",
+
+    "progress.muscleRowSets": "{cnt} sets ({pct}%)",
+    "progress.noSetsInPeriod": "No completed working sets in the selected period.",
+    "progress.muscleBalance": "Muscle Balance",
+    "progress.period7d": "7d",
+    "progress.period30d": "30d",
+    "progress.periodAll": "All",
+    "progress.bwPlaceholder": "80.0",
+    "progress.bwAria": "Bodyweight, kg",
+    "progress.bwInvalidToast": "Enter a valid weight in kg",
+    "progress.bwSavedToast": "Bodyweight logged: {w} kg",
+    "progress.bwChange": " · change {diff} kg",
+    "progress.bwLabel": "{w} kg",
+    "progress.bwTitle": "Bodyweight",
+    "progress.bwCurrent": "Current: {w} kg",
+    "progress.bwNotSet": "Not set",
+    "progress.bwSaveBtn": "Log",
+    "progress.bwChartLabel": "Bodyweight, kg",
+    "progress.formulaP1": "Load Index shows how much heavier a workout is compared to your baseline (first workout of the program).",
+    "progress.formulaRv": " ({pct}) — volume V = Σ weight×reps, divided by baseline volume.",
+    "progress.formulaRe": " ({pct}) — average e1RM ratio across exercises. e1RM = weight × (1 + reps/30) (Epley); with RPE: reps = reps + (10 − RPE); sets > 12 reps are excluded.",
+    "progress.formulaRd": " ({pct}) — density D = V / minutes. If duration is unknown or > 180 min, this component is omitted and its weight is redistributed.",
+    "progress.formulaP2": "Only completed working sets and exercises present in both the workout and the baseline are counted. All weights are converted to kg (1 lb = 0.4536 kg). 100 is your starting level, 110 is 10% heavier.",
+    "progress.formulaP3": "Solid line — workout Load Index; thick dashed line — 4-point moving average.",
+    "progress.formulaTitle": "How Load Index Works",
+    "progress.programAria": "Program",
+    "progress.noPrograms": "No programs yet. Create a program and complete your first workout.",
+    "progress.noDoneSessions": "No completed workouts for this program yet.",
+    "progress.loadIndex": "Load Index",
+    "progress.liDetail": "Volume {vol} kg · rV {rv}{re}{rd} · avg {sm}",
+    "progress.legendIndex": " index  ",
+    "progress.legendSmooth": " 4-pt avg  ",
+    "progress.legendRef": " level 100",
+    "progress.stat4w": "4 weeks",
+    "progress.stat12w": "12 weeks",
+    "progress.statWorkouts": "Workouts",
+    "progress.baselineDate": "Baseline: {date}",
+    "progress.resetBaselineBtn": "Reset Baseline",
+    "progress.exerciseAria": "Exercise",
+    "progress.workingWeight": "Working Weight",
+    "progress.volume": "Volume",
+    "progress.byExercise": "By Exercise",
+    "progress.personalRecords": "Personal Records",
+    "progress.prWeight": "weight {val}",
+    "progress.baselineUpdatedToast": "Baseline updated",
+    "progress.baselineAuto": "Automatic — first workout",
+    "progress.baselineDesc": "Choose the workout to serve as level 100. Earlier workouts will be hidden from the Load Index chart (your history data is preserved).",
+    "progress.baselineTitle": "Load Index Baseline",
+
+    "history.tapDay": "Tap a day in the grid",
+    "history.mon": "Mon",
+    "history.wed": "Wed",
+    "history.fri": "Fri",
+    "history.sun": "Sun",
+    "history.cellAria": "{date}: {count} workouts",
+    "history.noWorkoutsOnDate": "{date} · no workouts",
+    "history.activity12w": "12-Week Activity",
+    "history.count12w": "{count} wk.",
+    "history.startAria": "Start date and time",
+    "history.durPlaceholder": "min",
+    "history.durAria": "Duration, min",
+    "history.savedToast": "Workout saved, metrics recalculated",
+    "history.startLabel": "Start",
+    "history.minutesLabel": "Minutes",
+    "history.deleteConfirm": "Delete this workout from history?",
+    "history.deleteBtn": "Delete Workout",
+    "history.empty": "History is empty. Completed workouts will appear here.",
+    "history.cardSetsVol": "{sets} sets · volume {vol} kg",
+    "history.deleteItemConfirm": "Delete workout \"{name}\" ({date})?",
+    "history.csvDownloadedToast": "History exported to CSV",
+    "history.downloadCsvBtn": "Download History as CSV (Excel)",
+
+    "settings.title": "Settings",
+    "settings.lang": "Language / Язык",
+    "settings.defaultUnits": "Default Units",
+    "settings.theme": "Theme",
+    "settings.themeDark": "Dark",
+    "settings.themeLight": "Light",
+    "settings.themeSystem": "System",
+    "settings.stepKg": "Step, kg",
+    "settings.stepLb": "Step, lb",
+    "settings.restSec": "Rest, sec",
+    "settings.sound": "Timer sound",
+    "settings.vibration": "Timer vibration",
+    "settings.notifications": "System timer notifications",
+    "settings.dataGroup": "Data",
+    "settings.exportCsvBtn": "Export to CSV (Excel / Sheets)",
+    "settings.csvExportedToast": "CSV table exported",
+    "settings.exportJsonBtn": "Export JSON (full backup)",
+    "settings.importJsonBtn": "Import JSON",
+    "settings.importConfirm": "Import data from file? Records with matching IDs will be overwritten; others will be kept.",
+    "settings.importOk": "Import",
+    "settings.importedToast": "Imported records: {n}",
+    "settings.importError": "Import error: {msg}",
+    "settings.importInvalid": "This is not a valid backup file for this app",
+    "settings.seedBtn": "Load Starter Program & Library",
+    "settings.seededToast": "Starter program loaded",
+    "settings.alreadySeededToast": "Starter data is already loaded",
+    "settings.cloudInfo": "Cloud: Firebase RTDB (fitnessApp branch), offline cache: {cache}. No authentication. Settings sync via Firebase.",
+    "settings.cacheOn": "enabled",
+    "settings.cacheOff": "unavailable",
+    "settings.runTests": "Run metrics unit tests",
+
+    "csv.headers": ["Date", "Time", "Program", "Duration (min)", "Bodyweight (kg)", "#", "Muscle", "Exercise", "Set #", "Set Type", "Weight", "Unit", "Reps", "RPE", "Note"],
+    "csv.warmup": "Warmup",
+    "csv.working": "Working"
+  }
+};
+
+/** Перевод строки по ключу с подстановкой параметров {param}. */
+export function t(key, params = null) {
+  const table = DICT[currentLang] || DICT.ru;
+  const raw = table[key] !== undefined ? table[key] : (DICT.ru[key] !== undefined ? DICT.ru[key] : key);
+  if (typeof raw === "function") return raw(params || {});
+  if (!params || typeof raw !== "string") return raw;
+  return raw.replace(/\{(\w+)\}/g, (_, k) => (params[k] !== undefined && params[k] !== null ? String(params[k]) : ""));
+}

@@ -1,4 +1,5 @@
 // Метрики и индекс нагрузки (Load Index). Чистые функции, без DOM и Firebase.
+import { isEn } from "./i18n.js";
 
 /** Веса компонентов LI — единственное место, где они задаются. Сумма = 1. */
 export const LI_WEIGHTS = { volume: 0.50, e1rm: 0.35, density: 0.15 };
@@ -206,5 +207,6 @@ export function compareWithPrevious(session, previous) {
 
 export function formatNum(n, digits = 1) {
   if (n === null || n === undefined || !isFinite(n)) return "—";
-  return String(Math.round(n * Math.pow(10, digits)) / Math.pow(10, digits)).replace(".", ",");
+  const s = String(Math.round(n * Math.pow(10, digits)) / Math.pow(10, digits));
+  return isEn() ? s : s.replace(".", ",");
 }

@@ -2,6 +2,7 @@
 // Все стили и цвета заданы напрямую через inline-стили с переменными CSS (var(--fg), var(--s2), var(--line)),
 // поэтому силуэт ВСЕГДА рендерится корректно в тёмной и светлой теме и никогда не заливается сплошным чёрным.
 import { h } from "./ui.js";
+import { t } from "./i18n.js";
 
 const NS = "http://www.w3.org/2000/svg";
 const svgEl = (tag, attrs = {}, children = []) => {
@@ -165,18 +166,18 @@ export function mapMuscleToZones(muscleGroup) {
   const m = String(muscleGroup || "").toLowerCase().trim();
   if (!m) return [];
   if (m.includes("спин") || m.includes("широч") || m.includes("back") || m.includes("lat")) return ["back", "traps"];
-  if (m.includes("трапец")) return ["traps"];
+  if (m.includes("трапец") || m.includes("trap")) return ["traps"];
   if (m.includes("груд") || m.includes("chest") || m.includes("pec")) return ["chest"];
-  if (m.includes("бицепс бедр") || m.includes("задняя поверхн")) return ["hamstrings"];
+  if (m.includes("бицепс бедр") || m.includes("задняя поверхн") || m.includes("hamstring")) return ["hamstrings"];
   if (m.includes("бицепс") || m.includes("bicep")) return ["biceps"];
   if (m.includes("трицепс") || m.includes("tricep")) return ["triceps"];
   if (m.includes("задняя дельт") || m.includes("задние дельт") || m.includes("rear")) return ["rear_delts"];
-  if (m.includes("средняя дельт") || m.includes("дельт") || m.includes("плеч") || m.includes("delt")) return ["delts_front", "rear_delts"];
-  if (m.includes("предплеч")) return ["forearms_f", "forearms_b"];
-  if (m.includes("пресс") || m.includes("кор") || m.includes("abs")) return ["abs"];
+  if (m.includes("средняя дельт") || m.includes("дельт") || m.includes("плеч") || m.includes("delt") || m.includes("shoulder")) return ["delts_front", "rear_delts"];
+  if (m.includes("предплеч") || m.includes("forearm")) return ["forearms_f", "forearms_b"];
+  if (m.includes("пресс") || m.includes("кор") || m.includes("abs") || m.includes("core")) return ["abs"];
   if (m.includes("ягодиц") || m.includes("glute")) return ["glutes"];
-  if (m.includes("икр") || m.includes("голен") || m.includes("calf")) return ["calves_f", "calves_b"];
-  if (m.includes("квадр")) return ["quads"];
+  if (m.includes("икр") || m.includes("голен") || m.includes("calf") || m.includes("calves")) return ["calves_f", "calves_b"];
+  if (m.includes("квадр") || m.includes("quad")) return ["quads"];
   if (m.includes("ног") || m.includes("бедр") || m.includes("leg")) return ["quads", "hamstrings", "glutes"];
   return [];
 }
@@ -241,11 +242,11 @@ export function renderBodyMap(muscleItems = [], opts = {}) {
     viewBox: "0 0 340 264",
     class: "bm-svg" + (opts.compact ? " compact" : ""),
     role: "img",
-    "aria-label": "Карта мышц: вид спереди и вид сзади"
+    "aria-label": t("bodyMap.aria")
   });
 
   const caption = h("div", { class: "bm-caption muted small" },
-    maxSets > 0 ? "Нажмите на мышцу на силуэте для деталей" : "Мышцы пока не нагружены");
+    maxSets > 0 ? t("bodyMap.tapHint") : t("bodyMap.empty"));
 
   const zoneGroups = new Map();
   let selectedZoneId = null;
@@ -255,6 +256,7 @@ export function renderBodyMap(muscleItems = [], opts = {}) {
     g.append(buildBodyOutline());
 
     for (const z of ZONES.filter(x => x.side === side)) {
+      const zLabel = t("bodyMap.zone." + z.id);
       const st = zoneStats.get(z.id);
       const sets = st ? st.sets : 0;
       const ratio = maxSets > 0 && sets > 0 ? sets / maxSets : 0;
@@ -280,7 +282,7 @@ export function renderBodyMap(muscleItems = [], opts = {}) {
         cursor: "pointer",
         tabindex: "0",
         role: "button",
-        "aria-label": `${z.label}: ${sets} сетов`
+        "aria-label": t("bodyMap.zoneAria", { label: zLabel, sets })
       });
 
       for (const d of z.paths) {
@@ -311,9 +313,9 @@ export function renderBodyMap(muscleItems = [], opts = {}) {
 
         if (sets > 0) {
           const exList = [...st.exercises].slice(0, 4).join(", ");
-          caption.textContent = `${z.label}: ${sets} раб. сет.${exList ? " (" + exList + ")" : ""}`;
+          caption.textContent = t("bodyMap.zoneActive", { label: zLabel, sets, ex: exList ? " (" + exList + ")" : "" });
         } else {
-          caption.textContent = `${z.label}: 0 рабочих сетов`;
+          caption.textContent = t("bodyMap.zoneZero", { label: zLabel });
         }
       };
 
@@ -338,8 +340,8 @@ export function renderBodyMap(muscleItems = [], opts = {}) {
     svg.append(g, lbl);
   }
 
-  buildFigure("front", 85, "СПЕРЕДИ");
-  buildFigure("back", 255, "СЗАДИ");
+  buildFigure("front", 85, t("bodyMap.front"));
+  buildFigure("back", 255, t("bodyMap.back"));
 
   return h("div", { class: "bm-wrap" }, svg, opts.hideCaption ? null : caption);
 }

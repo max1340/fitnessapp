@@ -1,4 +1,5 @@
 // Мелкие UI-хелперы без зависимостей.
+import { t, MONTHS, getLang, isEn } from "./i18n.js";
 
 /** Создание элемента: h("div", {class:"x", onclick}, child1, "text") */
 export function h(tag, attrs = {}, ...children) {
@@ -95,7 +96,7 @@ const openSheets = [];
 export function sheet(content, { title = "", full = false, onClose, beforeClose, actions } = {}) {
   const root = document.getElementById("sheets");
   const body = h("div", { class: "sheet-body" }, content);
-  const closeBtn = iconBtn("x", "Закрыть", () => api.requestClose());
+  const closeBtn = iconBtn("x", t("common.close"), () => api.requestClose());
   const head = h("header", { class: "sheet-head" },
     h("div", { class: "sheet-grab", "aria-hidden": "true" }),
     h("h2", {}, title), actions || null, closeBtn);
@@ -160,7 +161,7 @@ export function sheet(content, { title = "", full = false, onClose, beforeClose,
 }
 export const closeTopSheet = () => { const s = openSheets[openSheets.length - 1]; if (s) { s.requestClose(); return true; } return false; };
 
-export function confirmDialog(message, { ok = "Да", cancel = "Отмена", danger = false } = {}) {
+export function confirmDialog(message, { ok = t("common.yes"), cancel = t("common.cancel"), danger = false } = {}) {
   return new Promise(resolve => {
     let res = false;
     const sh = sheet(h("div", { class: "stack" },
@@ -168,24 +169,28 @@ export function confirmDialog(message, { ok = "Да", cancel = "Отмена", d
       h("div", { class: "row gap" },
         h("button", { class: "btn", type: "button", onclick: () => sh.close() }, cancel),
         h("button", { class: "btn primary" + (danger ? " danger" : ""), type: "button", onclick: () => { res = true; sh.close(); } }, ok))),
-      { title: "Подтверждение", onClose: () => resolve(res) });
+      { title: t("common.confirmTitle"), onClose: () => resolve(res) });
   });
 }
 
 /* ---------- Форматирование ---------- */
-const MONTHS = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
 export function fmtDate(ts, withTime = false) {
   const d = new Date(ts);
-  let s = `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  const m = (MONTHS[getLang()] || MONTHS.ru)[d.getMonth()];
+  let s = `${d.getDate()} ${m} ${d.getFullYear()}`;
   if (withTime) s += `, ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   return s;
 }
-export const fmtShortDate = ts => { const d = new Date(ts); return `${d.getDate()} ${MONTHS[d.getMonth()]}`; };
+export const fmtShortDate = ts => {
+  const d = new Date(ts);
+  const m = (MONTHS[getLang()] || MONTHS.ru)[d.getMonth()];
+  return `${d.getDate()} ${m}`;
+};
 export function fmtRest(sec) {
   sec = Math.max(0, Math.round(sec));
   return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
 }
-export const fmtNum = v => (v === null || v === undefined || v === "" ? "" : String(v).replace(".", ","));
+export const fmtNum = v => (v === null || v === undefined || v === "" ? "" : (isEn() ? String(v).replace(",", ".") : String(v).replace(".", ",")));
 export function parseNum(str) {
   if (str === null || str === undefined) return null;
   const s = String(str).trim().replace(",", ".");

@@ -2,6 +2,7 @@
 // при сворачивании вкладки. Не блокирует ввод: это узкая плашка над нижней навигацией.
 import { h, fmtRest } from "./ui.js";
 import { state } from "./store.js";
+import { t } from "./i18n.js";
 
 let endAt = 0, total = 0, label = "", ticking = null, fired = false, bar, audioCtx;
 const els = {};
@@ -22,9 +23,9 @@ function askNotifyPermission() {
 
 async function sendNotification() {
   if (state.settings.notifications === false || !("Notification" in window) || Notification.permission !== "granted") return;
-  const title = "Отдых окончен";
+  const title = t("timer.restOver");
   const opts = {
-    body: label || "Пора делать следующий подход",
+    body: label || t("timer.nextSetBody"),
     icon: "icons/icon-192.png",
     badge: "icons/icon-192.png",
     tag: "fitness-rest-timer",
@@ -76,10 +77,10 @@ function render() {
   if (left <= 0 && !fired) finish();
   const over = left <= 0;
   bar.classList.toggle("over", over);
-  els.time.textContent = over ? "Отдых окончен" : fmtRest(left);
+  els.time.textContent = over ? t("timer.restOver") : fmtRest(left);
   els.label.textContent = label;
   els.fill.style.width = (over ? 100 : Math.max(0, Math.min(100, ((total - left) / total) * 100))) + "%";
-  els.skip.textContent = over ? "Закрыть" : "Пропуск ✕";
+  els.skip.textContent = over ? t("common.close") : t("timer.skip");
 }
 
 function loop() { if (!ticking) ticking = setInterval(render, 250); render(); }
@@ -114,17 +115,33 @@ export function stopRest() {
 
 export const isResting = () => endAt > 0;
 
+export function refreshTimerI18n() {
+  if (!bar) return;
+  if (els.minus) {
+    els.minus.textContent = t("timer.minus15");
+    els.minus.setAttribute("aria-label", t("timer.minus15Aria"));
+  }
+  if (els.plus) {
+    els.plus.textContent = t("timer.plus30");
+    els.plus.setAttribute("aria-label", t("timer.plus30Aria"));
+  }
+  if (els.skip) els.skip.textContent = t("timer.skip");
+  render();
+}
+
 export function initTimerBar(container) {
   bar = container;
   els.time = h("strong", { class: "timer-time", "aria-live": "off" });
   els.label = h("small", { class: "muted timer-label" });
   els.fill = h("div", { class: "timer-fill" });
-  els.skip = h("button", { class: "btn small", type: "button", onclick: stopRest }, "Пропуск ✕");
+  els.minus = h("button", { class: "btn small", type: "button", "aria-label": t("timer.minus15Aria"), onclick: () => addRest(-15) }, t("timer.minus15"));
+  els.plus = h("button", { class: "btn small", type: "button", "aria-label": t("timer.plus30Aria"), onclick: () => addRest(30) }, t("timer.plus30"));
+  els.skip = h("button", { class: "btn small", type: "button", onclick: stopRest }, t("timer.skip"));
   bar.append(els.fill,
     h("div", { class: "timer-row" },
       h("div", { class: "grow" }, els.time, els.label),
-      h("button", { class: "btn small", type: "button", "aria-label": "Уменьшить отдых на 15 секунд", onclick: () => addRest(-15) }, "−15с"),
-      h("button", { class: "btn small", type: "button", "aria-label": "Добавить 30 секунд отдыха", onclick: () => addRest(30) }, "+30с"),
+      els.minus,
+      els.plus,
       els.skip));
   bar.hidden = true;
   document.addEventListener("visibilitychange", () => {
