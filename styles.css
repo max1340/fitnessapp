@@ -130,7 +130,10 @@ input[type="checkbox"]:checked::after { transform: rotate(-45deg) scale(1); }
 .stat { display: flex; flex-direction: column; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--s2); }
 .stat strong { font-size: 22px; }
 .pr { display: flex; flex-direction: column; padding: 8px 0; border-top: 1px solid var(--line); }
+.active-top { display: flex; flex-direction: column; gap: 8px; }
 .active-head { display: flex; align-items: center; gap: 6px; }
+.workout-prog { height: 5px; width: 100%; background: var(--s2); border: 1px solid var(--line); border-radius: 99px; overflow: hidden; }
+.workout-prog-fill { height: 100%; width: 0%; background: var(--fg); transition: width .28s ease; }
 .code { background: var(--s2); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 10px; overflow-x: auto; font-size: 13px; margin: 0; white-space: pre-wrap; word-break: break-word; }
 .formula ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; }
 .confirm-text { font-size: 17px; }
@@ -141,10 +144,26 @@ input[type="checkbox"]:checked::after { transform: rotate(-45deg) scale(1); }
   padding: 10px 10px 8px; display: flex; flex-direction: column; gap: 6px;
 }
 .entry.skipped { border-style: dashed; color: var(--mut); }
+.entry.collapsed { padding: 8px 10px; background: var(--s2); }
+.entry.dragging { position: relative; z-index: 5; border: 3px solid var(--fg); background: var(--s1); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); user-select: none; }
 .entry-head { display: flex; align-items: center; gap: 2px; min-height: 32px; }
 .entry-head .grow { display: flex; flex-direction: column; padding-right: 4px; }
+.entry-title-btn, .entry-summary {
+  background: none; border: 0; padding: 0 4px 0 0; text-align: left; color: inherit; font: inherit;
+  cursor: pointer; display: flex; flex-direction: column; min-width: 0;
+}
+.entry-title-btn strong { text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; text-decoration-color: var(--mut); }
+.entry-summary-title { display: flex; align-items: center; gap: 6px; }
 .entry-head strong, .pitem-head strong { font-size: 15px; line-height: 1.25; overflow-wrap: anywhere; }
 .entry-head .btn.icon { width: 34px; min-height: 34px; height: 34px; color: var(--mut); }
+
+.pr-slot { display: inline-flex; align-items: center; }
+.pr-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 18px; padding: 0 6px; border-radius: 5px;
+  background: var(--fg); color: var(--bg); font-size: 10px; font-weight: 800; letter-spacing: .04em;
+}
+.set.done .pr-badge { background: var(--inv-fg); color: var(--inv-bg); }
 
 .set-cols, .set-main {
   display: grid; grid-template-columns: 26px 1.2fr 1fr 40px; gap: 6px; align-items: center;
@@ -197,6 +216,11 @@ input[type="checkbox"]:checked::after { transform: rotate(-45deg) scale(1); }
 .set-sub .hint {
   font-size: 11.5px; color: var(--mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.set-sub .hint-btn {
+  background: none; border: 0; padding: 0; text-align: left; font: inherit; font-size: 11.5px;
+  color: var(--mut); cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 2px;
+}
+.set-sub .hint-btn:active { opacity: .6; }
 .set-sub .rpe {
   width: 48px; height: 24px; min-height: 24px; padding: 0 4px; font-size: 12px;
   text-align: center; border-radius: 6px; background: var(--field);
@@ -235,10 +259,10 @@ input[type="checkbox"]:checked::after { transform: rotate(-45deg) scale(1); }
   border-top: 1px solid var(--line);
 }
 .timer-fill { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(128, 128, 128, .35); transition: width .25s linear; }
-.timer-row { position: relative; display: flex; align-items: center; gap: 8px; height: 100%; padding: 0 12px 0 16px; }
-.timer-time { font-size: 28px; display: block; line-height: 1.1; }
-.timer-label { color: inherit !important; opacity: .7; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.timer-bar .btn { background: transparent; color: var(--inv-fg); border: 2px solid var(--inv-fg); }
+.timer-row { position: relative; display: flex; align-items: center; gap: 6px; height: 100%; padding: 0 10px 0 14px; }
+.timer-time { font-size: 23px; display: block; line-height: 1.1; }
+.timer-label { color: inherit !important; opacity: .75; font-size: 12px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.timer-bar .btn { background: transparent; color: var(--inv-fg); border: 1.5px solid var(--inv-fg); min-height: 34px; padding: 0 9px; font-size: 12px; }
 .timer-bar.over { border-top: 4px dashed var(--inv-fg); }
 .timer-bar.over .timer-time { font-size: 22px; }
 
@@ -260,10 +284,32 @@ input[type="checkbox"]:checked::after { transform: rotate(-45deg) scale(1); }
   border: 1px solid var(--line); border-bottom: 0; border-radius: 20px 20px 0 0; padding-bottom: var(--safe-b);
 }
 .sheet.full { height: 92dvh; }
-.sheet-head { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 16px; border-bottom: 1px solid var(--line); }
+.sheet-head { position: relative; display: flex; align-items: center; gap: 8px; padding: 14px 8px 8px 16px; border-bottom: 1px solid var(--line); touch-action: none; }
+.sheet-grab { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); width: 36px; height: 4px; border-radius: 99px; background: var(--line); }
 .sheet-head h2 { flex: 1; font-size: 18px; }
 .sheet-body { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px; flex: 1; overscroll-behavior: contain; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--nav-h) + var(--safe-b) + 84px); z-index: 60; background: var(--inv-bg); color: var(--inv-fg); padding: 10px 16px; border-radius: 99px; font-size: 14px; max-width: 90vw; }
+
+/* ---------- Календарная сетка активности (Heatmap) ---------- */
+.heat-panel { gap: 10px; }
+.heat-wrap { display: flex; align-items: stretch; gap: 6px; }
+.heat-days { display: grid; grid-template-rows: repeat(7, 1fr); font-size: 10px; color: var(--mut); align-items: center; padding-right: 2px; }
+.heat-grid { flex: 1; display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; }
+.heat-col { display: grid; grid-template-rows: repeat(7, 1fr); gap: 4px; }
+.heat-cell {
+  aspect-ratio: 1; width: 100%; min-height: 0; padding: 0; border-radius: 4px;
+  background: var(--s2); border: 1px solid var(--line); cursor: pointer; touch-action: manipulation;
+}
+.heat-cell.active { background: var(--fg); border-color: var(--fg); }
+.heat-cell.today { border: 1.5px dashed var(--fg); }
+.heat-cell.active.today { border: 2px solid var(--mut); }
+.heat-cell.sel { outline: 2px solid var(--fg); outline-offset: 1px; }
+.heat-cell.future { opacity: .2; cursor: default; pointer-events: none; }
+.heat-caption { min-height: 18px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.heat-link {
+  background: none; border: 0; padding: 0; color: var(--fg); font: inherit; font-weight: 600;
+  text-decoration: underline; cursor: pointer;
+}
 
 /* ---------- Графики ---------- */
 .chart-svg { width: 100%; height: auto; display: block; touch-action: manipulation; user-select: none; }

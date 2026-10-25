@@ -12,6 +12,7 @@ export const DEFAULT_SETTINGS = {
   restSec: 210,
   sound: true,
   vibration: true,
+  notifications: true,
   theme: "dark" // dark | light | system
 };
 

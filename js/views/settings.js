@@ -48,6 +48,16 @@ export function openSettings() {
       h("label", { class: "field grow" }, h("span", {}, "Шаг, lb"), numInput("stepLb")),
       h("label", { class: "field grow" }, h("span", {}, "Отдых, сек"), numInput("restSec"))),
     check("sound", "Звук таймера"), check("vibration", "Вибрация таймера"),
+    (() => {
+      const el = h("input", { type: "checkbox", checked: st.notifications !== false });
+      el.addEventListener("change", async () => {
+        if (el.checked && "Notification" in window && Notification.permission === "default") {
+          await Notification.requestPermission().catch(() => {});
+        }
+        updateSettings({ notifications: el.checked });
+      });
+      return h("label", { class: "check" }, el, h("span", {}, "Системные уведомления таймера"));
+    })(),
     h("h3", { class: "group" }, "Данные"),
     h("button", { class: "btn block", type: "button", onclick: () => {
       const blob = new Blob([exportData()], { type: "application/json" });

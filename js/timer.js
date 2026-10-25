@@ -1,6 +1,6 @@
 // Таймер отдыха. Работает по абсолютному времени окончания, поэтому не «уплывает»
 // при сворачивании вкладки. Не блокирует ввод: это узкая плашка над нижней навигацией.
-import { h, icon, fmtRest } from "./ui.js";
+import { h, fmtRest } from "./ui.js";
 import { state } from "./store.js";
 
 let endAt = 0, total = 0, label = "", ticking = null, fired = false, bar, audioCtx;
@@ -11,6 +11,41 @@ function ensureAudio() {
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === "suspended") audioCtx.resume();
   } catch { /* звук недоступен */ }
+}
+
+function askNotifyPermission() {
+  if (state.settings.notifications === false) return;
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission().catch(() => {});
+  }
+}
+
+async function sendNotification() {
+  if (state.settings.notifications === false || !("Notification" in window) || Notification.permission !== "granted") return;
+  const title = "Отдых окончен";
+  const opts = {
+    body: label || "Пора делать следующий подход",
+    icon: "icons/icon-192.png",
+    badge: "icons/icon-192.png",
+    tag: "fitness-rest-timer",
+    renotify: true,
+    Silent: !state.settings.sound
+  };
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (reg && reg.showNotification) { await reg.showNotification(title, opts); return; }
+  } catch { /* fallback ниже */ }
+  try { new Notification(title, opts); } catch { /* ignore */ }
+}
+
+async function clearNotifications() {
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (reg && reg.getNotifications) {
+      const list = await reg.getNotifications({ tag: "fitness-rest-timer" });
+      list.forEach(n => n.close());
+    }
+  } catch { /* ignore */ }
 }
 
 function beep() {
@@ -30,6 +65,7 @@ function finish() {
   fired = true;
   beep();
   if (state.settings.vibration && navigator.vibrate) navigator.vibrate([250, 120, 250, 120, 400]);
+  sendNotification();
 }
 
 function render() {
@@ -42,7 +78,7 @@ function render() {
   bar.classList.toggle("over", over);
   els.time.textContent = over ? "Отдых окончен" : fmtRest(left);
   els.label.textContent = label;
-  els.fill.style.width = (over ? 100 : Math.min(100, ((total - left) / total) * 100)) + "%";
+  els.fill.style.width = (over ? 100 : Math.max(0, Math.min(100, ((total - left) / total) * 100))) + "%";
   els.skip.textContent = over ? "Закрыть" : "Пропустить";
 }
 
@@ -51,11 +87,31 @@ function loop() { if (!ticking) ticking = setInterval(render, 250); render(); }
 export function startRest(sec, lbl = "") {
   if (!sec || sec <= 0) return;
   ensureAudio();
+  askNotifyPermission();
+  clearNotifications();
   endAt = Date.now() + sec * 1000; total = sec; label = lbl; fired = false;
   loop();
 }
-export function addRest(sec) { if (!endAt) return; if (fired) { endAt = Date.now() + sec * 1000; total = sec; fired = false; } else { endAt += sec * 1000; total += sec; } render(); }
-export function stopRest() { endAt = 0; clearInterval(ticking); ticking = null; render(); }
+
+export function addRest(sec) {
+  if (!endAt) return;
+  if (fired && sec > 0) {
+    endAt = Date.now() + sec * 1000; total = sec; fired = false;
+    clearNotifications();
+  } else {
+    endAt += sec * 1000;
+    total = Math.max(1, total + sec);
+    if (endAt <= Date.now() && !fired) finish();
+  }
+  render();
+}
+
+export function stopRest() {
+  endAt = 0; clearInterval(ticking); ticking = null;
+  clearNotifications();
+  render();
+}
+
 export const isResting = () => endAt > 0;
 
 export function initTimerBar(container) {
@@ -67,8 +123,11 @@ export function initTimerBar(container) {
   bar.append(els.fill,
     h("div", { class: "timer-row" },
       h("div", { class: "grow" }, els.time, els.label),
-      h("button", { class: "btn small", type: "button", onclick: () => addRest(30) }, "+30 с"),
+      h("button", { class: "btn small", type: "button", "aria-label": "Уменьшить отдых на 15 секунд", onclick: () => addRest(-15) }, "−15 с"),
+      h("button", { class: "btn small", type: "button", "aria-label": "Добавить 30 секунд отдыха", onclick: () => addRest(30) }, "+30 с"),
       els.skip));
   bar.hidden = true;
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) render(); });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) { render(); if (fired) clearNotifications(); }
+  });
 }

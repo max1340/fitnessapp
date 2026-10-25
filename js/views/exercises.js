@@ -1,9 +1,63 @@
-import { h, clear, sheet, confirmDialog, toast, parseNum, fmtNum, fmtRest, icon } from "../ui.js";
-import { state, saveExercise, deleteExercise, isExerciseUsed, unitLabel } from "../store.js";
+import { h, clear, sheet, confirmDialog, toast, parseNum, fmtNum, fmtRest, fmtDate, icon, iconBtn } from "../ui.js";
+import { state, saveExercise, deleteExercise, isExerciseUsed, getExercise, doneSessions, unitLabel } from "../store.js";
+import { personalRecords, fromKg, formatNum } from "../metrics.js";
 
 const MUSCLE_HINTS = ["Спина", "Грудь", "Ноги", "Бицепс", "Трицепс", "Дельты", "Средняя дельта", "Задняя дельта", "Пресс", "Предплечья", "Икры", "Ягодицы", "Трапеции"];
 
 export const muscleOptions = () => [...new Set([...MUSCLE_HINTS, ...state.exercises.map(e => e.muscleGroup).filter(Boolean)])];
+
+/** Модальный лист с рекордами и последними выполнениями конкретного упражнения. */
+export function openExerciseHistory(exerciseId, fallbackName = "Упражнение", fallbackUnit = "kg") {
+  const ex = getExercise(exerciseId);
+  const name = ex ? ex.name : fallbackName;
+  const unit = ex ? ex.unit : fallbackUnit;
+  const u = unitLabel(unit);
+  const done = doneSessions().sort((a, b) => b.startedAt - a.startedAt);
+  const pr = personalRecords(done).get(exerciseId);
+
+  const historyRows = [];
+  for (const s of done) {
+    const entries = (s.entries || []).filter(e => e.exerciseId === exerciseId && (e.sets || []).some(x => x.done));
+    if (!entries.length) continue;
+    const setsText = entries.flatMap(e => (e.sets || []).filter(x => x.done).map(x =>
+      `${x.isWarmup ? "Р: " : ""}${fmtNum(x.weight ?? 0)} ${unitLabel(e.unit)} × ${x.reps}${x.rpe ? ` @${fmtNum(x.rpe)}` : ""}`
+    )).join("  ·  ");
+    const notes = entries.map(e => e.note).filter(Boolean).join("; ");
+    historyRows.push({ date: s.startedAt, programName: s.programName, setsText, notes });
+    if (historyRows.length >= 8) break;
+  }
+
+  const prBlock = pr && (pr.weightKg !== null || pr.e1rmKg !== null)
+    ? h("div", { class: "stats" },
+        h("div", { class: "stat" },
+          h("small", { class: "muted" }, "Рекорд веса"),
+          h("strong", {}, pr.weightKg !== null ? `${formatNum(fromKg(pr.weightKg, unit), 1)} ${u}` : "—"),
+          pr.weightDate ? h("small", { class: "muted" }, fmtDate(pr.weightDate)) : null),
+        h("div", { class: "stat" },
+          h("small", { class: "muted" }, "Лучший e1RM"),
+          h("strong", {}, pr.e1rmKg !== null ? `${formatNum(fromKg(pr.e1rmKg, unit), 1)} ${u}` : "—"),
+          pr.e1rmDate ? h("small", { class: "muted" }, fmtDate(pr.e1rmDate)) : null))
+    : h("p", { class: "muted small" }, "Рекордов по этому упражнению пока нет.");
+
+  const list = h("div", { class: "list" });
+  if (!historyRows.length) {
+    list.append(h("p", { class: "empty" }, "Это упражнение ещё не выполнялось в завершённых тренировках."));
+  } else {
+    for (const r of historyRows) {
+      list.append(h("div", { class: "card" },
+        h("div", { class: "grow" },
+          h("strong", {}, `${fmtDate(r.date)} · ${r.programName}`),
+          h("span", { class: "small" }, r.setsText),
+          r.notes ? h("small", { class: "muted" }, r.notes) : null)));
+    }
+  }
+
+  sheet(h("div", { class: "stack" },
+    ex?.note ? h("p", { class: "muted small" }, "Заметка: " + ex.note) : null,
+    prBlock,
+    h("h3", { class: "group" }, "Последние тренировки"),
+    list), { title: name });
+}
 
 export function openExerciseForm(ex, onSaved) {
   const isNew = !ex;
@@ -20,6 +74,9 @@ export function openExerciseForm(ex, onSaved) {
   const note = h("textarea", { rows: 2, placeholder: "Заметка (настройка тренажёра, хват…)" }, e.note || "");
   const err = h("p", { class: "error", hidden: true });
 
+  let dirty = false;
+  [name, muscle, unit, sets, rest, rpe, note].forEach(el => el.addEventListener("input", () => (dirty = true)));
+
   const save = () => {
     const nm = name.value.trim();
     if (!nm) { err.textContent = "Введите название"; err.hidden = false; name.focus(); return; }
@@ -29,13 +86,14 @@ export function openExerciseForm(ex, onSaved) {
       defaultRestSec: Math.max(0, Math.round(parseNum(rest.value) ?? 210)),
       trackRpe: rpe.checked, note: note.value.trim()
     });
+    dirty = false;
     sh.close(); onSaved && onSaved(saved);
   };
   const archived = !!e.archived;
   const extra = [];
   if (!isNew) {
-    extra.push(h("button", { class: "btn", type: "button", onclick: () => { saveExercise({ ...e, archived: !archived }); sh.close(); toast(archived ? "Возвращено из архива" : "Перенесено в архив"); } }, archived ? "Вернуть из архива" : "В архив"));
-    if (!isExerciseUsed(e.id)) extra.push(h("button", { class: "btn", type: "button", onclick: async () => { if (await confirmDialog(`Удалить «${e.name}»?`, { ok: "Удалить", danger: true })) { deleteExercise(e.id); sh.close(); } } }, "Удалить"));
+    extra.push(h("button", { class: "btn", type: "button", onclick: () => { dirty = false; saveExercise({ ...e, archived: !archived }); sh.close(); toast(archived ? "Возвращено из архива" : "Перенесено в архив"); } }, archived ? "Вернуть из архива" : "В архив"));
+    if (!isExerciseUsed(e.id)) extra.push(h("button", { class: "btn", type: "button", onclick: async () => { if (await confirmDialog(`Удалить «${e.name}»?`, { ok: "Удалить", danger: true })) { dirty = false; deleteExercise(e.id); sh.close(); } } }, "Удалить"));
     else extra.push(h("p", { class: "muted small" }, "Упражнение есть в истории — удалить нельзя, только архивировать."));
   }
   const form = h("form", { class: "stack", onsubmit: ev => { ev.preventDefault(); save(); } },
@@ -50,7 +108,10 @@ export function openExerciseForm(ex, onSaved) {
     err,
     h("div", { class: "row gap" }, extra),
     h("button", { class: "btn primary block", type: "submit" }, "Сохранить"));
-  const sh = sheet(form, { title: isNew ? "Новое упражнение" : "Упражнение" });
+  const sh = sheet(form, {
+    title: isNew ? "Новое упражнение" : "Упражнение",
+    beforeClose: () => (!dirty ? true : confirmDialog("Закрыть без сохранения изменений?", { ok: "Закрыть", cancel: "Остаться", danger: true }))
+  });
   if (isNew) name.focus();
 }
 
@@ -95,9 +156,12 @@ export function mount(root) {
     let lastGroup = null;
     for (const e of items) {
       if (e.muscleGroup !== lastGroup) { lastGroup = e.muscleGroup; list.append(h("h3", { class: "group" }, lastGroup || "Без группы")); }
-      list.append(h("button", { class: "list-item" + (e.archived ? " archived" : ""), type: "button", onclick: () => openExerciseForm(e) },
-        h("span", { class: "grow" }, h("strong", {}, e.name), h("small", { class: "muted" }, `${e.defaultSets} × · отдых ${fmtRest(e.defaultRestSec)} · ${unitLabel(e.unit)}${e.trackRpe ? " · RPE" : ""}${e.archived ? " · архив" : ""}`)),
-        icon("edit", 18)));
+      list.append(h("div", { class: "list-item" + (e.archived ? " archived" : "") },
+        h("button", { class: "card-main grow", type: "button", onclick: () => openExerciseForm(e) },
+          h("strong", {}, e.name),
+          h("small", { class: "muted" }, `${e.defaultSets} × · отдых ${fmtRest(e.defaultRestSec)} · ${unitLabel(e.unit)}${e.trackRpe ? " · RPE" : ""}${e.archived ? " · архив" : ""}`)),
+        iconBtn("clock", "История упражнения", () => openExerciseHistory(e.id, e.name, e.unit)),
+        iconBtn("edit", "Редактировать", () => openExerciseForm(e))));
     }
   };
   [search, filter, showArchived].forEach(el => el.addEventListener("input", paint));

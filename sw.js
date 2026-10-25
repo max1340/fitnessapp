@@ -1,6 +1,6 @@
 // Service worker: app shell (precache) + runtime-кэш модулей Firebase с CDN gstatic.
 // Увеличивайте CACHE_VERSION при каждом релизе, чтобы клиенты обновили оболочку.
-const CACHE_VERSION = "v4";
+const CACHE_VERSION = "v5";
 const SHELL_CACHE = "fitness-shell-" + CACHE_VERSION;
 const RUNTIME_CACHE = "fitness-runtime-" + CACHE_VERSION;
 
@@ -74,4 +74,15 @@ self.addEventListener("fetch", event => {
     event.respondWith(staleWhileRevalidate(req, RUNTIME_CACHE));
   }
   // Запросы к firestore.googleapis.com не трогаем: офлайн обрабатывает сам Firestore SDK.
+});
+
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  event.waitUntil((async () => {
+    const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const c of all) {
+      if ("focus" in c) return c.focus();
+    }
+    if (self.clients.openWindow) return self.clients.openWindow("./");
+  })());
 });

@@ -1,4 +1,4 @@
-﻿// Мелкие UI-хелперы без зависимостей.
+// Мелкие UI-хелперы без зависимостей.
 
 /** Создание элемента: h("div", {class:"x", onclick}, child1, "text") */
 export function h(tag, attrs = {}, ...children) {
@@ -64,23 +64,67 @@ export function toast(msg) {
 /* ---------- Модальные листы ---------- */
 const openSheets = [];
 /**
- * Нижний лист. content — Node. opts: {title, full, onClose}
- * Возвращает { close, el, body }.
+ * Нижний лист. content — Node. opts: {title, full, onClose, beforeClose, actions}
+ * Возвращает { close, requestClose, el, body }.
  */
-export function sheet(content, { title = "", full = false, onClose, actions } = {}) {
+export function sheet(content, { title = "", full = false, onClose, beforeClose, actions } = {}) {
   const root = document.getElementById("sheets");
   const body = h("div", { class: "sheet-body" }, content);
-  const closeBtn = iconBtn("x", "Закрыть", () => api.close());
+  const closeBtn = iconBtn("x", "Закрыть", () => api.requestClose());
+  const head = h("header", { class: "sheet-head" },
+    h("div", { class: "sheet-grab", "aria-hidden": "true" }),
+    h("h2", {}, title), actions || null, closeBtn);
+  const box = h("section", { class: "sheet" + (full ? " full" : ""), role: "dialog", "aria-modal": "true", "aria-label": title }, head, body);
   const el = h("div", { class: "sheet-wrap" },
-    h("div", { class: "sheet-backdrop", onclick: () => api.close() }),
-    h("section", { class: "sheet" + (full ? " full" : ""), role: "dialog", "aria-modal": "true", "aria-label": title },
-      h("header", { class: "sheet-head" }, h("h2", {}, title), actions || null, closeBtn),
-      body));
+    h("div", { class: "sheet-backdrop", onclick: () => api.requestClose() }),
+    box);
+
+  // Свайп вниз по шапке модального листа для закрытия
+  head.addEventListener("pointerdown", e => {
+    if (e.target.closest("button, a, input")) return;
+    const startY = e.clientY;
+    let dy = 0;
+    head.setPointerCapture(e.pointerId);
+    box.style.transition = "none";
+    const move = ev => {
+      dy = Math.max(0, ev.clientY - startY);
+      box.style.transform = `translateY(${dy}px)`;
+    };
+    const end = async () => {
+      head.removeEventListener("pointermove", move);
+      head.removeEventListener("pointerup", end);
+      head.removeEventListener("pointercancel", end);
+      box.style.transition = "transform .2s ease";
+      if (dy > 75) {
+        const ok = await api.requestClose();
+        if (!ok) box.style.transform = "";
+      } else {
+        box.style.transform = "";
+      }
+    };
+    head.addEventListener("pointermove", move);
+    head.addEventListener("pointerup", end);
+    head.addEventListener("pointercancel", end);
+  });
+
   const api = {
     el, body,
+    async requestClose(result) {
+      if (api.closed || api.checking) return false;
+      if (beforeClose) {
+        api.checking = true;
+        const allow = await beforeClose();
+        api.checking = false;
+        if (!allow) return false;
+      }
+      api.close(result);
+      return true;
+    },
     close(result) {
       if (api.closed) return; api.closed = true;
-      el.classList.add("closing"); setTimeout(() => el.remove(), 180); openSheets.splice(openSheets.indexOf(api), 1);
+      el.classList.add("closing"); setTimeout(() => el.remove(), 180);
+      const idx = openSheets.indexOf(api);
+      if (idx >= 0) openSheets.splice(idx, 1);
       document.body.classList.toggle("sheet-open", openSheets.length > 0);
       onClose && onClose(result);
     }
@@ -89,7 +133,7 @@ export function sheet(content, { title = "", full = false, onClose, actions } = 
   document.body.classList.add("sheet-open");
   return api;
 }
-export const closeTopSheet = () => { const s = openSheets[openSheets.length - 1]; if (s) { s.close(); return true; } return false; };
+export const closeTopSheet = () => { const s = openSheets[openSheets.length - 1]; if (s) { s.requestClose(); return true; } return false; };
 
 export function confirmDialog(message, { ok = "Да", cancel = "Отмена", danger = false } = {}) {
   return new Promise(resolve => {
@@ -178,4 +222,3 @@ export function enableDragSort(list, onReorder) {
     handle.addEventListener("pointercancel", end);
   });
 }
-
