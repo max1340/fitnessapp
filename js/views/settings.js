@@ -1,5 +1,5 @@
 import { h, clear, sheet, toast, confirmDialog, parseNum, fmtNum } from "../ui.js";
-import { state, updateSettings, exportData, importData, downloadCsv, seedStarterData, unitLabel } from "../store.js";
+import { state, updateSettings, exportData, importData, downloadCsv, seedStarterData, seedCommonExercises, unitLabel, logoutProfile } from "../store.js";
 import { persistence } from "../db.js";
 import { t, getLang } from "../i18n.js";
 
@@ -67,7 +67,25 @@ export function openSettings() {
       file.value = "";
     });
 
+    const curUsername = state.user?.username || "—";
+    const profileBox = h("div", { class: "panel", style: "padding:12px" },
+      h("div", { class: "row gap", style: "justify-content:space-between" },
+        h("strong", {}, t("settings.currentProfile", { user: curUsername })),
+        h("button", {
+          class: "btn small",
+          type: "button",
+          onclick: async () => {
+            if (!(await confirmDialog(t("settings.logoutConfirm", { user: curUsername }), { ok: t("settings.logoutOk") }))) return;
+            if (sh) sh.close();
+            logoutProfile();
+          }
+        }, t("settings.logoutBtn")))
+    );
+
+    const isMax = curUsername === "max_134";
+
     wrap.append(
+      profileBox,
       h("label", { class: "field" }, h("span", {}, t("settings.lang")), sel("lang", [["ru", "Русский"], ["en", "English"]], renderContent)),
       h("div", { class: "row gap" },
         h("label", { class: "field grow" }, h("span", {}, t("settings.defaultUnits")), sel("defaultUnit", [["kg", unitLabel("kg")], ["lb", "lb"]])),
@@ -91,11 +109,14 @@ export function openSettings() {
       h("button", { class: "btn block", type: "button", onclick: () => { downloadCsv(); toast(t("settings.csvExportedToast")); } }, t("settings.exportCsvBtn")),
       h("button", { class: "btn block", type: "button", onclick: () => {
         const blob = new Blob([exportData()], { type: "application/json" });
-        const a = h("a", { href: URL.createObjectURL(blob), download: `fitness-backup-${new Date().toISOString().slice(0, 10)}.json` });
+        const a = h("a", { href: URL.createObjectURL(blob), download: `fitness-backup-${curUsername}-${new Date().toISOString().slice(0, 10)}.json` });
         document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
       } }, t("settings.exportJsonBtn")),
       h("button", { class: "btn block", type: "button", onclick: () => file.click() }, t("settings.importJsonBtn")), file,
-      h("button", { class: "btn block", type: "button", onclick: () => { const n = seedStarterData(); toast(n ? t("settings.seededToast") : t("settings.alreadySeededToast")); } }, t("settings.seedBtn")),
+      h("button", { class: "btn block", type: "button", onclick: () => {
+        const n = isMax ? seedStarterData() : seedCommonExercises();
+        toast(n ? t("settings.seededToast") : t("settings.alreadySeededToast"));
+      } }, t("settings.seedBtn")),
       h("p", { class: "muted small" }, t("settings.cloudInfo", { cache: persistence === "persistent" ? t("settings.cacheOn") : t("settings.cacheOff") })),
       h("a", { class: "muted small", href: "tests.html" }, t("settings.runTests"))
     );

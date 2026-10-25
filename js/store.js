@@ -1,12 +1,52 @@
-// Хранилище состояния в памяти поверх Firebase Realtime Database + локального офлайн-кэша.
-import { watchCollection, saveDoc, removeDoc, bulkSave, bulkRemove } from "./db.js";
+// Хранилище состояния в памяти поверх Firebase Realtime Database + локального офлайн-кэша и мультиаккаунтности.
+import {
+  watchCollection, saveDoc, removeDoc, bulkSave, bulkRemove,
+  setSpaceUser, getSpaceUser, normalizeUserId, fetchUserProfile, saveUserProfile,
+  ensureMaxProfile, watchSharedExercises, saveSharedExercise
+} from "./db.js";
 import { t, detectDefaultLang, setLang, isEn, localizeExercise, localizeProgram, localizeSession, localizeState, tMuscle } from "./i18n.js";
 
 const COLLECTIONS = ["exercises", "programs", "sessions", "meta"];
-const LS_SETTINGS = "fitness.settings.v1";
-const LS_BW = "fitness.bodyweight.v1";
+const LS_SETTINGS_BASE = "fitness.settings.v1";
+const LS_BW_BASE = "fitness.bodyweight.v1";
+const LS_AUTH = "fitness.auth.v1";
+const LS_SAVED_PROFILES = "fitness.savedProfiles.v1";
 
 const toArray = v => Array.isArray(v) ? v : (v && typeof v === "object" ? Object.values(v) : []);
+
+function lsSettingsKey(uid = getSpaceUser()) {
+  return uid ? `${LS_SETTINGS_BASE}.${uid}` : LS_SETTINGS_BASE;
+}
+function lsBwKey(uid = getSpaceUser()) {
+  return uid ? `${LS_BW_BASE}.${uid}` : LS_BW_BASE;
+}
+
+export function getSavedAuth() {
+  try {
+    const raw = localStorage.getItem(LS_AUTH);
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    const username = normalizeUserId(p.username);
+    if (!username) return null;
+    return { username, pin: String(p.pin || "") };
+  } catch { return null; }
+}
+
+export function getRememberedProfiles() {
+  try {
+    return toArray(JSON.parse(localStorage.getItem(LS_SAVED_PROFILES) || "[]")).filter(x => x && x.username);
+  } catch { return []; }
+}
+
+function addRememberedProfile(username) {
+  try {
+    const uid = normalizeUserId(username);
+    if (!uid) return;
+    const list = getRememberedProfiles().filter(x => x.username !== uid);
+    list.unshift({ username: uid, lastUsedAt: Date.now() });
+    localStorage.setItem(LS_SAVED_PROFILES, JSON.stringify(list.slice(0, 8)));
+  } catch { /* ignore */ }
+}
 
 function normalizeDoc(coll, d) {
   if (!d || typeof d !== "object") return d;
@@ -52,11 +92,16 @@ export const DEFAULT_SETTINGS = {
   theme: "dark" // dark | light | system
 };
 
+const initialAuth = getSavedAuth();
+if (initialAuth) setSpaceUser(initialAuth.username);
+
 export const state = {
+  user: initialAuth,
+  sharedExercises: [],
   exercises: [], programs: [], sessions: [],
-  bodyweightLog: loadLocalBodyweight(),
+  bodyweightLog: loadLocalBodyweight(initialAuth?.username),
   loaded: { exercises: false, programs: false, sessions: false, meta: false },
-  settings: loadLocalSettings(),
+  settings: loadLocalSettings(initialAuth?.username),
   sync: { fromCache: false, pending: false, error: null }
 };
 setLang(state.settings.lang);
@@ -65,31 +110,182 @@ const listeners = new Set();
 export function subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 function emit() { listeners.forEach(fn => { try { fn(); } catch (e) { console.error(e); } }); }
 
-function loadLocalSettings() {
-  try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(LS_SETTINGS) || "{}") }; }
-  catch { return { ...DEFAULT_SETTINGS }; }
+function loadLocalSettings(uid = getSpaceUser()) {
+  try {
+    const raw = localStorage.getItem(lsSettingsKey(uid)) || (uid === "max_134" ? localStorage.getItem(LS_SETTINGS_BASE) : null) || localStorage.getItem(LS_SETTINGS_BASE) || "{}";
+    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+  } catch { return { ...DEFAULT_SETTINGS }; }
 }
 
-function loadLocalBodyweight() {
-  try { return toArray(JSON.parse(localStorage.getItem(LS_BW) || "[]")); }
-  catch { return []; }
+function loadLocalBodyweight(uid = getSpaceUser()) {
+  try {
+    const raw = localStorage.getItem(lsBwKey(uid)) || (uid === "max_134" ? localStorage.getItem(LS_BW_BASE) : null) || "[]";
+    return toArray(JSON.parse(raw));
+  } catch { return []; }
 }
 
 export const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
 
-/** Запуск подписок. Возвращает промис, выполняющийся после первой загрузки всех коллекций. */
+let activeUnsubscribes = [];
+
+export function stopSubscriptions() {
+  for (const unsub of activeUnsubscribes) {
+    try { if (typeof unsub === "function") unsub(); } catch { /* ignore */ }
+  }
+  activeUnsubscribes = [];
+}
+
+/** Вход в существующий профиль по логину и PIN-коду. */
+export async function loginWithPin(rawUsername, rawPin, remember = true) {
+  const username = normalizeUserId(rawUsername);
+  const pin = String(rawPin || "").trim();
+  if (!username || username.length < 2) throw new Error(t("auth.errInvalidUser"));
+  if (!pin) throw new Error(t("auth.errEmptyPin"));
+
+  if (username === "max_134") {
+    const maxProf = await ensureMaxProfile();
+    const expectedPin = String(maxProf?.pin || "1328");
+    if (pin !== expectedPin) throw new Error(t("auth.errWrongPin"));
+  } else {
+    const prof = await fetchUserProfile(username);
+    if (!prof) throw new Error(t("auth.errNotFound"));
+    if (String(prof.pin || "") !== pin) throw new Error(t("auth.errWrongPin"));
+  }
+
+  activateUserSession(username, pin, remember);
+  return state.user;
+}
+
+/** Регистрация нового профиля с начальными настройками и опциональной первой программой. */
+export async function registerNewProfile({ username: rawUsername, pin: rawPin, remember = true, settingsPatch = {}, bodyweightKg = null, firstProgramMode = "skip", customProgram = null }) {
+  const username = normalizeUserId(rawUsername);
+  const pin = String(rawPin || "").trim();
+  if (!username || username.length < 3) throw new Error(t("auth.errInvalidUser"));
+  if (pin.length < 4) throw new Error(t("auth.errShortPin"));
+
+  if (username === "max_134") {
+    await ensureMaxProfile();
+    throw new Error(t("auth.errUserTaken"));
+  }
+
+  const existing = await fetchUserProfile(username);
+  if (existing) throw new Error(t("auth.errUserTaken"));
+
+  await saveUserProfile(username, {
+    username,
+    pin,
+    createdAt: Date.now(),
+    onboarded: true
+  });
+
+  activateUserSession(username, pin, remember);
+
+  // Применяем выбранные в онбординге настройки
+  const mergedSettings = { ...DEFAULT_SETTINGS, ...state.settings, ...settingsPatch };
+  if (bodyweightKg && bodyweightKg > 0) mergedSettings.bodyweightKg = Math.round(Number(bodyweightKg) * 10) / 10;
+  state.settings = mergedSettings;
+  setLang(state.settings.lang);
+  localStorage.setItem(lsSettingsKey(username), JSON.stringify(state.settings));
+  localStorage.setItem(LS_SETTINGS_BASE, JSON.stringify(state.settings));
+
+  // Загружаем общую базу упражнений в профиль
+  seedCommonExercises();
+
+  if (bodyweightKg && bodyweightKg > 0) {
+    logBodyweight(bodyweightKg);
+  }
+
+  if (firstProgramMode === "template") {
+    seedGenericFullbodyProgram();
+  } else if (firstProgramMode === "custom" && customProgram && customProgram.items && customProgram.items.length) {
+    saveProgram({
+      id: uid(),
+      name: customProgram.name || t("auth.defaultProgName"),
+      archived: false,
+      items: customProgram.items
+    });
+  }
+
+  saveDoc("meta", { id: "init", createdAt: Date.now(), catalogVersion: 3 }).catch(console.error);
+  saveDoc("meta", { id: "settings", ...state.settings }).catch(console.error);
+  emit();
+  return state.user;
+}
+
+export function activateUserSession(username, pin, remember = true) {
+  stopSubscriptions();
+  const cleanUser = normalizeUserId(username);
+  setSpaceUser(cleanUser);
+  state.user = { username: cleanUser, pin: String(pin || "") };
+  state.exercises = [];
+  state.programs = [];
+  state.sessions = [];
+  state.loaded = { exercises: false, programs: false, sessions: false, meta: false };
+  state.settings = loadLocalSettings(cleanUser);
+  state.bodyweightLog = loadLocalBodyweight(cleanUser);
+  setLang(state.settings.lang);
+
+  if (remember) {
+    try {
+      localStorage.setItem(LS_AUTH, JSON.stringify(state.user));
+      addRememberedProfile(cleanUser);
+    } catch { /* ignore */ }
+  }
+}
+
+export function logoutProfile() {
+  stopSubscriptions();
+  try { localStorage.removeItem(LS_AUTH); } catch { /* ignore */ }
+  setSpaceUser(null);
+  state.user = null;
+  state.exercises = [];
+  state.programs = [];
+  state.sessions = [];
+  state.loaded = { exercises: false, programs: false, sessions: false, meta: false };
+  emit();
+}
+
+function mergeSharedExercisesIntoState(sharedDocs) {
+  if (!Array.isArray(sharedDocs) || !sharedDocs.length) return;
+  let changed = false;
+  for (const raw of sharedDocs) {
+    if (!raw || !raw.id) continue;
+    if (!getExercise(raw.id)) {
+      state.exercises.push(normalizeDoc("exercises", raw));
+      changed = true;
+    }
+  }
+  if (changed) emit();
+}
+
+/** Запуск подписок для текущего авторизованного профиля. */
 export function init(onProgress) {
+  stopSubscriptions();
+  const curUser = getSpaceUser();
+  if (!curUser) return Promise.resolve();
+
   return new Promise(resolve => {
     const serverLoaded = { exercises: false, programs: false, sessions: false, meta: false };
     let metaHasInit = false;
     let autoSeeded = false;
     let resolved = false;
+
+    if (curUser === "max_134") {
+      ensureMaxProfile().catch(console.warn);
+    }
+
     const labels = {
       exercises: () => t("store.loadedExercises"),
       programs: () => t("store.loadedPrograms"),
       sessions: () => t("store.loadedSessions"),
       meta: () => t("store.loadedMeta")
     };
+
+    const unsubShared = watchSharedExercises(docs => {
+      state.sharedExercises = docs || [];
+      if (state.loaded.exercises) mergeSharedExercisesIntoState(state.sharedExercises);
+    });
+    activeUnsubscribes.push(unsubShared);
 
     const check = lastLoaded => {
       const doneCount = Object.values(state.loaded).filter(Boolean).length;
@@ -100,18 +296,25 @@ export function init(onProgress) {
       }
       if (!autoSeeded && Object.values(serverLoaded).every(Boolean)) {
         autoSeeded = true;
-        if (!metaHasInit && !state.exercises.length && !state.programs.length && !state.sessions.length) {
-          seedStarterData();
-          saveDoc("meta", { id: "init", createdAt: Date.now(), catalogVersion: 2 }).catch(console.error);
-          saveDoc("meta", { id: "settings", ...state.settings }).catch(console.error);
-        } else if (state.exercises.length <= 8) {
-          seedExtraExercises();
+        if (curUser === "max_134") {
+          if (!metaHasInit && !state.exercises.length && !state.programs.length && !state.sessions.length) {
+            seedStarterData();
+            saveDoc("meta", { id: "init", createdAt: Date.now(), catalogVersion: 3 }).catch(console.error);
+            saveDoc("meta", { id: "settings", ...state.settings }).catch(console.error);
+          } else if (state.exercises.length <= 8) {
+            seedExtraExercises();
+          }
+        } else {
+          if (state.exercises.length < COMMON_LIBRARY_EXERCISES.length) {
+            seedCommonExercises();
+          }
         }
+        mergeSharedExercisesIntoState(state.sharedExercises);
       }
     };
 
     for (const name of COLLECTIONS) {
-      watchCollection(name, (docs, fromCache, pending) => {
+      const unsub = watchCollection(name, (docs, fromCache, pending) => {
         if (name === "meta") {
           metaHasInit = docs.some(d => d.id === "init" || d.id === "settings");
           const s = docs.find(d => d.id === "settings");
@@ -119,7 +322,8 @@ export function init(onProgress) {
             const { id, ...rest } = s;
             const prevLang = state.settings.lang;
             state.settings = { ...DEFAULT_SETTINGS, ...rest };
-            localStorage.setItem(LS_SETTINGS, JSON.stringify(state.settings));
+            localStorage.setItem(lsSettingsKey(curUser), JSON.stringify(state.settings));
+            localStorage.setItem(LS_SETTINGS_BASE, JSON.stringify(state.settings));
             if (state.settings.lang && state.settings.lang !== prevLang) {
               setLang(state.settings.lang);
               localizeState(state);
@@ -128,10 +332,17 @@ export function init(onProgress) {
           const bw = docs.find(d => d.id === "bodyweight");
           if (bw) {
             state.bodyweightLog = toArray(bw.items).filter(x => x && x.weight > 0).sort((a, b) => a.t - b.t);
-            localStorage.setItem(LS_BW, JSON.stringify(state.bodyweightLog));
+            localStorage.setItem(lsBwKey(curUser), JSON.stringify(state.bodyweightLog));
           }
         } else {
           state[name] = docs.map(d => normalizeDoc(name, d));
+          if (name === "exercises" && state.sharedExercises.length) {
+            for (const raw of state.sharedExercises) {
+              if (raw && raw.id && !state.exercises.some(x => x.id === raw.id)) {
+                state.exercises.push(normalizeDoc("exercises", raw));
+              }
+            }
+          }
         }
         state.loaded[name] = true;
         if (!fromCache) serverLoaded[name] = true;
@@ -142,6 +353,7 @@ export function init(onProgress) {
         state.sync = { ...state.sync, error: err.code || String(err) };
         state.loaded[name] = true; check(name); emit();
       });
+      activeUnsubscribes.push(unsub);
     }
     // не блокируем интерфейс навсегда, если снапшот не пришёл (например, нет сети и кэш пуст)
     setTimeout(() => { if (!resolved) { resolved = true; resolve(); } }, 2500);
@@ -156,8 +368,10 @@ export function updateSettings(patch) {
     setLang(state.settings.lang);
     localizeState(state);
   }
-  localStorage.setItem(LS_SETTINGS, JSON.stringify(state.settings));
-  saveDoc("meta", { id: "settings", ...state.settings }).catch(console.error);
+  const curUser = getSpaceUser();
+  localStorage.setItem(lsSettingsKey(curUser), JSON.stringify(state.settings));
+  localStorage.setItem(LS_SETTINGS_BASE, JSON.stringify(state.settings));
+  if (curUser) saveDoc("meta", { id: "settings", ...state.settings }).catch(console.error);
   emit();
 }
 
@@ -165,7 +379,7 @@ export function logBodyweight(weightKg) {
   const w = Math.round(Number(weightKg) * 10) / 10;
   if (!(w > 0)) return;
   const now = Date.now();
-  const dayStr = t => new Date(t).toDateString();
+  const dayStr = tm => new Date(tm).toDateString();
   const today = dayStr(now);
   const log = [...state.bodyweightLog];
   const idx = log.findIndex(x => dayStr(x.t) === today);
@@ -173,8 +387,9 @@ export function logBodyweight(weightKg) {
   else log.push({ t: now, weight: w });
   log.sort((a, b) => a.t - b.t);
   state.bodyweightLog = log;
-  localStorage.setItem(LS_BW, JSON.stringify(log));
-  saveDoc("meta", { id: "bodyweight", items: log }).catch(console.error);
+  const curUser = getSpaceUser();
+  localStorage.setItem(lsBwKey(curUser), JSON.stringify(log));
+  if (curUser) saveDoc("meta", { id: "bodyweight", items: log }).catch(console.error);
   updateSettings({ bodyweightKg: w });
 }
 
@@ -198,13 +413,16 @@ export const getProgram = id => state.programs.find(p => p.id === id);
 export const getSession = id => state.sessions.find(s => s.id === id);
 
 export function saveExercise(ex) {
-  return upsert("exercises", { archived: false, ...ex, id: ex.id || uid() });
+  const saved = upsert("exercises", localizeExercise({ archived: false, ...ex, id: ex.id || uid() }));
+  // Публикуем упражнение в общую базу, чтобы оно было доступно во всех профилях
+  saveSharedExercise(saved);
+  return saved;
 }
 export function saveProgram(p) {
-  return upsert("programs", { archived: false, ...p, id: p.id || uid() });
+  return upsert("programs", localizeProgram({ archived: false, ...p, id: p.id || uid() }));
 }
 export function saveSession(s, { silent = false } = {}) {
-  const obj = { ...s, id: s.id || uid() };
+  const obj = localizeSession({ ...s, id: s.id || uid() });
   if (silent) { // без emit: чтобы активная тренировка не перерисовывалась при вводе
     const i = state.sessions.findIndex(x => x.id === obj.id);
     if (i >= 0) state.sessions[i] = obj; else state.sessions.push(obj);
@@ -255,12 +473,22 @@ export function lastValues(programId, ex) {
   return { sets: [], source: null };
 }
 
-/* ---------- Стартовые данные и библиотека упражнений ---------- */
+/* ---------- Стартовые данные и общая библиотека упражнений ---------- */
 const REST_DEFAULT = 210;
 const mkEx = (id, name, muscleGroup, startWeight = null, startReps = [], extra = {}) => ({
   id, name, muscleGroup, unit: "kg", defaultSets: 3, defaultRestSec: REST_DEFAULT, trackRpe: false, note: "",
   startWeight, startReps, isBodyweight: false, archived: false, ...extra
 });
+
+export const BASE_7_EXERCISES_CLEAN = [
+  mkEx("seed-pullups", "Подтягивания", "Спина", null, [], { isBodyweight: true }),
+  mkEx("seed-tbar", "Т-гриф широким хватом", "Спина"),
+  mkEx("seed-dbpress", "Жим гантелей", "Грудь"),
+  mkEx("seed-biceps", "Гантели", "Бицепс"),
+  mkEx("seed-tri-long", "Cable Overhead Extension", "Трицепс (Long)"),
+  mkEx("seed-tri-lat", "Cable Lateral Head (разгибания)", "Трицепс (Lateral)"),
+  mkEx("seed-delts", "Кабель", "Средняя дельта", null, [], { unit: "lb" })
+];
 
 export const EXTRA_LIBRARY_EXERCISES = [
   // Спина
@@ -296,6 +524,53 @@ export const EXTRA_LIBRARY_EXERCISES = [
   mkEx("ex-leg-curl", "Сгибания ног лёжа", "Ноги"),
   mkEx("ex-cable-crunch", "Скручивания на пресс в блоке", "Пресс")
 ];
+
+export const COMMON_LIBRARY_EXERCISES = [...BASE_7_EXERCISES_CLEAN, ...EXTRA_LIBRARY_EXERCISES];
+
+export function getCommonCatalogLocalized() {
+  const map = new Map();
+  for (const raw of COMMON_LIBRARY_EXERCISES) {
+    const loc = localizeExercise(raw);
+    map.set(loc.id, loc);
+  }
+  for (const raw of state.sharedExercises || []) {
+    if (raw && raw.id && !map.has(raw.id)) {
+      map.set(raw.id, localizeExercise(raw));
+    }
+  }
+  return [...map.values()];
+}
+
+export function seedCommonExercises() {
+  const items = [];
+  for (const raw of getCommonCatalogLocalized()) {
+    if (!getExercise(raw.id)) {
+      const e = localizeExercise({ ...raw, unit: raw.unit || state.settings.defaultUnit || "kg", defaultRestSec: state.settings.restSec || REST_DEFAULT });
+      items.push(["exercises", e]);
+      state.exercises.push(e);
+    }
+  }
+  if (items.length) {
+    bulkSave(items).catch(console.error);
+    emit();
+  }
+  return items.length;
+}
+
+export function seedGenericFullbodyProgram() {
+  seedCommonExercises();
+  const rest = state.settings.restSec || REST_DEFAULT;
+  const program = localizeProgram({
+    id: "seed-fullbody",
+    name: "FULLBODY — классические сеты",
+    archived: false,
+    items: BASE_7_EXERCISES_CLEAN.map(e => ({ exerciseId: e.id, sets: 3, targetReps: "8-10", restSec: rest, note: "" }))
+  });
+  if (!getProgram(program.id)) {
+    saveProgram(program);
+  }
+  return program;
+}
 
 export function seedExtraExercises() {
   const items = [];
@@ -347,6 +622,7 @@ export function seedStarterData() {
 export function exportData() {
   return JSON.stringify({
     app: "fitness-tracker", version: 1, exportedAt: new Date().toISOString(),
+    profile: state.user?.username || null,
     settings: state.settings, bodyweightLog: state.bodyweightLog,
     exercises: state.exercises, programs: state.programs, sessions: state.sessions
   }, null, 2);

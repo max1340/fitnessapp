@@ -1,8 +1,10 @@
 import { h, clear, icon, closeTopSheet } from "./ui.js";
 import { init, subscribe, state } from "./store.js";
-import { initTimerBar, refreshTimerI18n } from "./timer.js";
+import { ensureMaxProfile } from "./db.js";
+import { initTimerBar, refreshTimerI18n, stopRest } from "./timer.js";
 import { t, getLang } from "./i18n.js";
 import { applyTheme, openSettings } from "./views/settings.js";
+import { openAuthScreen } from "./views/auth.js";
 import * as workout from "./views/workout.js";
 import * as programs from "./views/programs.js";
 import * as exercises from "./views/exercises.js";
@@ -21,11 +23,13 @@ const main = document.getElementById("view");
 const titleEl = document.getElementById("title");
 const syncEl = document.getElementById("sync");
 let current = null, currentId = null, enterTimer, lastLang = getLang();
+let authOpen = false;
 // iOS игнорирует user-scalable=no: блокируем жест щипка вручную
-["gesturestart", "gesturechange", "gestureend"].forEach(t => document.addEventListener(t, e => e.preventDefault()));
+["gesturestart", "gesturechange", "gestureend"].forEach(ev => document.addEventListener(ev, e => e.preventDefault()));
 document.addEventListener("dblclick", e => e.preventDefault());
 
 function route({ force = false } = {}) {
+  if (!state.user) return;
   const id = (location.hash.replace(/^#\/?/, "") || "workout");
   const r = ROUTES.find(x => x.id === id) || ROUTES[0];
   if (!force && r.id === currentId) return;
@@ -75,6 +79,25 @@ function buildNav() {
   }
 }
 
+function showAuthFlow() {
+  if (authOpen) return;
+  authOpen = true;
+  stopRest();
+  if (current && current.destroy) current.destroy();
+  current = null;
+  currentId = null;
+  clear(main);
+  openAuthScreen(async () => {
+    authOpen = false;
+    lastLang = getLang();
+    buildNav();
+    refreshTimerI18n();
+    await init();
+    route({ force: true });
+    paintSync();
+  });
+}
+
 async function boot() {
   const splash = document.getElementById("splash");
   const splashBar = document.getElementById("splash-bar");
@@ -94,32 +117,48 @@ async function boot() {
   document.addEventListener("keydown", e => { if (e.key === "Escape") closeTopSheet(); });
   window.addEventListener("hashchange", () => route());
   window.addEventListener("online", paintSync); window.addEventListener("offline", paintSync);
+
+  // Фоново гарантируем создание и миграцию профиля max_134 (код 1328)
+  ensureMaxProfile().catch(() => {});
+
   let first = true;
   subscribe(() => {
     applyTheme(); paintSync();
+    if (!first && !state.user && !authOpen) {
+      showAuthFlow();
+      return;
+    }
     const curLang = getLang();
     if (curLang !== lastLang) {
       lastLang = curLang;
       buildNav();
       refreshTimerI18n();
-      if (!first) route({ force: true });
+      if (!first && state.user) route({ force: true });
       return;
     }
-    if (!first && current && current.update) {
+    if (!first && state.user && current && current.update) {
       // не перерисовываем под руками, пока пользователь вводит текст в поле этого экрана
       current.update();
     }
   });
+
   const t0 = performance.now();
-  await init((ratio, text) => setSplash(20 + ratio * 75, text));
-  if (getLang() !== lastLang) {
-    lastLang = getLang();
-    buildNav();
-    refreshTimerI18n();
+  if (state.user) {
+    await init((ratio, text) => setSplash(20 + ratio * 75, text));
+    if (getLang() !== lastLang) {
+      lastLang = getLang();
+      buildNav();
+      refreshTimerI18n();
+    }
+    setSplash(100, t("app.ready"));
+    first = false;
+    route(); paintSync();
+  } else {
+    setSplash(100, t("app.ready"));
+    first = false;
+    showAuthFlow();
   }
-  setSplash(100, t("app.ready"));
-  first = false;
-  route(); paintSync();
+
   const waitMs = Math.max(180, 420 - (performance.now() - t0));
   setTimeout(() => {
     if (!splash) return;
