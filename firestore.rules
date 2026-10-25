@@ -1,0 +1,21 @@
+rules_version = '2';
+
+// ВНИМАНИЕ: проект Firebase общий с другими вашими приложениями.
+// Публикация правил ЗАМЕНЯЕТ весь набор правил проекта. Не делайте `firebase deploy --only firestore:rules`
+// вслепую: откройте Console → Firestore → Rules, и ДОБАВЬТЕ блок match /fitnessApp/... ниже
+// внутрь существующего `match /databases/{database}/documents { ... }`, не удаляя чужие блоки.
+//
+// Авторизации в приложении нет, поэтому доступ ограничен только секретным путём:
+// замените "main" на значение SPACE_ID из firebase-config.js (лучше — длинную случайную строку).
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- Блок приложения «Тренировки»: затрагивает только ветку fitnessApp/<SPACE_ID> ----
+    match /fitnessApp/main/{collection}/{docId} {
+      allow read, write: if collection in ['exercises', 'programs', 'sessions', 'meta'];
+    }
+
+    // Остальные ветки/проекты здесь НЕ описаны намеренно — оставьте свои правила как есть.
+  }
+}
