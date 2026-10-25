@@ -260,29 +260,7 @@ export function mount(root) {
         act ? null : h("button", { class: "btn primary small", type: "button", onclick: () => open(startSession(p)) }, icon("play", 16), "Начать")));
     }
     if (act) view.append(h("p", { class: "muted small" }, "Чтобы начать другую тренировку, завершите или отмените текущую."));
-    else view.append(h("button", { class: "btn block", type: "button", onclick: () => open(startSession(null)) }, "Свободная тренировка (без программы)"));
-
-    // Быстрый ввод собственного веса тела
-    const bwInput = h("input", {
-      type: "text", inputmode: "decimal", class: "bw-inline-input",
-      placeholder: "напр. 80", value: fmtNum(state.settings.bodyweightKg ?? ""),
-      "aria-label": "Собственный вес тела, кг"
-    });
-    const saveBw = () => {
-      const v = parseNum(bwInput.value);
-      if (v && v > 20 && v < 300) {
-        logBodyweight(v);
-        toast(`Вес тела сохранён: ${fmtNum(v)} кг`);
-      }
-    };
-    view.append(h("div", { class: "card bw-home-card" },
-      h("div", { class: "grow" },
-        h("strong", {}, "Собственный вес тела"),
-        h("small", { class: "muted" }, "Учитывается в подтягиваниях и графике веса")),
-      h("div", { class: "row gap" },
-        bwInput,
-        h("span", { class: "muted small" }, "кг"),
-        h("button", { class: "btn small", type: "button", onclick: saveBw }, "ОК"))));
+    else view.append(h("button", { class: "btn block", type: "button", onclick: () => open(startSession(null)) }, "Свободная тренировка"));
   }
 
   function open(s) {

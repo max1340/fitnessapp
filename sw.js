@@ -1,6 +1,6 @@
 // Service worker: app shell (precache) + runtime-кэш модулей Firebase с CDN gstatic.
 // Увеличивайте CACHE_VERSION при каждом релизе, чтобы клиенты обновили оболочку.
-const CACHE_VERSION = "v10";
+const CACHE_VERSION = "v11";
 const SHELL_CACHE = "fitness-shell-" + CACHE_VERSION;
 const RUNTIME_CACHE = "fitness-runtime-" + CACHE_VERSION;
 
