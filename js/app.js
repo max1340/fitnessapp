@@ -25,9 +25,25 @@ const titleEl = document.getElementById("title");
 const syncEl = document.getElementById("sync");
 let current = null, currentId = null, enterTimer, lastLang = getLang();
 let authOpen = false;
-// iOS игнорирует user-scalable=no: блокируем жест щипка вручную
-["gesturestart", "gesturechange", "gestureend"].forEach(ev => document.addEventListener(ev, e => e.preventDefault()));
+// Запрет любого масштабирования приложения (iOS Safari pinch, multi-touch, dblclick, wheel zoom, hotkeys)
+["gesturestart", "gesturechange", "gestureend"].forEach(ev => {
+  document.addEventListener(ev, e => e.preventDefault(), { passive: false });
+});
+document.addEventListener("touchmove", e => {
+  if (e.touches && e.touches.length > 1) e.preventDefault();
+}, { passive: false });
+document.addEventListener("touchstart", e => {
+  if (e.touches && e.touches.length > 1) e.preventDefault();
+}, { passive: false });
 document.addEventListener("dblclick", e => e.preventDefault());
+window.addEventListener("wheel", e => {
+  if (e.ctrlKey) e.preventDefault();
+}, { passive: false });
+window.addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && (e.key === "+" || e.key === "-" || e.key === "=" || e.key === "0")) {
+    e.preventDefault();
+  }
+});
 
 function route({ force = false } = {}) {
   if (!state.user) return;
