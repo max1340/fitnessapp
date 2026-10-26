@@ -516,7 +516,7 @@ export function entryCard(entry, ctx) {
     )
   );
 
-  const article = h("article", { class: "entry", dataset: { key: cardKey } },
+  const article = h("article", { class: "entry", dataset: { key: cardKey }, style: `--ci:${ctx.index || 0}` },
     h("div", { class: "entry-head" },
       ctx.reorder ? h("button", { class: "btn icon drag-handle", type: "button", "aria-label": t("entry.dragExAria"), title: t("entry.dragExTitle") }, icon("drag", 18)) : null,
       h("button", {

@@ -813,10 +813,33 @@ export function mount(root) {
         h("div", { class: "fold-inner" }, ddList))
     );
 
-    // 3. Центральная круглая кнопка-шайба (создаётся один раз — координаты и высота 100% стабильны)
+    // 4. Нижняя карточка превью мышц и упражнений (объявляем заранее для плавной анимации перехода)
+    const previewTitleEl = h("h3", { class: "group", style: "margin:0" });
+    const previewCountEl = h("small", { class: "muted" });
+    const previewBody = h("div", { class: "home-preview-body" });
+    const previewBox = h("section", { class: "panel home-preview" },
+      h("div", { class: "panel-head" }, previewTitleEl, previewCountEl),
+      previewBody);
+
+    // 3. Центральная круглая кнопка-шайба с гало-эффектом
     const orbSubEl = h("small", { class: "home-orb-sub" });
     let orbBtnEl, orbRingEl;
     const heroBox = h("div", { class: "home-hero" });
+
+    let isLaunching = false;
+    function launchWorkout(fn) {
+      if (isLaunching) return;
+      isLaunching = true;
+      haptic("heavy");
+      if (orbRingEl) orbRingEl.classList.add("is-launching");
+      if (orbBtnEl) orbBtnEl.classList.add("is-launching");
+      if (heroBox) heroBox.classList.add("is-launching");
+      if (previewBox) previewBox.classList.add("is-launching");
+      setTimeout(() => {
+        isLaunching = false;
+        fn();
+      }, 340);
+    }
 
     if (act) {
       let actTotal = 0, actDone = 0;
@@ -827,7 +850,7 @@ export function mount(root) {
       orbSubEl.textContent = t("workout.activeOrbSub", { done: actDone, total: actTotal, date: fmtDate(act.startedAt) });
       orbBtnEl = h("button", {
         class: "home-orb", type: "button",
-        onclick: () => { haptic("medium"); open(act); }
+        onclick: () => launchWorkout(() => open(act))
       },
         icon("play", 28),
         h("span", { class: "home-orb-label" }, t("workout.resumeCaps")),
@@ -848,7 +871,7 @@ export function mount(root) {
     } else {
       orbBtnEl = h("button", {
         class: "home-orb", type: "button",
-        onclick: () => { haptic("medium"); open(startSession(getSelectedProg())); }
+        onclick: () => launchWorkout(() => open(startSession(getSelectedProg())))
       },
         icon("play", 30),
         h("span", { class: "home-orb-label" }, t("workout.startCaps")),
@@ -856,14 +879,6 @@ export function mount(root) {
       orbRingEl = h("div", { class: "home-orb-ring" }, orbBtnEl);
       heroBox.append(orbRingEl);
     }
-
-    // 4. Нижняя карточка превью мышц и упражнений
-    const previewTitleEl = h("h3", { class: "group", style: "margin:0" });
-    const previewCountEl = h("small", { class: "muted" });
-    const previewBody = h("div", { class: "home-preview-body" });
-    const previewBox = h("section", { class: "panel home-preview" },
-      h("div", { class: "panel-head" }, previewTitleEl, previewCountEl),
-      previewBody);
 
     function updateHomeContent(animateSwitch = false) {
       for (const [id, b] of ddItemsMap) b.classList.toggle("on", id === selectedId);
@@ -980,6 +995,11 @@ export function mount(root) {
     session.entries.forEach(e => (e._key = e._key || uid()));
     priorPrs = personalRecords(doneSessions().filter(x => x.id !== session.id && x.startedAt < session.startedAt));
     clear(view);
+    view.classList.remove("enter");
+    view.classList.remove("workout-active-enter");
+    void view.offsetWidth;
+    view.classList.add("workout-active-enter");
+    setTimeout(() => view.classList.remove("workout-active-enter"), 700);
     clockEl = h("span", { class: "active-clock" });
     const pausedBadge = h("span", { class: "paused-badge", hidden: !session.pausedAt }, t("workout.pausedBadge"));
     progTextEl = h("span", { class: "muted" });
