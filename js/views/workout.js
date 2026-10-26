@@ -1,4 +1,4 @@
-import { h, clear, sheet, confirmDialog, toast, fmtDate, fmtNum, fmtRest, icon, debounce, enableDragSort, haptic } from "../ui.js";
+import { h, clear, sheet, confirmDialog, toast, fmtDate, fmtNum, fmtRest, icon, debounce, enableDragSort, haptic, fmtRelativeDate, showUndoSnackbar } from "../ui.js";
 import { state, getExercise, getProgram, saveProgram, saveSession, deleteSession, activeSession, doneSessions, lastValues, stepFor, uid, unitLabel, warmupSymbol } from "../store.js";
 import { sessionStats, loadIndex, pickBaseline, compareWithPrevious, personalRecords, formatNum, fromKg, byStart } from "../metrics.js";
 import { entryCard, checkSetPR } from "./entryCard.js";
@@ -642,23 +642,36 @@ function buildNextLabel(session, curEntry) {
 export function mount(root) {
   let mode = "home";
   let session = null;
-  let clockTimer = null, entriesBox, clockEl, progFillEl, progTextEl, priorPrs = new Map();
+  let clockTimer = null, entriesBox, clockEl, segBarEl, progTextEl, priorPrs = new Map();
   const view = h("div", { class: "stack" });
   root.append(view);
 
   const updateProgress = () => {
-    if (!session || !progFillEl || !progTextEl) return;
+    if (!session || !segBarEl || !progTextEl) return;
     let total = 0, done = 0;
+    const allSets = [];
     for (const e of session.entries || []) {
       if (e.skipped) continue;
       for (const s of e.sets || []) {
         total++;
         if (s.done) done++;
+        allSets.push(s);
       }
     }
     const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-    progFillEl.style.width = pct + "%";
     progTextEl.textContent = t("workout.progressSets", { done, total, pct });
+
+    segBarEl.replaceChildren();
+    let currentMarked = false;
+    allSets.forEach(s => {
+      const isDone = !!s.done;
+      let cls = "workout-seg-item" + (isDone ? " filled" : "");
+      if (!isDone && !currentMarked) {
+        cls += " current";
+        currentMarked = true;
+      }
+      segBarEl.append(h("span", { class: cls }));
+    });
   };
 
   const persist = debounce(() => { if (session) { saveSession(session, { silent: true }); updateProgress(); } }, 350);
@@ -716,11 +729,13 @@ export function mount(root) {
     for (const p of programs) {
       const pSets = (p.items || []).reduce((n, it) => n + (Number(it.sets) || 3), 0);
       const pLast = doneSessions(p.id).sort(byStart).pop();
+      const relDate = pLast ? fmtRelativeDate(pLast.startedAt) : "";
       const pSub = t("workout.progMeta", { exCount: (p.items || []).length, setsCount: pSets }) +
-        (pLast ? t("workout.progMetaLast", { date: fmtDate(pLast.startedAt) }) : t("workout.progMetaNever"));
+        (pLast ? t("workout.progMetaLast", { date: relDate }) : t("workout.progMetaNever"));
       const itemBtn = h("button", {
         type: "button",
         class: "home-dd-item" + (selectedId === p.id ? " on" : ""),
+        title: pLast ? fmtDate(pLast.startedAt, true) : "",
         onclick: () => { toggleDd(false); selectProg(p.id); }
       },
         h("span", { class: "home-dd-item-main" },
@@ -815,7 +830,9 @@ export function mount(root) {
       if (prog) {
         selTitleEl.textContent = prog.name;
         const baseMeta = t("workout.progMeta", { exCount: prog.items.length, setsCount: totalSets });
-        selSubEl.textContent = baseMeta + (last ? t("workout.progMetaLast", { date: fmtDate(last.startedAt) }) : t("workout.progMetaNever"));
+        const lastRel = last ? fmtRelativeDate(last.startedAt) : "";
+        selSubEl.textContent = baseMeta + (last ? t("workout.progMetaLast", { date: lastRel }) : t("workout.progMetaNever"));
+        if (last) selSubEl.title = fmtDate(last.startedAt, true);
       } else {
         selTitleEl.textContent = t("workout.freeWorkout");
         selSubEl.textContent = t("workout.freeMetaSub");
@@ -875,6 +892,26 @@ export function mount(root) {
 
     updateHomeContent(false);
 
+    if (act) {
+      let actTotal = 0, actDone = 0;
+      for (const e of act.entries || []) {
+        if (e.skipped) continue;
+        for (const s of e.sets || []) { actTotal++; if (s.done) actDone++; }
+      }
+      const resumeBanner = h("div", {
+        class: "panel resume-banner",
+        onclick: () => { haptic("medium"); open(act); }
+      },
+        h("div", { class: "resume-banner-icon" }, icon("play", 20)),
+        h("div", { class: "resume-banner-text grow" },
+          h("strong", {}, t("workout.resumeBanner")),
+          h("small", { class: "muted" }, `${shortProgTitle(act.programName)} · ${actDone}/${actTotal} (${fmtRelativeDate(act.startedAt)})`)
+        ),
+        h("button", { class: "btn small primary resume-banner-btn", type: "button", onclick: (e) => { e.stopPropagation(); haptic("medium"); open(act); } }, t("workout.resumeBtn"))
+      );
+      view.append(resumeBanner);
+    }
+
     view.append(
       h("section", { class: "panel home-selector-card" },
         h("div", { class: "row gap", style: "justify-content:space-between" },
@@ -901,7 +938,7 @@ export function mount(root) {
     clockEl = h("span", { class: "active-clock" });
     const pausedBadge = h("span", { class: "paused-badge", hidden: !session.pausedAt }, t("workout.pausedBadge"));
     progTextEl = h("span", { class: "muted" });
-    progFillEl = h("div", { class: "workout-prog-fill" });
+    segBarEl = h("div", { class: "workout-segmented-bar", role: "progressbar" });
     const tick = () => (clockEl.textContent = fmtRest(elapsedSec(session)));
     tick(); clockTimer = setInterval(tick, 1000);
     entriesBox = h("div", { class: "stack" });
@@ -943,13 +980,13 @@ export function mount(root) {
           h("div", { class: "active-meta" }, clockEl, pausedBadge, h("span", { class: "muted" }, "·"), progTextEl),
           h("div", { class: "row gap" },
             pauseBtn,
-            h("button", { class: "btn small primary", type: "button", onclick: finish }, t("workout.finishShort")))),
-        h("div", { class: "workout-prog" }, progFillEl)),
+            h("button", { class: "btn small danger-ghost finish-btn-top", type: "button", onclick: requestFinish }, t("workout.finishShort")))),
+        segBarEl),
       entriesBox,
       h("button", { class: "btn block", type: "button", onclick: () => pickExercise(ex => {
         session.entries.push({ ...buildEntry(ex, session.programId, session.entries.length), extra: true }); persistNow(); paintEntries();
       }, { multi: true }) }, t("workout.addExerciseBtn")),
-      h("button", { class: "btn primary block", type: "button", onclick: finish }, t("workout.finishFull")));
+      h("button", { class: "btn danger-ghost block finish-btn-bottom", type: "button", onclick: requestFinish }, t("workout.finishFull")));
     paintEntries();
     updateProgress();
   }
@@ -982,6 +1019,14 @@ export function mount(root) {
           updateProgress();
           if (pr) toast(t("workout.newPrToast", { name: e.exerciseName }));
           if (!set.isWarmup) startRest(e.restSec ?? state.settings.restSec, buildNextLabel(session, e));
+          setTimeout(() => {
+            const nextPending = entriesBox.querySelector(".set:not(.done)");
+            if (nextPending) {
+              nextPending.classList.add("set-next-highlight");
+              nextPending.scrollIntoView({ behavior: "smooth", block: "nearest" });
+              setTimeout(() => nextPending.classList.remove("set-next-highlight"), 1200);
+            }
+          }, 100);
         },
         onMove: d => { const j = i + d; if (j < 0 || j >= session.entries.length) return; [session.entries[i], session.entries[j]] = [session.entries[j], session.entries[i]]; reindex(); persistNow(); paintEntries(); },
         onSwap: () => pickExercise(ex => {
@@ -1008,9 +1053,54 @@ export function mount(root) {
     session = null; deleteSession(id); home();
   }
 
-  async function finish() {
+  async function requestFinish() {
     const doneCount = session.entries.reduce((n, e) => n + (e.skipped ? 0 : e.sets.filter(s => s.done).length), 0);
-    if (!doneCount && !(await confirmDialog(t("workout.finishEmptyConfirm"), { ok: t("workout.finishShort") }))) return;
+    const totalSets = session.entries.reduce((n, e) => n + (e.skipped ? 0 : e.sets.length), 0);
+    const undone = totalSets - doneCount;
+
+    if (!doneCount) {
+      if (!(await confirmDialog(t("workout.finishEmptyConfirm"), { ok: t("workout.finishShort") }))) return;
+      doFinish();
+      return;
+    }
+
+    const now = Date.now();
+    const totalSec = elapsedSec(session, now);
+    const durMin = Math.max(1, Math.round(totalSec / 60));
+    const st = sessionStats(session);
+    const u = unitLabel(state.settings.defaultUnit || "kg");
+    const volConv = fromKg(st.volume || 0, state.settings.defaultUnit || "kg");
+    const volStr = volConv >= 10000
+      ? `${formatNum(volConv / 1000, 1)} ${t("progress.tonUnit")}`
+      : `${formatNum(volConv, 0)} ${u}`;
+
+    let prCount = 0;
+    for (const e of session.entries || []) {
+      if (e.skipped) continue;
+      const basePr = priorPrs.get(e.exerciseId);
+      for (const s of e.sets || []) {
+        if (checkSetPR(s, e.unit, basePr)) prCount++;
+      }
+    }
+
+    const closeFn = sheet(h("div", { class: "stack finish-confirm-sheet" },
+      h("h3", { style: "margin:0" }, t("workout.confirmFinishTitle")),
+      h("p", { class: "muted small", style: "margin:0" }, t("workout.confirmFinishPrompt")),
+      h("div", { class: "stats" },
+        h("div", { class: "stat" }, h("small", { class: "muted" }, t("workout.confirmFinishSets", { done: doneCount, total: totalSets }).split(":")[0]), h("strong", {}, `${doneCount}/${totalSets}`)),
+        h("div", { class: "stat" }, h("small", { class: "muted" }, t("workout.sumTime")), h("strong", {}, `${durMin} ${t("workout.minUnit")}`)),
+        h("div", { class: "stat" }, h("small", { class: "muted" }, t("workout.sumVolume")), h("strong", {}, volStr)),
+        prCount > 0 ? h("div", { class: "stat" }, h("small", { class: "muted" }, "PR"), h("strong", {}, String(prCount))) : null
+      ),
+      undone > 0 ? h("div", { class: "finish-warning" }, t("workout.confirmFinishIncomplete", { n: undone })) : null,
+      h("div", { class: "row gap", style: "margin-top:12px" },
+        h("button", { class: "btn grow", type: "button", onclick: () => closeFn() }, t("workout.continueBtn")),
+        h("button", { class: "btn danger grow", type: "button", onclick: () => { closeFn(); doFinish(); } }, t("workout.confirmFinishBtn"))
+      )
+    ));
+  }
+
+  function doFinish() {
     persist.flush();
     const now = Date.now();
     const totalSec = elapsedSec(session, now);
@@ -1018,11 +1108,28 @@ export function mount(root) {
     delete session.pausedTotalMs;
     session.entries = session.entries.filter(e => !e.skipped || e.sets.some(s => s.done)).map(({ _key, _expanded, progression, ...rest }) => rest);
     session.bodyweightKg = session.bodyweightKg ?? state.settings.bodyweightKg ?? null;
-    session.finishedAt = now; session.status = "done";
+    session.finishedAt = now;
+    session.status = "done";
     session.durationMin = Math.max(1, Math.round(totalSec / 60));
     const saved = saveSession(session);
     haptic("success");
-    stopRest(); home(); showSummary(saved);
+    stopRest();
+    home();
+    showSummary(saved);
+
+    // 10s undo snackbar to restore workout
+    showUndoSnackbar(
+      t("workout.undoFinishToast"),
+      t("workout.undoFinishBtn"),
+      () => {
+        saved.status = "active";
+        saved.finishedAt = null;
+        saveSession(saved);
+        open(saved);
+        toast(t("workout.undoRestoredToast"));
+      },
+      10000
+    );
   }
 
   // Если перешли с вкладки «Программы» по кнопке «Начать» (или переключили язык во время активной тренировки)

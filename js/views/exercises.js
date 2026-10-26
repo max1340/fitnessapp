@@ -389,7 +389,7 @@ export function pickExercise(onPick, { exclude = [], inSessionIds = [], preferMu
 export function mount(root) {
   const search = h("input", { type: "search", placeholder: t("common.search"), "aria-label": t("common.searchAria") });
   const filter = h("select", { "aria-label": t("exercises.filterMuscleAria") });
-  const showArchived = h("input", { type: "checkbox" });
+  const showArchived = h("input", { type: "checkbox", class: "ios-switch" });
   const groupsWrap = h("div", { class: "stack ex-groups-wrap" });
   // По дефолту все папки упражнений свёрнуты (открываются по клику или при поиске/фильтре)
   const expandedGroups = new Set();
@@ -477,7 +477,7 @@ export function mount(root) {
   root.append(
     h("div", { class: "toolbar" }, search, filter),
     h("div", { class: "row gap", style: "justify-content:space-between" },
-      h("label", { class: "check small" }, showArchived, h("span", {}, t("common.showArchived"))),
+      h("label", { class: "switch-row" }, showArchived, h("span", {}, t("common.showArchived"))),
       h("button", { class: "btn small primary", type: "button", onclick: () => openExerciseForm(null) }, t("exercises.addShortBtn"))),
     groupsWrap,
     h("div", { class: "bottom-actions" }, h("button", { class: "btn primary block", type: "button", onclick: () => openExerciseForm(null) }, t("exercises.addNewBtn"))));

@@ -62,8 +62,29 @@ function beep() {
   });
 }
 
+let collapseTimer = null;
+function resetInactivity() {
+  if (bar && bar.classList.contains("collapsed-pill")) {
+    bar.classList.remove("collapsed-pill");
+  }
+  clearTimeout(collapseTimer);
+  if (endAt > 0 && !fired) {
+    collapseTimer = setTimeout(() => {
+      if (endAt > 0 && !fired && bar) {
+        bar.classList.add("collapsed-pill");
+      }
+    }, 5000);
+  }
+}
+
 function finish() {
   fired = true;
+  if (bar) {
+    bar.classList.remove("collapsed-pill", "timer-urgent");
+    bar.classList.add("timer-shake");
+    setTimeout(() => bar && bar.classList.remove("timer-shake"), 800);
+  }
+  clearTimeout(collapseTimer);
   beep();
   if (state.settings.vibration && navigator.vibrate) navigator.vibrate([250, 120, 250, 120, 400]);
   sendNotification();
@@ -71,16 +92,30 @@ function finish() {
 
 function render() {
   if (!bar) return;
-  if (!endAt && !pausedLeftMs) { bar.hidden = true; document.body.classList.remove("timer-on"); return; }
-  bar.hidden = false; document.body.classList.add("timer-on");
+  if (!endAt && !pausedLeftMs) {
+    bar.hidden = true;
+    document.body.classList.remove("timer-on");
+    bar.classList.remove("collapsed-pill", "timer-urgent", "timer-shake");
+    clearTimeout(collapseTimer);
+    return;
+  }
+  bar.hidden = false;
+  document.body.classList.add("timer-on");
   const remMs = pausedLeftMs > 0 ? pausedLeftMs : (endAt - Date.now());
   const left = Math.ceil(remMs / 1000);
   if (pausedLeftMs <= 0 && left <= 0 && !fired) finish();
   const over = pausedLeftMs <= 0 && left <= 0;
   bar.classList.toggle("over", over);
+
+  // Последние 10 сек — цифры краснеют и пульсируют
+  const urgent = !over && pausedLeftMs <= 0 && left > 0 && left <= 10;
+  bar.classList.toggle("timer-urgent", urgent);
+  els.time.classList.toggle("urgent", urgent);
+
   els.time.textContent = over ? t("timer.restOver") : fmtRest(left);
   els.label.textContent = label;
-  els.fill.style.width = (over ? 100 : Math.max(0, Math.min(100, ((total - left) / total) * 100))) + "%";
+  const pct = total > 0 ? Math.max(0, Math.min(100, (left / total) * 100)) : 0;
+  els.fill.style.width = (over ? 0 : pct) + "%";
   els.skip.textContent = over ? t("common.close") : t("timer.skip");
 }
 
@@ -93,6 +128,7 @@ export function startRest(sec, lbl = "") {
   clearNotifications();
   pausedLeftMs = 0;
   endAt = Date.now() + sec * 1000; total = sec; label = lbl; fired = false;
+  resetInactivity();
   loop();
 }
 
@@ -115,6 +151,7 @@ export function resumeRest() {
 
 export function addRest(sec) {
   if (!endAt && !pausedLeftMs) return;
+  resetInactivity();
   if (pausedLeftMs > 0) {
     pausedLeftMs = Math.max(1000, pausedLeftMs + sec * 1000);
     total = Math.max(1, total + sec);
@@ -169,6 +206,14 @@ export function initTimerBar(container) {
       els.plus,
       els.skip));
   bar.hidden = true;
+  bar.addEventListener("pointerdown", (e) => {
+    if (bar.classList.contains("collapsed-pill")) {
+      e.stopPropagation();
+      resetInactivity();
+    } else {
+      resetInactivity();
+    }
+  });
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) { render(); if (fired) clearNotifications(); }
   });

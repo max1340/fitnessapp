@@ -1,11 +1,31 @@
 // Карточка упражнения с сетами. Используется и в активной тренировке, и в редактировании истории.
-import { h, icon, iconBtn, fmtNum, parseNum, toast, haptic } from "../ui.js";
+import { h, icon, iconBtn, fmtNum, parseNum, toast, haptic, showUndoSnackbar } from "../ui.js";
 import { state, getExercise, stepFor, unitLabel, warmupSymbol } from "../store.js";
 import { toKg, epley, MAX_E1RM_REPS } from "../metrics.js";
 import { openExerciseHistory } from "./exercises.js";
 import { t } from "../i18n.js";
 
 const round = n => Math.round(n * 100) / 100;
+const COACH_WARMUP_KEY = "fitness.coachmark.warmup";
+
+/** Рассчитывает блины на одну сторону для штанговых упражнений */
+export function calcPlates(totalWeight, unit = "kg") {
+  const isLb = unit === "lb";
+  const bar = isLb ? 45 : 20;
+  if (!totalWeight || totalWeight <= bar) return null;
+  let side = Math.round(((totalWeight - bar) / 2) * 100) / 100;
+  if (side <= 0) return null;
+  const available = isLb ? [45, 35, 25, 10, 5, 2.5] : [25, 20, 15, 10, 5, 2.5, 1.25];
+  const used = [];
+  for (const p of available) {
+    while (side >= p - 1e-6) {
+      used.push(p);
+      side = Math.round((side - p) * 100) / 100;
+    }
+  }
+  if (used.length === 0) return null;
+  return used.join("+");
+}
 
 /** Проверяет, побил ли выполненный рабочий сет исторический рекорд упражнения. */
 export function checkSetPR(set, unit, basePr) {
@@ -35,6 +55,7 @@ export function entryCard(entry, ctx) {
 
   const unit = entry.unit, step = stepFor(unit);
   const initialAllDone = ctx.collapsible !== false && entry.sets.length > 0 && entry.sets.every(s => s.done);
+  const isBarbell = /штан|гриф|barbell|bench\s*press|жим\s*лежа|жим\s*лёжа|присед|squat|deadlift|становая|overhead\s*press|military|тяга\s*в\s*наклоне/i.test(entry.exerciseName || "");
 
   const setsBox = h("div", { class: "sets" });
   const weightInputs = new Map();
@@ -77,8 +98,10 @@ export function entryCard(entry, ctx) {
       if (key === "weight") propagateWeight(idx, old);
       if (key === "reps") propagateReps(idx);
       ctx.onChange();
+      if (isBarbell && key === "weight") paintSets();
     });
     inp.addEventListener("focus", () => setTimeout(() => inp.select(), 0));
+
     const bump = d => {
       const cur = set[key] ?? 0, old = set[key];
       set[key] = Math.max(min, round(cur + d));
@@ -87,11 +110,55 @@ export function entryCard(entry, ctx) {
       if (key === "weight") propagateWeight(idx, old);
       if (key === "reps") propagateReps(idx);
       ctx.onChange();
+      if (isBarbell && key === "weight") paintSets();
     };
-    return h("div", { class: "stepper" },
-      h("button", { class: "btn step", type: "button", "aria-label": t("entry.minusAria", { label }), onclick: () => bump(-stepSize) }, icon("minus", 14)),
-      inp,
-      h("button", { class: "btn step", type: "button", "aria-label": t("entry.plusAria", { label }), onclick: () => bump(stepSize) }, icon("plus", 14)));
+
+    // Long-press auto-increment with acceleration
+    const setupAutoIncrement = (btn, delta) => {
+      let timer = null;
+      let interval = null;
+      let delay = 120;
+      let count = 0;
+
+      const stop = () => {
+        if (timer) clearTimeout(timer);
+        if (interval) clearInterval(interval);
+        timer = null;
+        interval = null;
+      };
+
+      const start = (e) => {
+        haptic("light");
+        bump(delta);
+        count = 0;
+        delay = 120;
+        stop();
+        timer = setTimeout(() => {
+          interval = setInterval(() => {
+            bump(delta);
+            count++;
+            if (count > 5 && delay > 45) {
+              clearInterval(interval);
+              delay = Math.max(40, delay - 25);
+              interval = setInterval(() => bump(delta), delay);
+            }
+          }, delay);
+        }, 340);
+      };
+
+      btn.addEventListener("pointerdown", start);
+      btn.addEventListener("pointerup", stop);
+      btn.addEventListener("pointercancel", stop);
+      btn.addEventListener("pointerleave", stop);
+    };
+
+    const minusBtn = h("button", { class: "btn step", type: "button", "aria-label": t("entry.minusAria", { label }) }, icon("minus", 14));
+    const plusBtn = h("button", { class: "btn step", type: "button", "aria-label": t("entry.plusAria", { label }) }, icon("plus", 14));
+
+    setupAutoIncrement(minusBtn, -stepSize);
+    setupAutoIncrement(plusBtn, stepSize);
+
+    return h("div", { class: "stepper" }, minusBtn, inp, plusBtn);
   }
 
   function attachSwipeDelete(row, bg, iconWrap, onDelete) {
@@ -152,6 +219,32 @@ export function entryCard(entry, ctx) {
     });
   }
 
+  // Кружок статуса упражнения: пустой контур -> точка в процессе -> залитый черный с галочкой
+  const doneCheckEl = h("span", { class: "entry-status-circle status-empty", role: "img" });
+  function updateEntryStatus() {
+    const total = entry.sets.length;
+    const doneCount = entry.sets.filter(s => s.done).length;
+    doneCheckEl.className = "entry-status-circle";
+    if (doneCount === 0 || total === 0) {
+      doneCheckEl.classList.add("status-empty");
+      doneCheckEl.setAttribute("aria-label", t("entry.statusNotStarted"));
+      doneCheckEl.setAttribute("title", t("entry.statusNotStarted"));
+      doneCheckEl.replaceChildren();
+    } else if (doneCount === total) {
+      doneCheckEl.classList.add("status-done");
+      doneCheckEl.setAttribute("aria-label", t("entry.statusDone"));
+      doneCheckEl.setAttribute("title", t("entry.statusDone"));
+      doneCheckEl.replaceChildren(icon("check", 14));
+    } else {
+      doneCheckEl.classList.add("status-in-progress");
+      doneCheckEl.setAttribute("aria-label", t("entry.statusInProgress", { done: doneCount, total }));
+      doneCheckEl.setAttribute("title", t("entry.statusInProgress", { done: doneCount, total }));
+      doneCheckEl.replaceChildren(h("span", { class: "status-dot" }));
+    }
+  }
+
+  let showWarmupCoach = !localStorage.getItem(COACH_WARMUP_KEY);
+
   function paintSets() {
     setsBox.replaceChildren();
     weightInputs.clear(); repsInputs.clear();
@@ -159,28 +252,52 @@ export function entryCard(entry, ctx) {
     const wSym = warmupSymbol();
     entry.sets.forEach((set, i) => {
       if (!set.isWarmup) n++;
-      const toggleWarm = () => { set.isWarmup = !set.isWarmup; ctx.onChange(); paintSets(); };
+      const toggleWarm = () => {
+        set.isWarmup = !set.isWarmup;
+        localStorage.setItem(COACH_WARMUP_KEY, "1");
+        showWarmupCoach = false;
+        ctx.onChange();
+        paintSets();
+      };
       const idxBtn = h("button", {
         class: "set-idx" + (set.isWarmup ? " warm" : ""), type: "button",
         title: t("entry.warmupTapTitle"), "aria-label": set.isWarmup ? t("entry.warmupAria") : t("entry.setAria", { n }),
         onclick: toggleWarm
       }, set.isWarmup ? wSym : String(n));
+
       const doneBtn = h("button", {
         class: "btn done-btn", type: "button", "aria-pressed": String(!!set.done), "aria-label": t("entry.setDoneAria"),
         onclick: () => toggleDone(set, row, doneBtn, rowA, prSlot)
       }, icon("check", 19));
+
       const rowA = h("div", { class: "set-main" },
         idxBtn,
         stepper(set, "weight", step, "0", t("entry.weightLabel")),
         stepper(set, "reps", 1, "0", t("entry.repsLabel")),
         doneBtn);
+
+      // Coach-mark при первом запуске о том, что тап по номеру сета переключает в разминку
+      if (showWarmupCoach && i === 0 && !set.done) {
+        const coachBadge = h("span", {
+          class: "coachmark-hint",
+          title: t("entry.coachmarkWarmup"),
+          onclick: (e) => {
+            e.stopPropagation();
+            localStorage.setItem(COACH_WARMUP_KEY, "1");
+            showWarmupCoach = false;
+            coachBadge.remove();
+          }
+        }, "W?");
+        rowA.append(coachBadge);
+      }
+
       const rpeEl = entry.trackRpe ? (() => {
         const inp = h("input", { type: "text", inputmode: "decimal", value: fmtNum(set.rpe), placeholder: "RPE", "aria-label": "RPE", class: "rpe" });
         inp.addEventListener("input", () => { const v = parseNum(inp.value); set.rpe = v !== null && v >= 1 && v <= 10 ? v : null; ctx.onChange(); });
         return inp;
       })() : null;
 
-      // Кнопка-чип подсказки показывается, если значения отличаются от подсказки (или повторы ещё пустые)
+      // Кнопка-чип подсказки
       const hintDiffers = set.hint && !set.done && (
         (set.hintWeight != null && set.weight !== set.hintWeight) ||
         (set.hintReps != null && set.reps !== set.hintReps)
@@ -202,9 +319,40 @@ export function entryCard(entry, ctx) {
       const hasPr = !!checkSetPR(set, unit, ctx.prBaseline);
       const prSlot = h("span", { class: "pr-slot" }, hasPr ? h("span", { class: "pr-badge", title: t("entry.prTitle") }, "PR") : null);
 
-      const showSub = !!(hintEl || hasPr || rpeEl);
-      const rowB = h("div", { class: "set-sub", hidden: !showSub }, hintEl, prSlot, rpeEl);
-      const delSet = () => { entry.sets.splice(i, 1); ctx.onChange(); paintSets(); setCollapsed(!entry._expanded); };
+      // Plate math для штанговых упражнений
+      let plateEl = null;
+      if (isBarbell && set.weight && set.weight > (unit === "lb" ? 45 : 20)) {
+        const pStr = calcPlates(set.weight, unit);
+        if (pStr) {
+          plateEl = h("span", { class: "plate-math", title: t("entry.plateSide", { plates: pStr }) }, t("entry.plateSide", { plates: pStr }));
+        }
+      }
+
+      const showSub = !!(hintEl || hasPr || rpeEl || plateEl);
+      const rowB = h("div", { class: "set-sub", hidden: !showSub }, hintEl, plateEl, prSlot, rpeEl);
+
+      const delSet = () => {
+        const deletedSet = entry.sets[i];
+        const deletedIdx = i;
+        entry.sets.splice(i, 1);
+        ctx.onChange();
+        paintSets();
+        setCollapsed(!entry._expanded);
+        updateEntryStatus();
+        showUndoSnackbar(
+          t("entry.setDeletedToast"),
+          t("common.undo"),
+          () => {
+            entry.sets.splice(deletedIdx, 0, deletedSet);
+            ctx.onChange();
+            paintSets();
+            setCollapsed(!entry._expanded);
+            updateEntryStatus();
+          },
+          6000
+        );
+      };
+
       const row = h("div", { class: "set" + (set.done ? " done" : "") + (set.isWarmup ? " warm" : "") }, rowA, rowB);
       const bgIcon = h("span", { class: "set-swipe-icon" }, icon("trash", 18));
       const bg = h("div", { class: "set-swipe-bg", "aria-hidden": "true" }, bgIcon);
@@ -216,7 +364,7 @@ export function entryCard(entry, ctx) {
 
   let collapseTimer = null;
   function toggleDone(set, row, btn, rowA, prSlot) {
-    if (!set.done && !(set.reps > 0)) { // нельзя отметить пустой сет — подсказываем куда ввести
+    if (!set.done && !(set.reps > 0)) {
       haptic("error");
       const inputs = rowA.querySelectorAll("input"); inputs[1] && inputs[1].focus(); return;
     }
@@ -228,8 +376,9 @@ export function entryCard(entry, ctx) {
     const pr = checkSetPR(set, unit, ctx.prBaseline);
     prSlot.replaceChildren(pr ? h("span", { class: "pr-badge", title: t("entry.prTitle") }, "PR") : "");
     const sub = row.querySelector(".set-sub");
-    if (sub) sub.hidden = !pr && !entry.trackRpe;
+    if (sub) sub.hidden = !pr && !entry.trackRpe && !row.querySelector(".plate-math");
     const allCompleted = entry.sets.length > 0 && entry.sets.every(s => s.done);
+    updateEntryStatus();
     if (!set.done) {
       haptic("light");
       setCollapsed(false);
@@ -246,8 +395,14 @@ export function entryCard(entry, ctx) {
   }
 
   paintSets();
+  updateEntryStatus();
+
   const note = h("input", { type: "text", class: "entry-note", value: entry.note || "", placeholder: t("entry.notePlaceholder"), "aria-label": t("entry.noteAria") });
   note.addEventListener("input", () => { entry.note = note.value; ctx.onChange(); });
+  const noteWrap = h("div", { class: "entry-note-wrap" },
+    h("span", { class: "entry-note-icon", "aria-hidden": "true" }, icon("pencil", 14)),
+    note
+  );
 
   const exObj = getExercise(entry.exerciseId);
   const muscle = exObj?.muscleGroup || "";
@@ -293,10 +448,9 @@ export function entryCard(entry, ctx) {
       }))
     : null;
 
-  const doneCheckEl = h("span", { class: "entry-done-check" }, icon("check", 16));
   const headPrBadge = h("span", { class: "pr-badge", hidden: true }, "PR");
   const muscleTagEl = muscle ? h("span", { class: "muscle-tag" }, muscle) : null;
-  const clockIconEl = h("span", { class: "entry-clock-ico" }, icon("clock", 13));
+  const clockIconEl = h("span", { class: "entry-clock-ico", title: t("entry.restHint") }, icon("clock", 13));
   const subEl = h("small", { class: "muted" });
 
   const foldBtn = h("button", {
@@ -307,10 +461,45 @@ export function entryCard(entry, ctx) {
   }, icon("up", 20));
 
   const extraActions = h("div", { class: "entry-extra-actions" },
-    ctx.onSwap ? iconBtn("swap", t("entry.swapEx"), ctx.onSwap) : null,
-    ctx.onSkip ? iconBtn("skip", t("entry.skipEx"), ctx.onSkip) : null,
+    ctx.onSwap ? iconBtn("swap", t("entry.swapHint"), ctx.onSwap) : null,
+    ctx.onSkip ? iconBtn("skip", t("entry.skipHint"), ctx.onSkip) : null,
     ctx.onRemove ? iconBtn("trash", t("entry.removeEx"), ctx.onRemove) : null
   );
+
+  const addWarmupBtn = h("button", {
+    class: "btn small add-warmup-btn",
+    type: "button",
+    title: t("entry.addWarmupBtn"),
+    onclick: () => {
+      const firstWork = entry.sets.find(s => !s.isWarmup && (s.weight > 0 || s.hintWeight > 0));
+      const workWeight = firstWork ? (firstWork.weight || firstWork.hintWeight || 0) : 0;
+      const bar = unit === "lb" ? 45 : 20;
+      const targetW = workWeight > bar ? workWeight : (bar * 2);
+      const percentages = [0.45, 0.60, 0.75, 0.85];
+      const repsList = [10, 6, 4, 2];
+      const newWarmups = percentages.map((pct, idx) => {
+        let w = Math.round((targetW * pct) / 2.5) * 2.5;
+        if (w < bar) w = bar;
+        return {
+          reps: repsList[idx],
+          weight: w,
+          rpe: null,
+          done: false,
+          isWarmup: true,
+          completedAt: null,
+          hint: "",
+          hintWeight: w,
+          hintReps: repsList[idx]
+        };
+      });
+      entry.sets.unshift(...newWarmups);
+      ctx.onChange();
+      paintSets();
+      updateEntryStatus();
+      toast(t("entry.warmupAddedToast", { n: newWarmups.length }));
+      haptic("success");
+    }
+  }, t("entry.addWarmupBtn"));
 
   const bodyCollapse = h("div", { class: "entry-body-collapse" },
     h("div", { class: "entry-body-inner" },
@@ -326,15 +515,16 @@ export function entryCard(entry, ctx) {
           const prev = entry.sets[entry.sets.length - 1];
           entry.sets.push({ reps: prev ? prev.reps : null, weight: prev ? prev.weight : null, rpe: null, done: false, isWarmup: false, completedAt: null, hint: "", hintWeight: prev ? prev.weight : null, hintReps: prev ? prev.reps : null });
           setCollapsed(false);
-          ctx.onChange(); paintSets();
+          ctx.onChange(); paintSets(); updateEntryStatus();
         } }, t("entry.addSet")),
+        addWarmupBtn,
         h("button", { class: "btn small add-set-btn", type: "button", title: t("entry.removeSetTitle"), onclick: () => {
           if (entry.sets.length <= 1) return;
           entry.sets.pop();
-          ctx.onChange(); paintSets();
+          ctx.onChange(); paintSets(); updateEntryStatus();
           setCollapsed(!entry._expanded);
         } }, t("entry.removeSet")),
-        note)
+        noteWrap)
     )
   );
 

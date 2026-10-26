@@ -10,7 +10,8 @@ import {
 } from "../metrics.js";
 
 const LS_KEY = "fitness.progress.program";
-let muscleDays = 30;
+const LS_PERIOD_KEY = "fitness.progress.period";
+let globalPeriod = Number(localStorage.getItem(LS_PERIOD_KEY) ?? 30);
 let muscleBarsOpen = false;
 const openFolds = new Set();
 
@@ -44,14 +45,45 @@ function makeFoldCard(id, title, badgeText, subText, bodyContent, defaultOpen = 
   return card;
 }
 
-function buildOverviewDashboard() {
+function buildGlobalPeriodControl(onChange) {
+  const seg = h("div", { class: "seg-control prog-global-seg", role: "tablist", "aria-label": t("progress.overviewTitle") });
+  const periods = [
+    { days: 7, label: t("progress.period7d") },
+    { days: 30, label: t("progress.period30d") },
+    { days: 0, label: t("progress.periodAll") }
+  ];
+  periods.forEach(p => {
+    const on = globalPeriod === p.days;
+    const btn = h("button", {
+      type: "button",
+      role: "tab",
+      class: "seg-btn" + (on ? " on" : ""),
+      "aria-selected": String(on),
+      onclick: () => {
+        if (globalPeriod === p.days) return;
+        globalPeriod = p.days;
+        localStorage.setItem(LS_PERIOD_KEY, String(p.days));
+        haptic("light");
+        onChange();
+      }
+    }, p.label);
+    seg.append(btn);
+  });
+  return seg;
+}
+
+function buildOverviewDashboard(periodDays = 30) {
   const allDone = doneSessions();
   const now = Date.now();
-  const cutoff30 = now - 30 * 864e5;
-  let count30 = 0, totalVolKg = 0, totalSets = 0, totalReps = 0, totalMin = 0, durCount = 0;
+  const cutoff = periodDays > 0 ? now - periodDays * 864e5 : 0;
+  const prevCutoff = periodDays > 0 ? now - 2 * periodDays * 864e5 : 0;
 
-  for (const s of allDone) {
-    if (s.startedAt >= cutoff30) count30++;
+  const currentSessions = allDone.filter(s => s.startedAt >= cutoff);
+  const prevSessions = periodDays > 0 ? allDone.filter(s => s.startedAt >= prevCutoff && s.startedAt < cutoff) : [];
+
+  let totalVolKg = 0, totalSets = 0, totalReps = 0, totalMin = 0, durCount = 0;
+
+  for (const s of currentSessions) {
     const st = sessionStats(s);
     totalVolKg += st.volume || 0;
     if (s.durationMin && s.durationMin > 0) { totalMin += s.durationMin; durCount++; }
@@ -67,71 +99,94 @@ function buildOverviewDashboard() {
 
   const u = unitLabel(state.settings.defaultUnit || "kg");
   const totalVolConv = fromKg(totalVolKg, state.settings.defaultUnit || "kg");
-  const avgVolConv = allDone.length ? totalVolConv / allDone.length : 0;
-  const avgMin = durCount ? Math.round(totalMin / durCount) : 0;
+  const avgVolConv = currentSessions.length > 0 && totalVolConv > 0 ? Math.round(totalVolConv / currentSessions.length) : 0;
+  const avgMin = durCount > 0 ? Math.round(totalMin / durCount) : 0;
+
   const allPrs = personalRecords(allDone);
+  let periodPrCount = 0;
+  for (const pr of allPrs.values()) {
+    const prTime = Math.max(pr.weightDate || 0, pr.e1rmDate || 0);
+    if (prTime >= cutoff) periodPrCount++;
+  }
 
   const volStr = totalVolConv >= 10000
     ? `${formatNum(totalVolConv / 1000, 1)} ${t("progress.tonUnit")}`
-    : `${formatNum(totalVolConv, 0)} ${u}`;
+    : (totalVolConv > 0 ? `${formatNum(totalVolConv, 0)} ${u}` : "—");
+
+  let workoutsSub = "—";
+  if (currentSessions.length > 0) {
+    if (periodDays === 0) {
+      const count30 = allDone.filter(s => s.startedAt >= now - 30 * 864e5).length;
+      workoutsSub = count30 > 0 ? t("progress.ovLast30d", { n: count30 }) : "—";
+    } else if (prevSessions.length > 0) {
+      const diff = currentSessions.length - prevSessions.length;
+      workoutsSub = `${diff > 0 ? "+" : ""}${diff} vs прошл.`;
+    } else {
+      workoutsSub = `${currentSessions.length} за период`;
+    }
+  }
+
+  const avgVolSub = avgVolConv > 0 ? t("progress.ovAvgVol", { avg: formatNum(avgVolConv, 0), u }) : "—";
+  const repsSub = totalReps > 0 ? t("progress.ovTotalReps", { reps: totalReps }) : "—";
+  const durSub = avgMin > 0 ? t("progress.ovAvgDur", { min: avgMin }) : "—";
+
+  const periodLabel = periodDays === 7 ? t("progress.period7d") : (periodDays === 30 ? t("progress.period30d") : t("progress.periodAll"));
 
   const kpi = (label, val, sub) => h("div", { class: "stat prog-kpi" },
     h("small", { class: "muted" }, label),
-    h("strong", {}, val),
-    sub ? h("small", { class: "muted" }, sub) : null
+    h("strong", {}, val || "—"),
+    h("small", { class: "muted" }, sub || "—")
   );
 
   return h("section", { class: "panel prog-overview-card" },
     h("div", { class: "panel-head" },
       h("h2", { class: "section" }, t("progress.overviewTitle")),
-      h("span", { class: "ex-group-badge" }, t("progress.periodAll"))),
+      h("span", { class: "ex-group-badge" }, periodLabel)),
     h("div", { class: "stats prog-kpi-grid" },
-      kpi(t("progress.ovWorkouts"), String(allDone.length), t("progress.ovLast30d", { n: count30 })),
-      kpi(t("progress.ovTotalVol"), volStr, allDone.length ? t("progress.ovAvgVol", { v: formatNum(avgVolConv, 0), u }) : "—"),
-      kpi(t("progress.ovWorkSets"), String(totalSets), t("progress.ovTotalReps", { n: totalReps })),
-      kpi(t("progress.ovRecords"), String(allPrs.size), avgMin ? t("progress.ovAvgDur", { m: avgMin }) : "—")
+      kpi(t("progress.ovWorkouts"), currentSessions.length > 0 ? String(currentSessions.length) : "0", workoutsSub),
+      kpi(t("progress.ovTotalVol"), volStr, avgVolSub),
+      kpi(t("progress.ovWorkSets"), totalSets > 0 ? String(totalSets) : "0", repsSub),
+      kpi(t("progress.ovRecords"), periodDays === 0 ? String(allPrs.size) : String(periodPrCount), durSub)
     )
   );
 }
 
-function buildMuscleBalance() {
+function buildMuscleBalance(periodDays = 30) {
   const bodyBox = h("div", { class: "stack" });
-  const btns = new Map();
-
-  const periodBtn = (days, label) => {
-    const b = h("button", {
-      class: "btn small tag" + (muscleDays === days ? " on" : ""),
-      type: "button",
-      onclick: () => {
-        muscleDays = days;
-        for (const [d, el] of btns) el.classList.toggle("on", d === muscleDays);
-        renderBody();
-      }
-    }, label);
-    btns.set(days, b);
-    return b;
-  };
 
   function renderBody() {
     clear(bodyBox);
     const allDone = doneSessions();
     const now = Date.now();
-    const cutoff = muscleDays > 0 ? now - muscleDays * 864e5 : 0;
+    const cutoff = periodDays > 0 ? now - periodDays * 864e5 : 0;
+    const prevCutoff = periodDays > 0 ? now - 2 * periodDays * 864e5 : 0;
+
     const counts = new Map();
+    const prevCounts = new Map();
     const exByMuscle = new Map();
     let totalSets = 0;
+    let prevTotalSets = 0;
 
     for (const s of allDone) {
-      if (s.startedAt < cutoff) continue;
+      const isCur = s.startedAt >= cutoff;
+      const isPrev = periodDays > 0 && s.startedAt >= prevCutoff && s.startedAt < cutoff;
+      if (!isCur && !isPrev) continue;
+
       for (const e of s.entries || []) {
         const workSets = (e.sets || []).filter(x => x.done && !x.isWarmup && x.reps > 0).length;
         if (!workSets) continue;
         const ex = getExercise(e.exerciseId);
         const mg = tMuscle((ex?.muscleGroup || e.muscleGroup || t("common.other")).trim());
-        counts.set(mg, (counts.get(mg) || 0) + workSets);
-        if (!exByMuscle.has(mg)) exByMuscle.set(mg, new Set());
-        exByMuscle.get(mg).add(e.exerciseName || ex?.name || "");
-        totalSets += workSets;
+
+        if (isCur) {
+          counts.set(mg, (counts.get(mg) || 0) + workSets);
+          if (!exByMuscle.has(mg)) exByMuscle.set(mg, new Set());
+          exByMuscle.get(mg).add(e.exerciseName || ex?.name || "");
+          totalSets += workSets;
+        } else if (isPrev) {
+          prevCounts.set(mg, (prevCounts.get(mg) || 0) + workSets);
+          prevTotalSets += workSets;
+        }
       }
     }
 
@@ -145,12 +200,21 @@ function buildMuscleBalance() {
 
     const barsContent = rows.length
       ? h("div", { class: "muscle-bars" }, ...rows.map(([mg, cnt]) => {
-          const pct = Math.round((cnt / totalSets) * 100);
+          const pct = Math.round((cnt / (totalSets || 1)) * 100);
           const wPct = Math.max(6, Math.round((cnt / maxVal) * 100));
+
+          let deltaStr = "";
+          if (periodDays > 0 && prevTotalSets > 0) {
+            const prevCnt = prevCounts.get(mg) || 0;
+            const prevPct = Math.round((prevCnt / prevTotalSets) * 100);
+            const diff = pct - prevPct;
+            if (diff !== 0) deltaStr = ` · ${diff > 0 ? "+" : ""}${diff}%`;
+          }
+
           return h("div", { class: "muscle-row" },
             h("div", { class: "muscle-head" },
               h("strong", {}, mg),
-              h("small", { class: "muted" }, t("progress.muscleRowSets", { cnt, pct }))),
+              h("small", { class: "muted" }, t("progress.muscleRowSets", { cnt, pct }) + deltaStr)),
             h("div", { class: "muscle-track" },
               h("div", { class: "muscle-fill", style: `width:${wPct}%` })));
         }))
@@ -178,13 +242,12 @@ function buildMuscleBalance() {
 
   renderBody();
 
+  const periodBadge = periodDays === 7 ? t("progress.period7d") : (periodDays === 30 ? t("progress.period30d") : t("progress.periodAll"));
+
   return h("section", { class: "panel" },
     h("div", { class: "panel-head" },
       h("h2", { class: "section" }, t("progress.muscleBalance")),
-      h("div", { class: "row gap" },
-        periodBtn(7, t("progress.period7d")),
-        periodBtn(30, t("progress.period30d")),
-        periodBtn(0, t("progress.periodAll")))),
+      h("span", { class: "ex-group-badge" }, periodBadge)),
     bodyBox);
 }
 
@@ -253,8 +316,12 @@ export function mount(root) {
     progs.forEach(p => select.append(h("option", { value: p.id, selected: p.id === programId }, p.name)));
     clear(content);
 
-    // 1. Красивая общая сводка (Overview Dashboard) и баланс по мышцам
-    content.append(buildOverviewDashboard(), buildMuscleBalance());
+    // 1. Глобальный селектор периода + Красивая общая сводка (Overview Dashboard) и баланс по мышцам
+    content.append(
+      buildGlobalPeriodControl(() => paint()),
+      buildOverviewDashboard(globalPeriod),
+      buildMuscleBalance(globalPeriod)
+    );
 
     if (!programId) {
       content.append(h("p", { class: "empty" }, t("progress.noPrograms")), buildBodyweightFold());

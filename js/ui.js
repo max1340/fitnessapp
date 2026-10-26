@@ -130,7 +130,9 @@ const ICONS = {
   archive: "M3 4h18v4H3zM5 8v12h14V8M10 12h4", edit: "M4 20h4L19 9l-4-4L4 16z", trash: "M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13", skip: "M5 5l9 7-9 7zM18 5v14",
   swap: "M7 16l-4-4 4-4M3 12h18M17 8l4 4-4 4", download: "M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2",
   share: "M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7M16 6l-4-4-4 4M12 2v13",
-  search: "M11 18a7 7 0 100-14 7 7 0 000 14zM21 21l-5-5"
+  search: "M11 18a7 7 0 100-14 7 7 0 000 14zM21 21l-5-5",
+  more: "M12 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM12 13.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM12 21a1.5 1.5 0 100-3 1.5 1.5 0 000 3z",
+  pencil: "M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"
 };
 export function icon(name, size = 22) {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -147,13 +149,39 @@ export function icon(name, size = 22) {
 export const iconBtn = (name, label, onclick, cls = "") =>
   h("button", { class: "btn icon " + cls, type: "button", "aria-label": label, title: label, onclick }, icon(name));
 
-/* ---------- Тост ---------- */
+/* ---------- Тост и Снекбар ---------- */
 let toastTimer;
 export function toast(msg) {
   const el = document.getElementById("toast");
-  el.textContent = msg; el.hidden = false;
+  if (!el) return;
+  el.className = "toast";
+  el.textContent = msg;
+  el.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => (el.hidden = true), 2600);
+}
+
+export function showUndoSnackbar(msg, actionLabel, onAction, timeoutMs = 8000) {
+  const el = document.getElementById("toast");
+  if (!el) return;
+  clearTimeout(toastTimer);
+  el.className = "toast undo-toast";
+  clear(el);
+  const textEl = h("span", { class: "toast-text" }, msg);
+  const actionBtn = h("button", {
+    type: "button",
+    class: "toast-btn",
+    onclick: () => {
+      clearTimeout(toastTimer);
+      el.hidden = true;
+      if (typeof onAction === "function") onAction();
+    }
+  }, actionLabel);
+  el.append(textEl, actionBtn);
+  el.hidden = false;
+  toastTimer = setTimeout(() => {
+    el.hidden = true;
+  }, timeoutMs);
 }
 
 /* ---------- Модальные листы ---------- */
@@ -245,6 +273,32 @@ export function confirmDialog(message, { ok = t("common.yes"), cancel = t("commo
 }
 
 /* ---------- Форматирование ---------- */
+export function fmtRelativeDate(ts) {
+  if (!ts) return "—";
+  const now = Date.now();
+  const diffMs = now - ts;
+  const dNow = new Date(now);
+  const dThen = new Date(ts);
+  if (dNow.getFullYear() === dThen.getFullYear() && dNow.getMonth() === dThen.getMonth() && dNow.getDate() === dThen.getDate()) {
+    return t("time.relativeToday");
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (yesterday.getFullYear() === dThen.getFullYear() && yesterday.getMonth() === dThen.getMonth() && yesterday.getDate() === dThen.getDate()) {
+    return t("time.relativeYesterday");
+  }
+  const days = Math.max(1, Math.floor(diffMs / 864e5));
+  if (days < 7) {
+    return t("time.relativeDaysAgo", { n: days });
+  }
+  if (days < 35) {
+    const weeks = Math.max(1, Math.round(days / 7));
+    return t("time.relativeWeeksAgo", { n: weeks });
+  }
+  const months = Math.max(1, Math.round(days / 30.5));
+  return t("time.relativeMonthsAgo", { n: months });
+}
+
 export function fmtDate(ts, withTime = false) {
   const d = new Date(ts);
   const m = (MONTHS[getLang()] || MONTHS.ru)[d.getMonth()];

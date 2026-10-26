@@ -1,5 +1,6 @@
-import { h, clear, icon, closeTopSheet } from "./ui.js";
-import { init, subscribe, state, activateUserSession, clearSession } from "./store.js";
+import { h, clear, icon, closeTopSheet, showUndoSnackbar } from "./ui.js";
+import { init, subscribe, state, activateUserSession, clearSession, pendingCount, activeSession } from "./store.js";
+import { startRest } from "./timer.js";
 import { waitForInitialAuth, onAuthChange } from "./auth.js";
 import { isFirebaseConfigured } from "../firebase-config.js";
 import { initTimerBar, refreshTimerI18n, stopRest } from "./timer.js";
@@ -78,13 +79,43 @@ function route({ force = false } = {}) {
   });
 }
 
+let prevQueueCount = 0;
+let syncedFlashTimer = null;
+
 function paintSync() {
   const s = state.sync;
-  let text = "", label = "";
-  if (s.error) { text = t("app.syncError"); label = t("app.syncErrorTitle", { err: s.error }); }
-  else if (!navigator.onLine) { text = t("app.offline"); label = t("app.offlineTitle"); }
-  // «идёт синхронизация» намеренно не показываем: при обычной работе это постоянный шум
-  syncEl.textContent = text; syncEl.title = label; syncEl.hidden = !text;
+  const qCount = typeof pendingCount === "function" ? pendingCount() : 0;
+  let text = "", label = "", cls = "sync-pill";
+
+  syncEl.setAttribute("role", "status");
+
+  if (s.error) {
+    text = t("app.syncError");
+    label = t("app.syncErrorTitle", { err: s.error });
+    cls += " sync-error";
+  } else if (!navigator.onLine) {
+    text = qCount > 0 ? t("app.offlineQueued", { n: qCount }) : t("app.offline");
+    label = t("app.offlineTitle");
+    cls += " sync-offline";
+  } else if (qCount > 0) {
+    text = t("app.syncingQueued", { n: qCount });
+    label = t("app.syncingQueued", { n: qCount });
+    cls += " sync-pending";
+  } else if (prevQueueCount > 0 && qCount === 0) {
+    text = t("app.synced");
+    label = t("app.syncedTitle");
+    cls += " sync-synced";
+    clearTimeout(syncedFlashTimer);
+    syncedFlashTimer = setTimeout(() => {
+      syncEl.hidden = true;
+    }, 2800);
+  }
+
+  prevQueueCount = qCount;
+  syncEl.className = cls;
+  syncEl.textContent = text;
+  syncEl.title = label;
+  syncEl.hidden = !text;
 }
 
 function buildNav() {
@@ -94,6 +125,10 @@ function buildNav() {
   const curRouteId = currentId || (location.hash.replace(/^#\/?/, "") || "workout");
   const activeIdx = Math.max(0, ROUTES.findIndex(x => x.id === curRouteId));
   nav.style.setProperty("--active-idx", String(activeIdx));
+
+  const navPill = h("span", { class: "nav-pill", "aria-hidden": "true" });
+  nav.append(navPill);
+
   ROUTES.forEach((r, i) => {
     const on = i === activeIdx;
     const a = h("a", { href: "#/" + r.id, class: on ? "active" : "", dataset: { route: r.id } }, icon(r.icon, 24), h("span", {}, t(r.titleKey)));
@@ -105,6 +140,134 @@ function buildNav() {
     settingsBtn.setAttribute("aria-label", t("app.settingsAria"));
     settingsBtn.setAttribute("title", t("app.settingsAria"));
   }
+}
+
+export function openCommandPalette() {
+  const existing = document.querySelector(".cmd-palette-backdrop");
+  if (existing) { existing.remove(); return; }
+
+  const backdrop = h("div", { class: "cmd-palette-backdrop", role: "dialog", "aria-modal": "true" });
+  const input = h("input", {
+    type: "search",
+    class: "cmd-input",
+    placeholder: t("cmd.placeholder"),
+    autocomplete: "off",
+    enterkeyhint: "go"
+  });
+  const resultsBox = h("div", { class: "cmd-results" });
+  const modal = h("div", { class: "cmd-modal" }, input, resultsBox);
+  backdrop.append(modal);
+  document.body.append(backdrop);
+
+  let activeIdx = 0;
+  let items = [];
+
+  const close = () => {
+    backdrop.classList.add("closing");
+    setTimeout(() => backdrop.remove(), 140);
+  };
+
+  backdrop.addEventListener("pointerdown", e => {
+    if (e.target === backdrop) close();
+  });
+
+  const getActions = (q = "") => {
+    const list = [];
+    list.push({
+      category: t("cmd.actions"),
+      title: t("cmd.openSettings"),
+      action: () => { close(); openSettings(); }
+    });
+    list.push({
+      category: t("cmd.actions"),
+      title: t("cmd.toggleTheme"),
+      action: () => {
+        close();
+        const cur = state.settings.theme;
+        state.settings.theme = cur === "light" ? "dark" : "light";
+        applyTheme();
+      }
+    });
+
+    (state.programs || []).filter(p => !p.archived).forEach(p => {
+      list.push({
+        category: t("cmd.programs"),
+        title: t("cmd.startWorkout", { name: p.name }),
+        action: () => {
+          close();
+          localStorage.setItem("fitness.home.programId", p.id);
+          location.hash = "#/workout";
+        }
+      });
+    });
+
+    (state.exercises || []).filter(e => !e.archived).forEach(e => {
+      list.push({
+        category: t("cmd.exercises"),
+        title: e.name + (e.muscleGroup ? ` (${e.muscleGroup})` : ""),
+        action: () => {
+          close();
+          location.hash = "#/exercises";
+        }
+      });
+    });
+
+    if (!q) return list;
+    const lower = q.toLowerCase();
+    return list.filter(it => it.title.toLowerCase().includes(lower));
+  };
+
+  const renderList = () => {
+    resultsBox.replaceChildren();
+    items = getActions(input.value.trim());
+    if (!items.length) {
+      resultsBox.append(h("div", { class: "cmd-empty" }, t("cmd.noResults")));
+      return;
+    }
+    activeIdx = Math.max(0, Math.min(items.length - 1, activeIdx));
+    items.forEach((it, idx) => {
+      const isSel = idx === activeIdx;
+      const el = h("button", {
+        type: "button",
+        class: "cmd-item" + (isSel ? " on" : ""),
+        onclick: () => it.action()
+      },
+        h("span", { class: "cmd-item-title grow" }, it.title),
+        h("small", { class: "cmd-item-cat muted" }, it.category)
+      );
+      resultsBox.append(el);
+    });
+  };
+
+  input.addEventListener("input", () => {
+    activeIdx = 0;
+    renderList();
+  });
+
+  input.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      close();
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      activeIdx = (activeIdx + 1) % (items.length || 1);
+      renderList();
+      const onEl = resultsBox.querySelector(".cmd-item.on");
+      if (onEl) onEl.scrollIntoView({ block: "nearest" });
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      activeIdx = (activeIdx - 1 + items.length) % (items.length || 1);
+      renderList();
+      const onEl = resultsBox.querySelector(".cmd-item.on");
+      if (onEl) onEl.scrollIntoView({ block: "nearest" });
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (items[activeIdx]) items[activeIdx].action();
+    }
+  });
+
+  renderList();
+  setTimeout(() => input.focus(), 30);
 }
 
 function showAuthFlow() {
@@ -142,7 +305,49 @@ async function boot() {
   buildNav();
   initTimerBar(document.getElementById("timer-bar"));
   document.getElementById("settings-btn").addEventListener("click", openSettings);
-  document.addEventListener("keydown", e => { if (e.key === "Escape") closeTopSheet(); });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      closeTopSheet();
+      const cp = document.querySelector(".cmd-palette-backdrop");
+      if (cp) cp.remove();
+      return;
+    }
+
+    // Ctrl+K / Cmd+K -> Command Palette
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      openCommandPalette();
+      return;
+    }
+
+    // Горячие клавиши активной тренировки (J/K навигация, Enter закрыть сет, R таймер)
+    const isTyping = document.activeElement && (
+      document.activeElement.tagName === "INPUT" ||
+      document.activeElement.tagName === "TEXTAREA" ||
+      document.activeElement.isContentEditable
+    );
+    if (!isTyping && currentId === "workout") {
+      const activeWork = activeSession();
+      if (activeWork) {
+        if (e.key.toLowerCase() === "j") {
+          e.preventDefault();
+          const undone = main.querySelectorAll(".set:not(.done)");
+          if (undone.length > 0) undone[0].scrollIntoView({ behavior: "smooth", block: "center" });
+        } else if (e.key.toLowerCase() === "k") {
+          e.preventDefault();
+          const doneSets = main.querySelectorAll(".set.done");
+          if (doneSets.length > 0) doneSets[doneSets.length - 1].scrollIntoView({ behavior: "smooth", block: "center" });
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          const nextBtn = main.querySelector(".set:not(.done) .done-btn");
+          if (nextBtn) nextBtn.click();
+        } else if (e.key.toLowerCase() === "r") {
+          e.preventDefault();
+          startRest(state.settings.restSec || 90);
+        }
+      }
+    }
+  });
   window.addEventListener("hashchange", () => route());
   window.addEventListener("online", paintSync); window.addEventListener("offline", paintSync);
 
@@ -221,5 +426,35 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (hadController && !refreshing) { refreshing = true; location.reload(); }
   });
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(e => console.warn("SW:", e)));
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").then(reg => {
+      const notifyUpdate = () => {
+        showUndoSnackbar(
+          t("app.updateAvailable"),
+          t("app.updateBtn"),
+          () => {
+            if (reg.waiting) {
+              reg.waiting.postMessage({ type: "SKIP_WAITING" });
+            }
+          },
+          0
+        );
+      };
+
+      if (reg.waiting) {
+        notifyUpdate();
+        return;
+      }
+      reg.addEventListener("updatefound", () => {
+        const newWorker = reg.installing;
+        if (newWorker) {
+          newWorker.addEventListener("statechange", () => {
+            if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+              notifyUpdate();
+            }
+          });
+        }
+      });
+    }).catch(e => console.warn("SW:", e));
+  });
 }

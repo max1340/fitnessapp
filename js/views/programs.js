@@ -115,7 +115,47 @@ export function openProgramEditor(program) {
 
 export function mount(root) {
   const list = h("div", { class: "list" });
-  const showArchived = h("input", { type: "checkbox" });
+  const showArchived = h("input", { type: "checkbox", class: "ios-switch" });
+
+  function openProgramMenu(p) {
+    const closeMenu = sheet(h("div", { class: "stack" },
+      h("h3", { style: "margin:0" }, p.name),
+      h("button", {
+        class: "btn block",
+        type: "button",
+        onclick: () => {
+          closeMenu();
+          saveProgram({ ...p, id: uid(), name: p.name + t("programs.copySuffix"), baselineSessionId: null });
+          toast(t("programs.duplicatedToast"));
+          paint();
+        }
+      }, icon("copy", 16), t("programs.menuDuplicate")),
+      h("button", {
+        class: "btn block",
+        type: "button",
+        onclick: async () => {
+          closeMenu();
+          if (p.archived || await confirmDialog(t("programs.archiveConfirm", { name: p.name }), { ok: t("programs.archive") })) {
+            saveProgram({ ...p, archived: !p.archived });
+            paint();
+          }
+        }
+      }, icon("archive", 16), p.archived ? t("programs.menuUnarchive") : t("programs.menuArchive")),
+      h("button", {
+        class: "btn danger block",
+        type: "button",
+        onclick: async () => {
+          closeMenu();
+          if (await confirmDialog(t("programs.deleteConfirm", { name: p.name }), { ok: t("common.delete"), danger: true })) {
+            deleteProgram(p.id);
+            toast(t("programs.deletedToast"));
+            paint();
+          }
+        }
+      }, icon("trash", 16), t("programs.menuDelete"))
+    ), { title: t("programs.menuTitle") });
+  }
+
   const paint = () => {
     clear(list);
     const act = activeSession();
@@ -139,20 +179,12 @@ export function mount(root) {
             }
           }, icon("play", 15), isCurrentActive ? t("programs.resume") : t("programs.start")) : h("span", { class: "grow" }),
           h("div", { class: "card-icons" },
-            iconBtn("copy", t("programs.duplicate"), () => { saveProgram({ ...p, id: uid(), name: p.name + t("programs.copySuffix"), baselineSessionId: null }); toast(t("programs.duplicatedToast")); }),
-            iconBtn("archive", p.archived ? t("programs.unarchive") : t("programs.archive"), async () => {
-              if (p.archived || await confirmDialog(t("programs.archiveConfirm", { name: p.name }), { ok: t("programs.archive") })) saveProgram({ ...p, archived: !p.archived });
-            }),
-            iconBtn("trash", t("programs.deleteBtn"), async () => {
-              if (await confirmDialog(t("programs.deleteConfirm", { name: p.name }), { ok: t("common.delete"), danger: true })) {
-                deleteProgram(p.id); toast(t("programs.deletedToast"));
-              }
-            }),
-            iconBtn("edit", t("common.edit"), () => openProgramEditor(p))))));
+            iconBtn("edit", t("common.edit"), () => openProgramEditor(p)),
+            iconBtn("more", t("programs.menuTitle"), () => openProgramMenu(p))))));
     }
   };
   showArchived.addEventListener("input", paint);
-  root.append(h("label", { class: "check small" }, showArchived, h("span", {}, t("common.showArchived"))), list,
+  root.append(h("label", { class: "switch-row" }, showArchived, h("span", {}, t("common.showArchived"))), list,
     h("div", { class: "bottom-actions" }, h("button", { class: "btn primary block", type: "button", onclick: () => openProgramEditor(null) }, t("programs.newBtn"))));
   paint();
   return { update: paint };
