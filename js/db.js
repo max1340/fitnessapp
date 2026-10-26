@@ -14,6 +14,7 @@ const isValidUid = v => typeof v === "string" && /^[A-Za-z0-9_-]{6,128}$/.test(v
 
 export function setSpaceUser(uid) {
   currentUserId = isValidUid(uid) ? uid : null;
+  notifyQueueChange();
 }
 
 export function getSpaceUser() {
@@ -89,9 +90,25 @@ function readQueue() {
   catch { return {}; }
 }
 
+const queueListeners = new Set();
+export function onQueueChange(cb) {
+  if (typeof cb === "function") queueListeners.add(cb);
+  return () => queueListeners.delete(cb);
+}
+
+function notifyQueueChange() {
+  const count = pendingCount();
+  for (const cb of queueListeners) {
+    try { cb(count); } catch (e) { console.error("queueListener error:", e); }
+  }
+}
+
 function writeQueue(q) {
   if (persistence !== "persistent" || !currentUserId) return;
-  try { localStorage.setItem(queueKey(), JSON.stringify(q || {})); }
+  try {
+    localStorage.setItem(queueKey(), JSON.stringify(q || {}));
+    notifyQueueChange();
+  }
   catch (e) { console.warn("Ошибка записи очереди синхронизации:", e); }
 }
 
@@ -276,5 +293,12 @@ export function deleteUserBranch() {
 }
 
 if (typeof window !== "undefined") {
-  window.addEventListener("online", () => flushOfflineQueue());
+  window.addEventListener("online", () => {
+    flushOfflineQueue();
+    notifyQueueChange();
+  });
+  window.addEventListener("offline", () => notifyQueueChange());
+  window.addEventListener("storage", e => {
+    if (e.key && e.key.includes("offlineQueue")) notifyQueueChange();
+  });
 }

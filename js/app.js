@@ -1,5 +1,5 @@
 import { h, clear, icon, closeTopSheet, showUndoSnackbar, sheet, toast } from "./ui.js";
-import { init, subscribe, state, activateUserSession, clearSession, pendingCount, activeSession, flushOfflineQueue } from "./store.js";
+import { init, subscribe, state, activateUserSession, clearSession, pendingCount, activeSession, flushOfflineQueue, onQueueChange } from "./store.js";
 import { startRest } from "./timer.js";
 import { waitForInitialAuth, onAuthChange } from "./auth.js";
 import { isFirebaseConfigured } from "../firebase-config.js";
@@ -81,86 +81,151 @@ function route({ force = false } = {}) {
 
 let prevQueueCount = 0;
 let syncedFlashTimer = null;
+let pendingDebounceTimer = null;
+let isPendingVisible = false;
+let wasOffline = !navigator.onLine;
 
 function openSyncDetailsModal() {
-  const isOnline = navigator.onLine;
-  const qCount = typeof pendingCount === "function" ? pendingCount() : 0;
-  const s = state.sync;
+  paintSync();
+  const getInfo = () => {
+    const isOnline = navigator.onLine;
+    const qCount = typeof pendingCount === "function" ? pendingCount() : 0;
+    const s = state.sync;
 
-  const statusTitle = s.error
-    ? t("app.syncStatusError")
-    : (!isOnline ? t("app.syncStatusOffline") : (qCount > 0 ? t("app.syncStatusPending") : t("app.syncStatusOk")));
+    const statusTitle = s.error
+      ? t("app.syncStatusError")
+      : (!isOnline ? t("app.syncStatusOffline") : (qCount > 0 ? t("app.syncStatusPending") : t("app.syncStatusOk")));
 
-  const statusDesc = s.error
-    ? t("app.syncErrorTitle", { err: s.error })
-    : (!isOnline
-        ? t("app.syncOfflineDesc")
-        : (qCount > 0
-            ? t("app.syncPendingDesc", { n: qCount })
-            : t("app.syncOkDesc")));
+    const statusDesc = s.error
+      ? t("app.syncErrorTitle", { err: s.error })
+      : (!isOnline
+          ? t("app.syncOfflineDesc")
+          : (qCount > 0
+              ? t("app.syncPendingDesc", { n: qCount })
+              : t("app.syncOkDesc")));
+    return { isOnline, qCount, s, statusTitle, statusDesc };
+  };
+
+  let info = getInfo();
+  const statusIndicator = h("span", { class: "sync-status-indicator " + (info.s.error ? "err" : (info.qCount > 0 ? "warn" : (info.isOnline ? "ok" : "warn"))) });
+  const statusH3 = h("h3", { style: "margin:0" }, info.statusTitle);
+  const statusNetSmall = h("small", { class: "muted" }, info.isOnline ? t("app.networkOnline") : t("app.networkOffline"));
+  const statusDescP = h("p", { class: "small", style: "margin:0 0 10px; line-height:1.4" }, info.statusDesc);
+  const queueCountStrong = h("strong", { style: "font-variant-numeric:tabular-nums" }, `${info.qCount} ` + t("app.recordsUnit"));
 
   let sh;
+  const syncNowBtn = h("button", {
+    class: "btn primary block",
+    type: "button",
+    style: info.isOnline && info.qCount > 0 ? "" : "display:none",
+    onclick: async () => {
+      if (typeof flushOfflineQueue === "function") flushOfflineQueue();
+      toast(t("app.syncTriggeredToast"));
+      updateModal();
+    }
+  }, t("app.syncNowBtn"));
+
+  function updateModal() {
+    info = getInfo();
+    statusIndicator.className = "sync-status-indicator " + (info.s.error ? "err" : (info.qCount > 0 ? "warn" : (info.isOnline ? "ok" : "warn")));
+    statusH3.textContent = info.statusTitle;
+    statusNetSmall.textContent = info.isOnline ? t("app.networkOnline") : t("app.networkOffline");
+    statusDescP.textContent = info.statusDesc;
+    queueCountStrong.textContent = `${info.qCount} ` + t("app.recordsUnit");
+    syncNowBtn.style.display = (info.isOnline && info.qCount > 0) ? "" : "none";
+    paintSync();
+  }
+
+  const unsub = typeof onQueueChange === "function" ? onQueueChange(updateModal) : null;
+
   const sheetContent = h("div", { class: "stack", style: "gap:16px" },
     h("div", { class: "row gap", style: "align-items:center" },
-      h("span", { class: "sync-status-indicator " + (s.error ? "err" : (isOnline ? "ok" : "warn")) }),
+      statusIndicator,
       h("div", { class: "grow" },
-        h("h3", { style: "margin:0" }, statusTitle),
-        h("small", { class: "muted" }, isOnline ? t("app.networkOnline") : t("app.networkOffline"))
+        statusH3,
+        statusNetSmall
       )
     ),
     h("div", { class: "panel", style: "padding:14px; margin:0; background:var(--card); border:1px solid var(--line); border-radius:var(--r-card)" },
-      h("p", { class: "small", style: "margin:0 0 10px; line-height:1.4" }, statusDesc),
+      statusDescP,
       h("div", { class: "row gap", style: "justify-content:space-between; align-items:center" },
         h("small", { class: "muted" }, t("app.syncQueueLabel")),
-        h("strong", { style: "font-variant-numeric:tabular-nums" }, `${qCount} ` + t("app.recordsUnit"))
+        queueCountStrong
       )
     ),
     h("div", { class: "stack", style: "gap:8px" },
-      isOnline && qCount > 0 ? h("button", {
-        class: "btn primary block",
-        type: "button",
-        onclick: async () => {
-          sh.close();
-          if (typeof flushOfflineQueue === "function") flushOfflineQueue();
-          toast(t("app.syncTriggeredToast"));
-          paintSync();
-        }
-      }, t("app.syncNowBtn")) : null,
+      syncNowBtn,
       h("button", { class: "btn block", type: "button", onclick: () => sh.close() }, t("common.close"))
     )
   );
 
-  sh = sheet(sheetContent, { title: t("app.syncTitle") });
+  sh = sheet(sheetContent, {
+    title: t("app.syncTitle"),
+    onClose: () => {
+      if (unsub) unsub();
+    }
+  });
 }
 
 function paintSync() {
   const s = state.sync;
   const qCount = typeof pendingCount === "function" ? pendingCount() : 0;
+  const isOnline = navigator.onLine;
   let text = "", label = "", cls = "sync-pill";
 
   syncEl.setAttribute("role", "status");
   syncEl.onclick = openSyncDetailsModal;
 
   if (s.error) {
+    if (pendingDebounceTimer) { clearTimeout(pendingDebounceTimer); pendingDebounceTimer = null; }
+    if (syncedFlashTimer) { clearTimeout(syncedFlashTimer); syncedFlashTimer = null; }
+    isPendingVisible = false;
     text = t("app.syncError");
     label = t("app.syncErrorTitle", { err: s.error });
     cls += " sync-error";
-  } else if (!navigator.onLine) {
+  } else if (!isOnline) {
+    if (pendingDebounceTimer) { clearTimeout(pendingDebounceTimer); pendingDebounceTimer = null; }
+    if (syncedFlashTimer) { clearTimeout(syncedFlashTimer); syncedFlashTimer = null; }
+    wasOffline = true;
+    isPendingVisible = false;
     text = qCount > 0 ? t("app.offlineQueued", { n: qCount }) : t("app.offline");
     label = t("app.offlineTitle");
     cls += " sync-offline";
   } else if (qCount > 0) {
-    text = t("app.syncQueueBadge", { n: qCount });
-    label = t("app.syncPendingDesc", { n: qCount });
-    cls += " sync-pending";
-  } else if (prevQueueCount > 0 && qCount === 0) {
-    text = t("app.synced");
-    label = t("app.syncedTitle");
-    cls += " sync-synced";
-    clearTimeout(syncedFlashTimer);
-    syncedFlashTimer = setTimeout(() => {
-      syncEl.hidden = true;
-    }, 2800);
+    if (syncedFlashTimer) { clearTimeout(syncedFlashTimer); syncedFlashTimer = null; }
+    if (!isPendingVisible) {
+      if (!pendingDebounceTimer) {
+        pendingDebounceTimer = setTimeout(() => {
+          pendingDebounceTimer = null;
+          isPendingVisible = true;
+          paintSync();
+        }, 350);
+      }
+      text = "";
+    } else {
+      text = t("app.syncQueueBadge", { n: qCount });
+      label = t("app.syncPendingDesc", { n: qCount });
+      cls += " sync-pending";
+    }
+  } else {
+    // qCount === 0 and online and no error
+    if (pendingDebounceTimer) { clearTimeout(pendingDebounceTimer); pendingDebounceTimer = null; }
+    if (isPendingVisible || wasOffline) {
+      isPendingVisible = false;
+      wasOffline = false;
+      text = t("app.synced");
+      label = t("app.syncedTitle");
+      cls += " sync-synced";
+      clearTimeout(syncedFlashTimer);
+      syncedFlashTimer = setTimeout(() => {
+        syncedFlashTimer = null;
+        paintSync();
+      }, 2500);
+    } else if (syncedFlashTimer) {
+      text = t("app.synced");
+      label = t("app.syncedTitle");
+      cls += " sync-synced";
+    }
   }
 
   prevQueueCount = qCount;
@@ -402,6 +467,7 @@ async function boot() {
   });
   window.addEventListener("hashchange", () => route());
   window.addEventListener("online", paintSync); window.addEventListener("offline", paintSync);
+  if (typeof onQueueChange === "function") onQueueChange(() => paintSync());
 
   let first = true;
   subscribe(() => {

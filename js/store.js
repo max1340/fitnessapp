@@ -3,7 +3,7 @@
 import {
   watchCollection, saveDoc, removeDoc, bulkSave, bulkRemove,
   setSpaceUser, getSpaceUser, watchSharedExercises, lsGetUser, lsSetUser, clearLocalUserData,
-  pendingCount, waitForSync, flushOfflineQueue, deleteUserBranch
+  pendingCount, waitForSync, flushOfflineQueue, deleteUserBranch, onQueueChange
 } from "./db.js";
 import {
   signIn, signUp, signOutUser, reauthenticate, deleteCurrentUser, sendReset, auth
@@ -121,7 +121,7 @@ export async function loginWithEmail(email, password) {
 }
 
 export const sendPasswordReset = sendReset;
-export { pendingCount, waitForSync, flushOfflineQueue };
+export { pendingCount, waitForSync, flushOfflineQueue, onQueueChange };
 
 /** Регистрация нового аккаунта (Firebase Auth) с начальными настройками и опциональной первой программой. */
 export async function registerNewProfile({ email, password, displayName, settingsPatch = {}, bodyweightKg = null, firstProgramMode = "skip", customProgram = null }) {
