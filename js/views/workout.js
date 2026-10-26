@@ -830,7 +830,7 @@ export function mount(root) {
     function launchWorkout(fn) {
       if (isLaunching) return;
       isLaunching = true;
-      haptic("heavy");
+      haptic("workoutStart");
       if (orbRingEl) orbRingEl.classList.add("is-launching");
       if (orbBtnEl) orbBtnEl.classList.add("is-launching");
       if (heroBox) heroBox.classList.add("is-launching");
@@ -1179,7 +1179,7 @@ export function mount(root) {
     session.status = "done";
     session.durationMin = Math.max(1, Math.round(totalSec / 60));
     const saved = saveSession(session);
-    haptic("success");
+    haptic("workoutEnd");
     stopRest();
     home();
     showSummary(saved, {

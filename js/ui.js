@@ -4,13 +4,15 @@ import { state } from "./store.js";
 
 /* ---------- Тактильный отклик (Haptics: Web Vibration API + iOS Safari Switch Taptic) ---------- */
 const HAPTIC_PATTERNS = {
-  light: 10,
-  medium: 20,
-  heavy: 35,
-  success: [16, 45, 28],
-  pr: [28, 45, 36, 45, 55],
-  warning: [22, 40, 22],
-  error: [18, 35, 18, 35, 18]
+  light: 12,
+  medium: 25,
+  heavy: 50,
+  success: [18, 50, 32],
+  pr: [32, 50, 42, 50, 70],
+  warning: [25, 45, 25],
+  error: [22, 40, 22, 40, 22],
+  workoutStart: [50, 50, 85],       // Сильная приятная вибрация старта (2 ступени)
+  workoutEnd: [60, 70, 70, 80, 125] // Сильная торжественная вибрация окончания (3 ступени)
 };
 
 let lastHapticTs = 0;
@@ -36,7 +38,7 @@ function triggerIosTaptic() {
 
 /**
  * Запускает тактильный отклик, если вибрация включена в настройках.
- * type: "light" | "medium" | "heavy" | "success" | "pr" | "warning" | "error" | number | number[]
+ * type: "light" | "medium" | "heavy" | "success" | "pr" | "warning" | "error" | "workoutStart" | "workoutEnd" | number | number[]
  */
 export function haptic(type = "light") {
   if (state.settings && state.settings.vibration === false) return;
@@ -46,6 +48,12 @@ export function haptic(type = "light") {
     try { navigator.vibrate(pattern); } catch { /* ignore */ }
   } else {
     triggerIosTaptic();
+    if (type === "workoutStart") {
+      setTimeout(triggerIosTaptic, 75);
+    } else if (type === "workoutEnd") {
+      setTimeout(triggerIosTaptic, 80);
+      setTimeout(triggerIosTaptic, 180);
+    }
   }
 }
 
