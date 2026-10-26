@@ -554,7 +554,7 @@ const DICT = {
     "workout.undoFinishToast": "Тренировка завершена",
     "workout.undoFinishBtn": "Вернуть тренировку",
     "workout.undoRestoredToast": "Тренировка возвращена",
-    "workout.resumeBanner": "Продолжить незавершённую тренировку",
+    "workout.resumeBanner": "Активная тренировка",
 
     "programs.menuTitle": "Опции программы",
     "programs.menuDuplicate": "Дублировать",
@@ -1088,7 +1088,7 @@ const DICT = {
     "workout.undoFinishToast": "Workout finished",
     "workout.undoFinishBtn": "Undo",
     "workout.undoRestoredToast": "Workout resumed",
-    "workout.resumeBanner": "Resume active workout session",
+    "workout.resumeBanner": "Active workout",
 
     "programs.menuTitle": "Program options",
     "programs.menuDuplicate": "Duplicate",
@@ -1321,7 +1321,7 @@ const FALLBACKS = {
   "workout.undoFinishToast": { ru: "Тренировка завершена", en: "Workout finished" },
   "workout.undoFinishBtn": { ru: "Вернуть тренировку", en: "Undo" },
   "workout.undoRestoredToast": { ru: "Тренировка возвращена", en: "Workout resumed" },
-  "workout.resumeBanner": { ru: "Продолжить незавершённую тренировку", en: "Resume active workout session" },
+  "workout.resumeBanner": { ru: "Активная тренировка", en: "Active workout" },
 
   "app.syncQueueBadge": { ru: "Очередь: {n}", en: "Queue: {n}" },
   "app.syncTitle": { ru: "Синхронизация и данные", en: "Sync & Data" },

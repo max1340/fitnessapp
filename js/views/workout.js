@@ -1075,15 +1075,22 @@ export function mount(root) {
         for (const s of e.sets || []) { actTotal++; if (s.done) actDone++; }
       }
       const resumeBanner = h("div", {
-        class: "panel resume-banner",
+        class: "resume-banner",
         onclick: () => { haptic("medium"); open(act); }
       },
-        h("div", { class: "resume-banner-icon" }, icon("play", 20)),
-        h("div", { class: "resume-banner-text grow" },
+        h("div", { class: "resume-banner-icon" }, icon("play", 16)),
+        h("div", { class: "resume-banner-text" },
           h("strong", {}, t("workout.resumeBanner")),
-          h("small", { class: "muted" }, `${shortProgTitle(act.programName)} · ${actDone}/${actTotal} (${fmtRelativeDate(act.startedAt)})`)
+          h("small", {}, `${shortProgTitle(act.programName)} · ${actDone}/${actTotal} (${fmtRelativeDate(act.startedAt)})`)
         ),
-        h("button", { class: "btn small primary resume-banner-btn", type: "button", onclick: (e) => { e.stopPropagation(); haptic("medium"); open(act); } }, t("workout.resumeBtn"))
+        h("button", {
+          class: "resume-banner-btn",
+          type: "button",
+          onclick: (e) => { e.stopPropagation(); haptic("medium"); open(act); }
+        },
+          t("workout.resumeBtn"),
+          icon("chevron-right", 13)
+        )
       );
       view.append(resumeBanner);
     }

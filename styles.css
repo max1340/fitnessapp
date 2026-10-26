@@ -298,25 +298,25 @@ input[type="checkbox"]:not(.ios-switch):checked::after { transform: rotate(-45de
 .home-dd-item.on .home-dd-check { opacity: 1; transform: scale(1); }
 .home-hero {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 12px; padding: 10px 0 6px; flex: none;
+  gap: 12px; padding: 14px 0 10px; margin: 2px 0; flex: none;
 }
 .home-orb-ring {
-  position: relative; width: 204px; height: 204px; border-radius: 50%;
+  position: relative; width: 184px; height: 184px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   flex: none;
 }
 .home-orb-ring::before {
-  content: ""; position: absolute; inset: -12px; border-radius: 50%;
+  content: ""; position: absolute; inset: -4px; border-radius: 50%;
   background: radial-gradient(circle, var(--orb-halo-1) 22%, var(--orb-halo-2) 56%, transparent 72%);
-  box-shadow: 0 0 38px 10px var(--orb-glow), 0 0 68px 22px rgba(229, 57, 53, .22);
+  box-shadow: 0 0 20px 3px var(--orb-glow), 0 0 34px 6px rgba(229, 57, 53, .16);
   pointer-events: none;
   animation: orb-halo-pulse 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite alternate;
   will-change: transform, opacity;
 }
 .home-orb-ring::after {
-  content: ""; position: absolute; inset: 6px; border-radius: 50%;
+  content: ""; position: absolute; inset: 4px; border-radius: 50%;
   border: 2px solid var(--orb-halo-2);
-  box-shadow: 0 0 22px var(--orb-glow), inset 0 0 14px rgba(229, 57, 53, .3);
+  box-shadow: 0 0 16px var(--orb-glow), inset 0 0 10px rgba(229, 57, 53, .22);
   pointer-events: none;
   animation: orb-ripple 2.4s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
   will-change: transform, opacity;
@@ -865,46 +865,46 @@ input[type="checkbox"]:not(.ios-switch):checked::after { transform: rotate(-45de
 @keyframes orb-switch-pop { 0% { transform: scale(1); } 35% { transform: scale(.93); } 70% { transform: scale(1.04); } 100% { transform: scale(1); } }
 @keyframes orb-halo-pulse {
   0% {
-    transform: scale(0.95);
-    opacity: .72;
-    box-shadow: 0 0 32px 6px var(--orb-glow), 0 0 50px 16px rgba(229, 57, 53, .18);
+    transform: scale(0.96);
+    opacity: .70;
+    box-shadow: 0 0 18px 2px var(--orb-glow), 0 0 28px 4px rgba(229, 57, 53, .14);
   }
   100% {
-    transform: scale(1.08);
-    opacity: 1;
-    box-shadow: 0 0 54px 14px var(--orb-glow), 0 0 88px 30px rgba(229, 57, 53, .32);
+    transform: scale(1.03);
+    opacity: .95;
+    box-shadow: 0 0 26px 4px var(--orb-glow), 0 0 40px 8px rgba(229, 57, 53, .22);
   }
 }
 @keyframes orb-ripple {
   0% {
-    transform: scale(0.92);
-    opacity: .85;
+    transform: scale(0.96);
+    opacity: .80;
     border-color: var(--orb-halo-2);
   }
   50% {
-    opacity: .65;
+    opacity: .50;
   }
   100% {
-    transform: scale(1.24);
+    transform: scale(1.10);
     opacity: 0;
     border-color: rgba(229, 57, 53, 0);
   }
 }
 @keyframes orb-launch-press {
   0% { transform: scale(1); }
-  25% { transform: scale(0.91); filter: brightness(1.2); }
-  65% { transform: scale(1.10); filter: brightness(1.35); box-shadow: 0 0 60px var(--orb-glow), 0 0 0 16px rgba(229, 57, 53, 0.35); }
-  100% { transform: scale(1.04); opacity: .9; }
+  25% { transform: scale(0.94); filter: brightness(1.15); }
+  65% { transform: scale(1.05); filter: brightness(1.25); box-shadow: 0 0 32px var(--orb-glow), 0 0 0 8px rgba(229, 57, 53, 0.25); }
+  100% { transform: scale(1.02); opacity: .92; }
 }
 @keyframes orb-halo-burst {
   0% { transform: scale(1); opacity: .85; }
-  25% { transform: scale(0.92); opacity: 1; }
-  100% { transform: scale(2.2); opacity: 0; }
+  25% { transform: scale(0.95); opacity: 1; }
+  100% { transform: scale(1.28); opacity: 0; }
 }
 @keyframes orb-ring-burst {
   0% { transform: scale(1); opacity: .85; }
-  25% { transform: scale(0.92); opacity: 1; }
-  100% { transform: scale(2.0); opacity: 0; }
+  25% { transform: scale(0.95); opacity: 1; }
+  100% { transform: scale(1.24); opacity: 0; }
 }
 @keyframes workout-top-enter {
   from { opacity: 0; transform: translateY(-16px); }
@@ -1659,31 +1659,102 @@ input[type="checkbox"].ios-switch:checked::after { transform: translateX(20px); 
   transform: scale(0.98);
 }
 
-/* Резюме-баннер прерванной тренировки */
+/* Резюме-баннер прерванной/активной тренировки */
 .resume-banner {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  padding: 12px 14px;
+  padding: 10px 14px;
   background: var(--card);
-  border: 1.5px solid var(--accent);
+  border: 1px solid var(--line);
+  border-left: 3.5px solid var(--accent);
   box-shadow: var(--sh-1);
   border-radius: var(--r-card);
   cursor: pointer;
-  transition: transform var(--dur-press) ease;
+  transition: transform var(--dur-press) ease, box-shadow var(--dur-press) ease;
+  user-select: none;
+  touch-action: manipulation;
 }
 .resume-banner:active {
   transform: scale(0.99);
 }
 .resume-banner-icon {
-  width: 36px;
-  height: 36px;
+  position: relative;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: var(--accent-soft);
   color: var(--accent);
   display: grid;
   place-items: center;
   flex: none;
+}
+.resume-banner-icon svg {
+  fill: currentColor;
+  stroke: currentColor;
+  margin-left: 2px;
+}
+.resume-banner-icon::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  opacity: 0.6;
+  animation: urgentPulse 1.8s ease-in-out infinite;
+}
+.resume-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.resume-banner-text strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.resume-banner-text small {
+  font-size: 12px;
+  color: var(--ink-2);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.resume-banner-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--ink) !important;
+  color: var(--bg) !important;
+  border: none !important;
+  border-radius: var(--r-chip) !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  padding: 6px 12px 6px 14px !important;
+  min-height: 32px !important;
+  height: 32px !important;
+  letter-spacing: 0.02em !important;
+  cursor: pointer;
+  flex: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  transition: transform var(--dur-press) ease, opacity var(--dur-press) ease;
+}
+.resume-banner-btn:active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+.resume-banner-btn svg {
+  stroke: currentColor;
+  fill: none;
 }
 
 /* Подсветка следующего сета */
