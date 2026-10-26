@@ -767,7 +767,6 @@ export function mount(root) {
       orbSubEl.textContent = t("workout.activeOrbSub", { done: actDone, total: actTotal, date: fmtDate(act.startedAt) });
       orbBtnEl = h("button", {
         class: "home-orb", type: "button",
-        style: "background:#e53935 !important; color:#ffffff !important; box-shadow:0 0 0 1.5px #e53935, 0 10px 28px rgba(229, 57, 53, .38) !important;",
         onclick: () => { haptic("medium"); open(act); }
       },
         icon("play", 28),
@@ -789,7 +788,6 @@ export function mount(root) {
     } else {
       orbBtnEl = h("button", {
         class: "home-orb", type: "button",
-        style: "background:#e53935 !important; color:#ffffff !important; box-shadow:0 0 0 1.5px #e53935, 0 10px 28px rgba(229, 57, 53, .38) !important;",
         onclick: () => { haptic("medium"); open(startSession(getSelectedProg())); }
       },
         icon("play", 30),
