@@ -1,0 +1,195 @@
+From ae820652d52a80743806b388b7d0fc42b88ef723 Mon Sep 17 00:00:00 2001
+From: "qwen.ai[bot]" <qwenlm-intl@service.alibaba.com>
+Date: Mon, 26 Oct 2026 11:19:23 +0000
+Subject: [PATCH] Design system improvements: accent color tokens, WCAG fixes
+ (zoom, tap targets, contrast), danger buttons, tablet layout, print/contrast
+ media queries
+
+---
+ index.html          | 11 +++++---
+ js/views/workout.js |  2 --
+ styles.css          | 65 ++++++++++++++++++++++++++++++++++++++-------
+ 3 files changed, 64 insertions(+), 14 deletions(-)
+
+diff --git a/index.html b/index.html
+index ae4ec31..88a186f 100644
+--- a/index.html
++++ b/index.html
+@@ -2,10 +2,15 @@
+ <html lang="ru" data-theme="dark">
+ <head>
+   <meta charset="utf-8">
+-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
++  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
++  <!-- maximum-scale=1 / user-scalable=no убраны: запрет зума нарушает WCAG 1.4.4 (масштабирование текста) -->
+   <title>Тренировки</title>
+   <meta name="description" content="Учёт силовых тренировок: программы, сеты, таймер отдыха, прогресс.">
+-  <meta name="theme-color" content="#0b0b0c">
++  <meta name="theme-color" content="#0b0b0c" media="(prefers-color-scheme: dark)">
++  <meta name="theme-color" content="#f6f6f7" media="(prefers-color-scheme: light)">
++  <meta property="og:title" content="Тренировки">
++  <meta property="og:description" content="Учёт силовых тренировок: программы, сеты, таймер отдыха, прогресс.">
++  <meta property="og:type" content="website">
+   <meta name="color-scheme" content="dark light">
+   <link rel="manifest" href="manifest.webmanifest">
+   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+@@ -14,7 +19,7 @@
+   <meta name="apple-mobile-web-app-capable" content="yes">
+   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+   <meta name="apple-mobile-web-app-title" content="Тренировки">
+-  <link rel="stylesheet" href="styles.css?v=26">
++  <link rel="stylesheet" href="styles.css?v=27">
+   <script src="js/theme-init.js"></script>
+ </head>
+ <body>
+diff --git a/js/views/workout.js b/js/views/workout.js
+index 5eced42..52385cd 100644
+--- a/js/views/workout.js
++++ b/js/views/workout.js
+@@ -767,7 +767,6 @@ export function mount(root) {
+       orbSubEl.textContent = t("workout.activeOrbSub", { done: actDone, total: actTotal, date: fmtDate(act.startedAt) });
+       orbBtnEl = h("button", {
+         class: "home-orb", type: "button",
+-        style: "background:#e53935 !important; color:#ffffff !important; box-shadow:0 0 0 1.5px #e53935, 0 10px 28px rgba(229, 57, 53, .38) !important;",
+         onclick: () => { haptic("medium"); open(act); }
+       },
+         icon("play", 28),
+@@ -789,7 +788,6 @@ export function mount(root) {
+     } else {
+       orbBtnEl = h("button", {
+         class: "home-orb", type: "button",
+-        style: "background:#e53935 !important; color:#ffffff !important; box-shadow:0 0 0 1.5px #e53935, 0 10px 28px rgba(229, 57, 53, .38) !important;",
+         onclick: () => { haptic("medium"); open(startSession(getSelectedProg())); }
+       },
+         icon("play", 30),
+diff --git a/styles.css b/styles.css
+index ead52a0..746d867 100644
+--- a/styles.css
++++ b/styles.css
+@@ -2,6 +2,13 @@
+ :root {
+   --bg: #0b0b0c; --s1: #151517; --s2: #1f1f22; --line: #2a2a2e; --fg: #f2f2f3; --mut: #8b8b92;
+   --inv-bg: #f2f2f3; --inv-fg: #0b0b0c; --shade: rgba(0, 0, 0, .65);
++  /* Акцентные токены: красный — только «старт/опасность», янтарный — предупреждение.
++     В светлой теме автоматически становятся темнее (контраст с белым текстом ≥ 4.5:1). */
++  --accent: #e53935; --accent-press: #c62828; --accent-fg: #ffffff;
++  --accent-glow: rgba(229, 57, 53, .38); --accent-glow-soft: rgba(229, 57, 53, .32);
++  --warn: #ff9800; --warn-fg: #1a1200;
++  --focus-ring: var(--fg);
++  --tap-min: 44px; /* минимум зоны нажатия (WCAG 2.5.5 / Apple HIG) */
+   --r: 14px; --r-sm: 10px;
+   --safe-t: env(safe-area-inset-top, 0px); --safe-b: env(safe-area-inset-bottom, 0px);
+   --nav-h: 64px; --timer-h: 64px; --col: 640px;
+@@ -10,6 +17,9 @@
+ :root[data-theme="light"] {
+   --bg: #f6f6f7; --s1: #ffffff; --s2: #ececee; --line: #d6d6da; --fg: #0b0b0c; --mut: #6b6b72;
+   --inv-bg: #0b0b0c; --inv-fg: #f6f6f7; --shade: rgba(0, 0, 0, .35);
++  --accent: #c62828; --accent-press: #a31f1f; /* темнее красного — контраст с белым ≥ 4.5:1 */
++  --accent-glow: rgba(198, 40, 40, .30); --accent-glow-soft: rgba(198, 40, 40, .24);
++  --warn: #b26a00; --warn-fg: #ffffff;
+   color-scheme: light;
+ }
+ 
+@@ -20,7 +30,7 @@ body {
+   font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+   font-variant-numeric: tabular-nums; -webkit-tap-highlight-color: transparent;
+   overscroll-behavior-x: none;
+-  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
++  text-rendering: optimizeLegibility;
+ }
+ body.sheet-open { overflow: hidden; }
+ h1, h2, h3, p { margin: 0; }
+@@ -99,7 +109,11 @@ body.timer-on .view { padding-bottom: calc(var(--nav-h) + var(--timer-h) + var(-
+ .btn:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .card-main:focus-visible, .list-item:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+ .btn.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+ .btn.primary:active { opacity: .8; }
+-.btn.primary.danger { border-style: dashed; border-width: 2px; }
++/* Опасные действия: красный акцент + пунктир (двойное кодирование состояния — не только цвет) */
++.btn.primary.danger { border-style: dashed; border-width: 2px; background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
++.btn.primary.danger:active { background: var(--accent-press); border-color: var(--accent-press); opacity: 1; }
++.btn.danger-ghost { color: var(--accent); border-color: var(--accent); }
++.btn.danger-ghost:active { background: var(--accent); color: var(--accent-fg); }
+ .btn.icon { width: 40px; min-height: 40px; padding: 0; background: transparent; border-color: transparent; }
+ .btn.icon:active { background: var(--s2); }
+ .btn.small { min-height: 36px; padding: 0 11px; font-size: 13px; white-space: nowrap; }
+@@ -246,20 +260,23 @@ input[type="checkbox"]:not(.ios-switch):checked::after { transform: rotate(-45de
+ .home-orb {
+   position: relative; z-index: 1;
+   width: 162px; height: 162px; border-radius: 50%;
+-  background: #e53935 !important; color: #ffffff !important; border: 3px solid var(--bg) !important;
+-  box-shadow: 0 0 0 1.5px #e53935, 0 10px 28px rgba(229, 57, 53, .38) !important;
++  /* Токены вместо захардкоженного цвета и !important — red-орб сохранён, но управляется из тем */
++  background: var(--accent); color: var(--accent-fg); border: 3px solid var(--bg);
++  box-shadow: 0 0 0 1.5px var(--accent), 0 10px 28px var(--accent-glow);
+   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+   padding: 14px; text-align: center; cursor: pointer; font: inherit;
+   touch-action: manipulation; user-select: none;
+   animation: orb-enter .42s cubic-bezier(.2, .9, .25, 1) both;
+   transition: transform .16s cubic-bezier(.2, .8, .2, 1), box-shadow .2s ease, opacity .15s;
+ }
+-.home-orb:active { transform: scale(.92); box-shadow: 0 0 0 1.5px #e53935, 0 4px 14px rgba(229, 57, 53, .32) !important; }
++.home-orb:active { transform: scale(.92); background: var(--accent-press); box-shadow: 0 0 0 1.5px var(--accent-press), 0 4px 14px var(--accent-glow-soft); }
+ .home-orb.orb-switch { animation: orb-switch-pop .32s cubic-bezier(.2, .9, .3, 1); }
+-.home-orb svg { fill: #ffffff !important; stroke: #ffffff !important; margin-bottom: 2px; transition: transform .2s ease; }
++.home-orb svg { fill: var(--accent-fg); stroke: var(--accent-fg); margin-bottom: 2px; transition: transform .2s ease; }
+ .home-orb:active svg { transform: scale(1.12); }
+-.home-orb-label { font-size: 17px; font-weight: 800; letter-spacing: .08em; line-height: 1.15; color: #ffffff !important; }
+-.home-orb-sub { font-size: 11px; opacity: .88; line-height: 14px; height: 14px; max-width: 134px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ffffff !important; }
++.home-orb-label { font-size: 17px; font-weight: 800; letter-spacing: .08em; line-height: 1.15; color: var(--accent-fg); }
++.home-orb-sub { font-size: 11px; opacity: .88; line-height: 14px; height: 14px; max-width: 134px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent-fg); }
++/* Подсветка фокусной рамкой для клавиатуры (красный орб на красном фоне невидим без этого) */
++.home-orb:focus-visible { outline: 3px solid var(--fg); outline-offset: 4px; }
+ .home-preview { gap: 10px; }
+ .home-preview-body { display: flex; flex-direction: column; gap: 10px; }
+ .home-free-note { text-align: center; padding: 6px 0; }
+@@ -319,7 +336,12 @@ input[type="checkbox"]:not(.ios-switch):checked::after { transform: rotate(-45de
+ }
+ .workout-prog { height: 5px; width: 100%; background: var(--s2); border: 1px solid var(--line); border-radius: 99px; overflow: hidden; }
+ .workout-prog-fill { height: 100%; width: 0%; background: var(--fg); transition: width .28s ease; }
+-.code { background: var(--s2); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 10px; overflow-x: auto; font-size: 13px; margin: 0; white-space: pre-wrap; word-break: break-word; }
++.code { background: var(--s2); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 10px; overflow-x: auto; font-size: 13px; margin: 0; white-space: pre-wrap; word-break: break-word; -webkit-user-select: text; user-select: text; }
++/* Утилита: скрытый текст для скринридеров (иконки-кнопки без видимых подписей, статусы) */
++.sr-only {
++  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
++  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
++}
+ .formula ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; }
+ .confirm-text { font-size: 17px; }
+ 
+@@ -1091,8 +1113,33 @@ input[type="checkbox"].ios-switch:checked::after { transform: translateX(20px);
+   .sheet-wrap { align-items: center; }
+   .sheet { border-radius: 20px; border-bottom: 1px solid var(--line); }
+   .sheet:not(.full) { max-height: 80dvh; }
++  /* Планшет/десктоп: крупный шрифт и более просторные зоны нажатия */
++  body { font-size: 17px; }
++  .btn { min-height: 46px; }
++}
++/* Крупные экраны: двухколоночная лента — лучше использовать горизонтальное пространство */
++@media (min-width: 980px) {
++  :root { --col: 900px; }
++  /* Двухколоночная лента для списков/стэков; карточки упражнений и панели — на всю ширину */
++  .view:not(.enter) > .list, .view:not(.enter) > .stack { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-content: start; }
++  .view:not(.enter) > .list > *, .view:not(.enter) > .stack > * { min-width: 0; }
++  /* Вложенные списки (напр. сеты внутри карточек) остаются одноколоночными */
++  .view:not(.enter) .list .list, .view:not(.enter) .list .stack, .view:not(.enter) .stack .list, .view:not(.enter) .stack .stack { display: flex; flex-direction: column; }
++  /* Полноширинные элементы: sticky-шапка активной тренировки, превью, пустые состояния */
++  .view:not(.enter) > .active-top, .view:not(.enter) > .home-hero, .view:not(.enter) > .empty,
++  .view:not(.enter) > .panel.home-preview { grid-column: 1 / -1; }
++}
++/* Принудительный контраст (Windows High Contrast / accessibility) */
++@media (prefers-contrast: more) {
++  :root { --line: #6a6a70; --mut: #b9b9c0; }
++  :root[data-theme="light"] { --line: #8b8b92; --mut: #3a3a40; }
+ }
+ @media (prefers-reduced-motion: reduce) {
+   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+   .chart-svg .line { stroke-dasharray: none; }
+ }
++/* Печать: только содержимое, без навигации/оверлеев */
++@media print {
++  .nav, .topbar, .timer-bar, .toast, .splash, .sheet-backdrop { display: none !important; }
++  body { background: #fff; color: #000; }
++}
+-- 
+2.39.5
+
