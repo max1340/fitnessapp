@@ -1321,7 +1321,29 @@ const FALLBACKS = {
   "workout.undoFinishToast": { ru: "Тренировка завершена", en: "Workout finished" },
   "workout.undoFinishBtn": { ru: "Вернуть тренировку", en: "Undo" },
   "workout.undoRestoredToast": { ru: "Тренировка возвращена", en: "Workout resumed" },
-  "workout.resumeBanner": { ru: "Продолжить незавершённую тренировку", en: "Resume active workout session" }
+  "workout.resumeBanner": { ru: "Продолжить незавершённую тренировку", en: "Resume active workout session" },
+
+  "app.syncQueueBadge": { ru: "Очередь: {n}", en: "Queue: {n}" },
+  "app.syncTitle": { ru: "Синхронизация и данные", en: "Sync & Data" },
+  "app.syncStatusOk": { ru: "Всё синхронизировано", en: "All synced" },
+  "app.syncStatusPending": { ru: "Сохранено на устройстве", en: "Saved locally" },
+  "app.syncStatusOffline": { ru: "Офлайн-режим", en: "Offline mode" },
+  "app.syncStatusError": { ru: "Ошибка синхронизации", en: "Sync error" },
+  "app.networkOnline": { ru: "Подключено к интернету", en: "Connected to Internet" },
+  "app.networkOffline": { ru: "Нет подключения к интернету", en: "No Internet connection" },
+  "app.syncOkDesc": { ru: "Все ваши тренировки, программы и настройки сохранены в облаке.", en: "All your workouts, programs and settings are saved to cloud." },
+  "app.syncPendingDesc": { ru: "В локальной очереди ожидает {n} записей. При наличии сети они автоматически сохранятся в облаке.", en: "{n} records in local queue. They will automatically sync to cloud once connection is restored." },
+  "app.syncOfflineDesc": { ru: "Приложение полностью работает офлайн. Все действия сохраняются в памяти устройства.", en: "App is fully working offline. All changes are saved on this device." },
+  "app.syncQueueLabel": { ru: "Записей в очереди:", en: "Queue records:" },
+  "app.recordsUnit": { ru: "зап.", en: "rec." },
+  "app.syncNowBtn": { ru: "Синхронизировать сейчас", en: "Sync now" },
+  "app.syncTriggeredToast": { ru: "Синхронизация выполнена", en: "Sync completed" },
+  "workout.sumSetsCompleted": { ru: "Сетов закрыто", en: "Completed sets" },
+  "workout.sumBaselineTitle": { ru: "Базовая", en: "Baseline" },
+  "workout.sumBaselineFirst": { ru: "первая тренировка", en: "first workout" },
+  "workout.sumNoChange": { ru: "без изменений", en: "no change" },
+  "workout.muscleIntensityLegend": { ru: "Интенсивность: светлый → тёмный", en: "Intensity: light → dark" },
+  "workout.tapMuscleDetail": { ru: "Нажмите на мышцу на силуэте для деталей", en: "Tap a muscle on silhouette for details" }
 };
 
 export function t(key, params = null) {

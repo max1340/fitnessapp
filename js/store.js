@@ -121,7 +121,7 @@ export async function loginWithEmail(email, password) {
 }
 
 export const sendPasswordReset = sendReset;
-export { pendingCount, waitForSync };
+export { pendingCount, waitForSync, flushOfflineQueue };
 
 /** Регистрация нового аккаунта (Firebase Auth) с начальными настройками и опциональной первой программой. */
 export async function registerNewProfile({ email, password, displayName, settingsPatch = {}, bodyweightKg = null, firstProgramMode = "skip", customProgram = null }) {

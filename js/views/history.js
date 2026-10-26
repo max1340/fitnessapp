@@ -36,11 +36,25 @@ function buildHeatmap(doneItems, onOpenSession) {
   const daysLabels = h("div", { class: "heat-days" },
     h("span", {}, t("history.mon")), h("span", {}, ""), h("span", {}, t("history.wed")), h("span", {}, ""), h("span", {}, t("history.fri")), h("span", {}, ""), h("span", {}, t("history.sun")));
 
+  // Месяцы над колонками
+  const monthsRow = h("div", { class: "heat-months" });
+  let lastMonth = -1;
+  const monthNamesRu = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
+  const monthNamesEn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const monthNames = (typeof getLang === "function" && getLang() === "en") ? monthNamesEn : monthNamesRu;
+
   let count12w = 0;
   let selectedCell = null;
   const kg = unitLabel("kg");
 
   for (let w = 0; w < WEEKS; w++) {
+    const colMon = new Date(startMon);
+    colMon.setDate(startMon.getDate() + w * 7);
+    const m = colMon.getMonth();
+    const showMonth = (w === 0 || m !== lastMonth);
+    lastMonth = m;
+    monthsRow.append(h("span", { class: "heat-month" }, showMonth ? monthNames[m] : ""));
+
     const col = h("div", { class: "heat-col" });
     for (let d = 0; d < 7; d++) {
       const cellDate = new Date(startMon);
@@ -51,10 +65,20 @@ function buildHeatmap(doneItems, onOpenSession) {
       const sessions = byDay.get(k) || [];
       if (!isFuture && sessions.length) count12w += sessions.length;
 
+      let cellVol = 0;
+      for (const s of sessions) cellVol += (sessionStats(s).volume || 0);
+      let lvlCls = "";
+      if (sessions.length) {
+        if (cellVol >= 8000) lvlCls = " lvl-3";
+        else if (cellVol >= 3000) lvlCls = " lvl-2";
+        else lvlCls = " lvl-1";
+      }
+
       const cell = h("button", {
         type: "button",
-        class: "heat-cell" + (sessions.length ? " active" : "") + (k === todayKey ? " today" : "") + (isFuture ? " future" : ""),
+        class: "heat-cell" + (sessions.length ? ` active${lvlCls}` : "") + (k === todayKey ? " today" : "") + (isFuture ? " future" : ""),
         disabled: isFuture,
+        title: `${fmtDate(ts)}: ${sessions.length} трен.`,
         "aria-label": t("history.cellAria", { date: fmtDate(ts), count: sessions.length }),
         onclick: () => {
           if (selectedCell) selectedCell.classList.remove("sel");
@@ -62,13 +86,27 @@ function buildHeatmap(doneItems, onOpenSession) {
           cell.classList.add("sel");
           clear(caption);
           if (!sessions.length) {
-            caption.textContent = t("history.noWorkoutsOnDate", { date: fmtDate(ts) });
+            caption.append(h("div", { class: "heat-selected-box" },
+              h("strong", {}, fmtDate(ts, true)),
+              h("span", { class: "muted small", style: "display:block; margin-top:2px" }, t("history.noWorkoutsOnDate", { date: "" }).replace(/^[\s·—]+/, ""))
+            ));
           } else {
-            caption.append(h("span", {}, `${fmtShortDate(ts)}: `));
-            sessions.forEach((s, idx) => {
-              if (idx > 0) caption.append(" · ");
-              caption.append(h("button", { class: "heat-link", type: "button", onclick: () => onOpenSession(s) }, `${s.programName} (${formatNum(sessionStats(s).volume, 0)} ${kg})`));
+            const dayCards = sessions.map(s => {
+              const st = sessionStats(s);
+              return h("button", {
+                class: "heat-session-pill",
+                type: "button",
+                onclick: () => onOpenSession(s)
+              },
+                h("span", { class: "heat-sess-name" }, s.programName),
+                h("span", { class: "heat-sess-meta" }, `${formatNum(st.volume, 0)} ${kg}`),
+                icon("chevron-right", 14)
+              );
             });
+            caption.append(h("div", { class: "heat-selected-box" },
+              h("strong", {}, fmtDate(ts, true)),
+              h("div", { class: "heat-sessions-list", style: "margin-top:6px" }, ...dayCards)
+            ));
           }
         }
       });
@@ -77,12 +115,27 @@ function buildHeatmap(doneItems, onOpenSession) {
     grid.append(col);
   }
 
+  const legend = h("div", { class: "heat-legend" },
+    h("small", { class: "muted" }, "Меньше"),
+    h("span", { class: "heat-cell lvl-1", style: "width:10px; height:10px; display:inline-block" }),
+    h("span", { class: "heat-cell lvl-2", style: "width:10px; height:10px; display:inline-block" }),
+    h("span", { class: "heat-cell lvl-3", style: "width:10px; height:10px; display:inline-block" }),
+    h("small", { class: "muted" }, "Больше")
+  );
+
   return h("section", { class: "panel heat-panel" },
     h("div", { class: "panel-head" },
       h("h2", { class: "section" }, t("history.activity12w")),
       h("small", { class: "muted" }, t("history.count12w", { count: count12w }))),
-    h("div", { class: "heat-wrap" }, daysLabels, grid),
-    caption);
+    h("div", { class: "heat-outer" },
+      h("div", { class: "heat-wrap-top" }, h("div", { class: "heat-days-spacer" }), monthsRow),
+      h("div", { class: "heat-wrap" }, daysLabels, grid)
+    ),
+    h("div", { class: "row gap", style: "justify-content:space-between; align-items:center; margin-top:4px" },
+      caption,
+      legend
+    )
+  );
 }
 
 function openEditor(original) {
@@ -173,9 +226,9 @@ export function mount(root) {
     wrap.append(list);
     if (items.length) {
       wrap.append(h("button", {
-        class: "btn block", type: "button",
+        class: "btn secondary block csv-export-btn", type: "button",
         onclick: () => { downloadCsv(); toast(t("history.csvDownloadedToast")); }
-      }, icon("download", 18), t("history.downloadCsvBtn")));
+      }, icon("download", 16), t("history.downloadCsvBtn")));
     }
   };
   paint();

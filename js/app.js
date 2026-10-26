@@ -1,5 +1,5 @@
-import { h, clear, icon, closeTopSheet, showUndoSnackbar } from "./ui.js";
-import { init, subscribe, state, activateUserSession, clearSession, pendingCount, activeSession } from "./store.js";
+import { h, clear, icon, closeTopSheet, showUndoSnackbar, sheet, toast } from "./ui.js";
+import { init, subscribe, state, activateUserSession, clearSession, pendingCount, activeSession, flushOfflineQueue } from "./store.js";
 import { startRest } from "./timer.js";
 import { waitForInitialAuth, onAuthChange } from "./auth.js";
 import { isFirebaseConfigured } from "../firebase-config.js";
@@ -82,12 +82,64 @@ function route({ force = false } = {}) {
 let prevQueueCount = 0;
 let syncedFlashTimer = null;
 
+function openSyncDetailsModal() {
+  const isOnline = navigator.onLine;
+  const qCount = typeof pendingCount === "function" ? pendingCount() : 0;
+  const s = state.sync;
+
+  const statusTitle = s.error
+    ? t("app.syncStatusError")
+    : (!isOnline ? t("app.syncStatusOffline") : (qCount > 0 ? t("app.syncStatusPending") : t("app.syncStatusOk")));
+
+  const statusDesc = s.error
+    ? t("app.syncErrorTitle", { err: s.error })
+    : (!isOnline
+        ? t("app.syncOfflineDesc")
+        : (qCount > 0
+            ? t("app.syncPendingDesc", { n: qCount })
+            : t("app.syncOkDesc")));
+
+  let sh;
+  const sheetContent = h("div", { class: "stack", style: "gap:16px" },
+    h("div", { class: "row gap", style: "align-items:center" },
+      h("span", { class: "sync-status-indicator " + (s.error ? "err" : (isOnline ? "ok" : "warn")) }),
+      h("div", { class: "grow" },
+        h("h3", { style: "margin:0" }, statusTitle),
+        h("small", { class: "muted" }, isOnline ? t("app.networkOnline") : t("app.networkOffline"))
+      )
+    ),
+    h("div", { class: "panel", style: "padding:14px; margin:0; background:var(--card); border:1px solid var(--line); border-radius:var(--r-card)" },
+      h("p", { class: "small", style: "margin:0 0 10px; line-height:1.4" }, statusDesc),
+      h("div", { class: "row gap", style: "justify-content:space-between; align-items:center" },
+        h("small", { class: "muted" }, t("app.syncQueueLabel")),
+        h("strong", { style: "font-variant-numeric:tabular-nums" }, `${qCount} ` + t("app.recordsUnit"))
+      )
+    ),
+    h("div", { class: "stack", style: "gap:8px" },
+      isOnline && qCount > 0 ? h("button", {
+        class: "btn primary block",
+        type: "button",
+        onclick: async () => {
+          sh.close();
+          if (typeof flushOfflineQueue === "function") flushOfflineQueue();
+          toast(t("app.syncTriggeredToast"));
+          paintSync();
+        }
+      }, t("app.syncNowBtn")) : null,
+      h("button", { class: "btn block", type: "button", onclick: () => sh.close() }, t("common.close"))
+    )
+  );
+
+  sh = sheet(sheetContent, { title: t("app.syncTitle") });
+}
+
 function paintSync() {
   const s = state.sync;
   const qCount = typeof pendingCount === "function" ? pendingCount() : 0;
   let text = "", label = "", cls = "sync-pill";
 
   syncEl.setAttribute("role", "status");
+  syncEl.onclick = openSyncDetailsModal;
 
   if (s.error) {
     text = t("app.syncError");
@@ -98,8 +150,8 @@ function paintSync() {
     label = t("app.offlineTitle");
     cls += " sync-offline";
   } else if (qCount > 0) {
-    text = t("app.syncingQueued", { n: qCount });
-    label = t("app.syncingQueued", { n: qCount });
+    text = t("app.syncQueueBadge", { n: qCount });
+    label = t("app.syncPendingDesc", { n: qCount });
     cls += " sync-pending";
   } else if (prevQueueCount > 0 && qCount === 0) {
     text = t("app.synced");

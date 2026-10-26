@@ -556,7 +556,7 @@ export function openSessionShare(session) {
   openShareCard(session, meta);
 }
 
-export function showSummary(session) {
+export function showSummary(session, { onUndo } = {}) {
   const { stats, base, li, cmp, prItems, mapItems } = computeSummaryMeta(session);
 
   const program = getProgram(session.programId);
@@ -589,18 +589,54 @@ export function showSummary(session) {
   })() : null;
 
   const kg = unitLabel("kg");
-  const cell = (label, val, sub = "") => h("div", { class: "stat" }, h("small", { class: "muted" }, label), h("strong", {}, val), sub ? h("small", { class: "muted" }, sub) : null);
   const sign = n => (n > 0 ? "+" : "") + formatNum(n, 1);
-  const sh = sheet(h("div", { class: "stack" },
-    h("div", { class: "stats" },
-      cell(t("workout.sumVolume"), `${formatNum(stats.volume, 0)} ${kg}`),
-      cell(t("workout.sumBestE1rm"), stats.bestE1rm ? `${formatNum(stats.bestE1rm, 1)} ${kg}` : "—"),
-      cell(t("workout.sumLoadIndex"), li ? formatNum(li.li, 1) : "—", base && base.id === session.id ? t("workout.sumBaselineSub") : ""),
-      cell(t("workout.sumVsPrev"), cmp === null ? "—" : sign(cmp) + "%", t("workout.sumVsPrevSub")),
-      cell(t("workout.sumTime"), `${session.durationMin ?? "—"} ${t("workout.minUnit")}`)),
+
+  // 1. Четыре сбалансированные карточки 2x2
+  const kpiCard = (label, val, sub = "") => h("div", { class: "summary-kpi-card" },
+    h("span", { class: "summary-kpi-label" }, label),
+    h("strong", { class: "summary-kpi-val" }, val),
+    sub ? h("span", { class: "summary-kpi-sub" }, sub) : null
+  );
+
+  let vsPrevText = "—";
+  let vsPrevSub = t("workout.sumVsPrevSub");
+  if (cmp !== null) {
+    vsPrevText = sign(cmp) + "%";
+    if (cmp === 0) vsPrevSub = t("workout.sumNoChange");
+  } else {
+    vsPrevText = t("workout.sumBaselineTitle");
+    vsPrevSub = t("workout.sumBaselineFirst");
+  }
+
+  const completedSets = (session.entries || []).reduce((sum, e) => sum + (e.skipped ? 0 : (e.sets || []).filter(s => s.done).length), 0);
+
+  let sh;
+  const sheetContent = h("div", { class: "stack" },
+    h("div", { class: "summary-kpi-grid" },
+      kpiCard(t("workout.sumVolume"), `${formatNum(stats.volume, 0)} ${kg}`),
+      kpiCard(t("workout.sumBestE1rm"), stats.bestE1rm ? `${formatNum(stats.bestE1rm, 1)} ${kg}` : "—"),
+      kpiCard(t("workout.sumLoadIndex"), li ? formatNum(li.li, 1) : "—", base && base.id === session.id ? t("workout.sumBaselineSub") : ""),
+      kpiCard(t("workout.sumVsPrev"), vsPrevText, vsPrevSub)
+    ),
+    h("div", { class: "summary-meta-bar" },
+      h("div", { class: "summary-meta-item" },
+        h("small", {}, t("workout.sumTime")),
+        h("strong", {}, `${session.durationMin ?? "—"} ${t("workout.minUnit")}`)
+      ),
+      h("div", { class: "summary-meta-divider" }),
+      h("div", { class: "summary-meta-item" },
+        h("small", {}, t("workout.sumSetsCompleted")),
+        h("strong", {}, String(completedSets))
+      )
+    ),
     mapItems.length ? h("div", { class: "panel" },
-      h("h3", { class: "group" }, t("workout.musclesWorked")),
-      renderBodyMap(mapItems, { compact: true })) : null,
+      h("div", { class: "row gap", style: "justify-content:space-between; align-items:baseline" },
+        h("h3", { class: "group", style: "margin:0" }, t("workout.musclesWorked")),
+        h("small", { class: "muted" }, t("workout.muscleIntensityLegend"))
+      ),
+      renderBodyMap(mapItems, { compact: true }),
+      h("small", { class: "muted", style: "display:block; text-align:center; margin-top:6px" }, t("workout.tapMuscleDetail"))
+    ) : null,
     prItems.length ? h("div", { class: "panel" },
       h("h3", { class: "group" }, t("workout.newPRs")),
       ...prItems.map(p => h("div", { class: "row gap" }, h("span", { class: "pr-badge" }, "PR"), h("strong", { class: "grow" }, p.name), h("small", { class: "muted" }, p.text)))
@@ -612,7 +648,16 @@ export function showSummary(session) {
         onclick: () => openShareCard(session, { stats, li, cmp, prItems, mapItems })
       }, icon("share", 18), t("workout.shareBtn")),
       h("button", { class: "btn primary grow", type: "button", onclick: () => sh.close() }, t("common.done"))
-    )), { title: t("workout.finishedTitle") });
+    ),
+    onUndo ? h("div", { class: "row center", style: "margin-top:2px" },
+      h("button", {
+        class: "undo-workout-btn", type: "button",
+        onclick: () => { sh.close(); onUndo(); }
+      }, icon("undo", 14), " " + t("workout.undoFinishBtn"))
+    ) : null
+  );
+
+  sh = sheet(sheetContent, { title: t("workout.finishedTitle") });
 }
 
 /* ---------- Подсказка следующего подхода для таймера ---------- */
@@ -1117,21 +1162,15 @@ export function mount(root) {
     haptic("success");
     stopRest();
     home();
-    showSummary(saved);
-
-    // 10s undo snackbar to restore workout
-    showUndoSnackbar(
-      t("workout.undoFinishToast"),
-      t("workout.undoFinishBtn"),
-      () => {
+    showSummary(saved, {
+      onUndo: () => {
         saved.status = "active";
         saved.finishedAt = null;
         saveSession(saved);
         open(saved);
         toast(t("workout.undoRestoredToast"));
-      },
-      10000
-    );
+      }
+    });
   }
 
   // Если перешли с вкладки «Программы» по кнопке «Начать» (или переключили язык во время активной тренировки)

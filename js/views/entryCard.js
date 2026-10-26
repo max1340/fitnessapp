@@ -276,16 +276,6 @@ export function entryCard(entry, ctx) {
         stepper(set, "reps", 1, "0", t("entry.repsLabel")),
         doneBtn);
 
-      // Coach-mark при первом запуске: крепится к кнопке номера сета, не ломая CSS Grid
-      if (showWarmupCoach && i === 0 && !set.done) {
-        idxBtn.classList.add("has-coachmark");
-        const coachBadge = h("span", {
-          class: "coachmark-badge",
-          title: t("entry.coachmarkWarmup")
-        }, "W?");
-        idxBtn.append(coachBadge);
-      }
-
       const rpeEl = entry.trackRpe ? (() => {
         const inp = h("input", { type: "text", inputmode: "decimal", value: fmtNum(set.rpe), placeholder: "RPE", "aria-label": "RPE", class: "rpe" });
         inp.addEventListener("input", () => { const v = parseNum(inp.value); set.rpe = v !== null && v >= 1 && v <= 10 ? v : null; ctx.onChange(); });
