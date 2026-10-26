@@ -1295,9 +1295,45 @@ const DICT = {
 };
 
 /** Перевод строки по ключу с подстановкой параметров {param}. */
+const FALLBACKS = {
+  "entry.addWarmupBtn": { ru: "+ Разминка", en: "+ Warmup" },
+  "entry.plateSide": { ru: "{plates} / сторона", en: "{plates} / side" },
+  "entry.plateBarbell": { ru: "гриф {bar}", en: "bar {bar}" },
+  "entry.statusNotStarted": { ru: "Не начато", en: "Not started" },
+  "entry.statusInProgress": { ru: "В процессе: {done} из {total}", en: "In progress: {done} of {total}" },
+  "entry.statusDone": { ru: "Все сеты закрыты", en: "All sets completed" },
+  "entry.setDeletedToast": { ru: "Сет удалён", en: "Set deleted" },
+  "entry.coachmarkWarmup": { ru: "Тап по номеру сета переключает в разминку (Р)", en: "Tip: tap set number to toggle warmup (W)" },
+  "entry.warmupAddedToast": { ru: "Добавлено {n} разминочных сетов", en: "Added {n} warmup sets" },
+  "entry.swapHint": { ru: "Заменить упражнение", en: "Swap exercise" },
+  "entry.skipHint": { ru: "Пропустить упражнение", en: "Skip exercise" },
+  "entry.restHint": { ru: "Таймер отдыха", en: "Rest timer" },
+
+  "workout.confirmFinishTitle": { ru: "Завершить тренировку?", en: "Finish workout?" },
+  "workout.confirmFinishPrompt": { ru: "Проверьте сводку перед завершением:", en: "Review workout summary before finishing:" },
+  "workout.confirmFinishIncomplete": { ru: "Осталось незавершённых сетов: {n}", en: "{n} sets remaining incomplete" },
+  "workout.confirmFinishSets": { ru: "Закрыто сетов: {done} из {total}", en: "Sets completed: {done} of {total}" },
+  "workout.confirmFinishTime": { ru: "Длительность: {time}", en: "Duration: {time}" },
+  "workout.confirmFinishVol": { ru: "Тоннаж: {vol}", en: "Volume: {vol}" },
+  "workout.confirmFinishPrs": { ru: "Новых рекордов: {prs}", en: "New records: {prs}" },
+  "workout.confirmFinishBtn": { ru: "Завершить тренировку", en: "Finish workout" },
+  "workout.continueBtn": { ru: "Продолжить", en: "Continue" },
+  "workout.undoFinishToast": { ru: "Тренировка завершена", en: "Workout finished" },
+  "workout.undoFinishBtn": { ru: "Вернуть тренировку", en: "Undo" },
+  "workout.undoRestoredToast": { ru: "Тренировка возвращена", en: "Workout resumed" },
+  "workout.resumeBanner": { ru: "Продолжить незавершённую тренировку", en: "Resume active workout session" }
+};
+
 export function t(key, params = null) {
-  const table = DICT[currentLang] || DICT.ru;
-  const raw = table[key] !== undefined ? table[key] : (DICT.ru[key] !== undefined ? DICT.ru[key] : key);
+  const table = DICT[currentLang] || DICT.ru || {};
+  let raw = table[key];
+  if (raw === undefined && DICT.ru) raw = DICT.ru[key];
+  if (raw === undefined && DICT.en) raw = DICT.en[key];
+  if (raw === undefined && FALLBACKS[key]) {
+    raw = FALLBACKS[key][currentLang] || FALLBACKS[key].ru || FALLBACKS[key].en;
+  }
+  if (raw === undefined) raw = key;
+
   if (typeof raw === "function") return raw(params || {});
   if (!params || typeof raw !== "string") return raw;
   return raw.replace(/\{(\w+)\}/g, (_, k) => (params[k] !== undefined && params[k] !== null ? String(params[k]) : ""));

@@ -62,29 +62,13 @@ function beep() {
   });
 }
 
-let collapseTimer = null;
-function resetInactivity() {
-  if (bar && bar.classList.contains("collapsed-pill")) {
-    bar.classList.remove("collapsed-pill");
-  }
-  clearTimeout(collapseTimer);
-  if (endAt > 0 && !fired) {
-    collapseTimer = setTimeout(() => {
-      if (endAt > 0 && !fired && bar) {
-        bar.classList.add("collapsed-pill");
-      }
-    }, 5000);
-  }
-}
-
 function finish() {
   fired = true;
   if (bar) {
-    bar.classList.remove("collapsed-pill", "timer-urgent");
+    bar.classList.remove("timer-urgent");
     bar.classList.add("timer-shake");
     setTimeout(() => bar && bar.classList.remove("timer-shake"), 800);
   }
-  clearTimeout(collapseTimer);
   beep();
   if (state.settings.vibration && navigator.vibrate) navigator.vibrate([250, 120, 250, 120, 400]);
   sendNotification();
@@ -95,8 +79,7 @@ function render() {
   if (!endAt && !pausedLeftMs) {
     bar.hidden = true;
     document.body.classList.remove("timer-on");
-    bar.classList.remove("collapsed-pill", "timer-urgent", "timer-shake");
-    clearTimeout(collapseTimer);
+    bar.classList.remove("timer-urgent", "timer-shake");
     return;
   }
   bar.hidden = false;
@@ -128,7 +111,6 @@ export function startRest(sec, lbl = "") {
   clearNotifications();
   pausedLeftMs = 0;
   endAt = Date.now() + sec * 1000; total = sec; label = lbl; fired = false;
-  resetInactivity();
   loop();
 }
 
@@ -151,7 +133,6 @@ export function resumeRest() {
 
 export function addRest(sec) {
   if (!endAt && !pausedLeftMs) return;
-  resetInactivity();
   if (pausedLeftMs > 0) {
     pausedLeftMs = Math.max(1000, pausedLeftMs + sec * 1000);
     total = Math.max(1, total + sec);
@@ -206,14 +187,6 @@ export function initTimerBar(container) {
       els.plus,
       els.skip));
   bar.hidden = true;
-  bar.addEventListener("pointerdown", (e) => {
-    if (bar.classList.contains("collapsed-pill")) {
-      e.stopPropagation();
-      resetInactivity();
-    } else {
-      resetInactivity();
-    }
-  });
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) { render(); if (fired) clearNotifications(); }
   });

@@ -232,7 +232,9 @@ export function sheet(content, { title = "", full = false, onClose, beforeClose,
     head.addEventListener("pointercancel", end);
   });
 
-  const api = {
+  const api = Object.assign(function closeSheet(result) {
+    return api.close(result);
+  }, {
     el, body,
     async requestClose(result) {
       if (api.closed || api.checking) return false;
@@ -253,7 +255,7 @@ export function sheet(content, { title = "", full = false, onClose, beforeClose,
       document.body.classList.toggle("sheet-open", openSheets.length > 0);
       onClose && onClose(result);
     }
-  };
+  });
   root.append(el); openSheets.push(api);
   document.body.classList.add("sheet-open");
   return api;

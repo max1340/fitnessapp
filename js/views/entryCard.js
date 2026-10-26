@@ -55,7 +55,7 @@ export function entryCard(entry, ctx) {
 
   const unit = entry.unit, step = stepFor(unit);
   const initialAllDone = ctx.collapsible !== false && entry.sets.length > 0 && entry.sets.every(s => s.done);
-  const isBarbell = /штан|гриф|barbell|bench\s*press|жим\s*лежа|жим\s*лёжа|присед|squat|deadlift|становая|overhead\s*press|military|тяга\s*в\s*наклоне/i.test(entry.exerciseName || "");
+  const isBarbell = /штан|гриф|barbell|bench\s*press|жим\s*лежа|жим\s*лёжа|присед|squat|deadlift|становая|тяга\s*в\s*наклоне/i.test(entry.exerciseName || "") && !/гантел|db|dumbbell|кроссов|кабел|cable|блок/i.test(entry.exerciseName || "");
 
   const setsBox = h("div", { class: "sets" });
   const weightInputs = new Map();
@@ -276,19 +276,14 @@ export function entryCard(entry, ctx) {
         stepper(set, "reps", 1, "0", t("entry.repsLabel")),
         doneBtn);
 
-      // Coach-mark при первом запуске о том, что тап по номеру сета переключает в разминку
+      // Coach-mark при первом запуске: крепится к кнопке номера сета, не ломая CSS Grid
       if (showWarmupCoach && i === 0 && !set.done) {
+        idxBtn.classList.add("has-coachmark");
         const coachBadge = h("span", {
-          class: "coachmark-hint",
-          title: t("entry.coachmarkWarmup"),
-          onclick: (e) => {
-            e.stopPropagation();
-            localStorage.setItem(COACH_WARMUP_KEY, "1");
-            showWarmupCoach = false;
-            coachBadge.remove();
-          }
+          class: "coachmark-badge",
+          title: t("entry.coachmarkWarmup")
         }, "W?");
-        rowA.append(coachBadge);
+        idxBtn.append(coachBadge);
       }
 
       const rpeEl = entry.trackRpe ? (() => {
@@ -324,7 +319,8 @@ export function entryCard(entry, ctx) {
       if (isBarbell && set.weight && set.weight > (unit === "lb" ? 45 : 20)) {
         const pStr = calcPlates(set.weight, unit);
         if (pStr) {
-          plateEl = h("span", { class: "plate-math", title: t("entry.plateSide", { plates: pStr }) }, t("entry.plateSide", { plates: pStr }));
+          const plateTxt = t("entry.plateSide", { plates: pStr }) || `${pStr} / ст.`;
+          plateEl = h("span", { class: "plate-math", title: plateTxt }, plateTxt);
         }
       }
 
@@ -511,19 +507,21 @@ export function entryCard(entry, ctx) {
         h("span", {}, t("entry.colDone"))),
       setsBox,
       h("div", { class: "entry-foot" },
-        h("button", { class: "btn small add-set-btn", type: "button", onclick: () => {
-          const prev = entry.sets[entry.sets.length - 1];
-          entry.sets.push({ reps: prev ? prev.reps : null, weight: prev ? prev.weight : null, rpe: null, done: false, isWarmup: false, completedAt: null, hint: "", hintWeight: prev ? prev.weight : null, hintReps: prev ? prev.reps : null });
-          setCollapsed(false);
-          ctx.onChange(); paintSets(); updateEntryStatus();
-        } }, t("entry.addSet")),
-        addWarmupBtn,
-        h("button", { class: "btn small add-set-btn", type: "button", title: t("entry.removeSetTitle"), onclick: () => {
-          if (entry.sets.length <= 1) return;
-          entry.sets.pop();
-          ctx.onChange(); paintSets(); updateEntryStatus();
-          setCollapsed(!entry._expanded);
-        } }, t("entry.removeSet")),
+        h("div", { class: "entry-foot-btns" },
+          h("button", { class: "btn small add-set-btn", type: "button", onclick: () => {
+            const prev = entry.sets[entry.sets.length - 1];
+            entry.sets.push({ reps: prev ? prev.reps : null, weight: prev ? prev.weight : null, rpe: null, done: false, isWarmup: false, completedAt: null, hint: "", hintWeight: prev ? prev.weight : null, hintReps: prev ? prev.reps : null });
+            setCollapsed(false);
+            ctx.onChange(); paintSets(); updateEntryStatus();
+          } }, t("entry.addSet")),
+          addWarmupBtn,
+          h("button", { class: "btn small add-set-btn", type: "button", title: t("entry.removeSetTitle"), onclick: () => {
+            if (entry.sets.length <= 1) return;
+            entry.sets.pop();
+            ctx.onChange(); paintSets(); updateEntryStatus();
+            setCollapsed(!entry._expanded);
+          } }, t("entry.removeSet"))
+        ),
         noteWrap)
     )
   );

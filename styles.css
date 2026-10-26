@@ -560,10 +560,47 @@ input[type="checkbox"]:not(.ios-switch):checked::after { transform: rotate(-45de
 .set.done .done-btn svg { opacity: 1; }
 .set.done .set-idx { color: var(--fg); border-color: var(--fg); }
 
-/* Нижняя строка карточки: [+ Сет] [− Сет] и [Заметка…] в одну линию */
-.entry-foot { display: flex; align-items: center; gap: 5px; margin-top: 2px; }
-.entry-foot .add-set-btn { flex: none; min-height: 34px; height: 34px; padding: 0 10px; font-size: 12.5px; border-radius: 8px; }
-.entry-foot .entry-note { flex: 1; min-height: 34px; height: 34px; font-size: 16px; padding: 0 10px; border-radius: 8px; }
+/* Нижняя часть карточки упражнения: ряд кнопок сетов и отдельная строка для заметки */
+.entry-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.entry-foot-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+.entry-foot-btns .btn,
+.entry-foot-btns .add-set-btn {
+  flex: 1;
+  min-height: 34px;
+  height: 34px;
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--r-control);
+  text-align: center;
+  white-space: nowrap;
+}
+.cancel-workout-btn {
+  color: var(--ink-2);
+  background: transparent;
+  border: 1px solid transparent;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--r-control);
+  transition: color var(--dur-press) ease, background var(--dur-press) ease;
+}
+.cancel-workout-btn:hover,
+.cancel-workout-btn:active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
 
 /* ---------- Таймер отдыха ---------- */
 .timer-bar {
@@ -1328,6 +1365,27 @@ input[type="checkbox"].ios-switch:checked::after { transform: translateX(20px); 
 }
 
 /* Coachmark & +Разминка */
+.set-idx.has-coachmark {
+  position: relative;
+  overflow: visible;
+}
+.set-idx .coachmark-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  background: var(--accent);
+  border-radius: var(--r-chip);
+  padding: 2px 4px;
+  box-shadow: 0 1px 3px rgba(208, 32, 44, 0.4);
+  pointer-events: auto;
+  cursor: pointer;
+  z-index: 2;
+  animation: urgentPulse 1.6s ease-in-out infinite;
+}
 .coachmark-hint {
   font-size: 11px;
   font-weight: 700;
@@ -1341,6 +1399,42 @@ input[type="checkbox"].ios-switch:checked::after { transform: translateX(20px); 
 .add-warmup-btn {
   border-style: dashed !important;
   font-weight: 600;
+}
+
+/* Сводка в шторке подтверждения завершения */
+.finish-confirm-sheet {
+  gap: 12px;
+}
+.finish-confirm-sheet .stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  background: var(--bg);
+  padding: 10px;
+  border-radius: var(--r-card);
+}
+.finish-confirm-sheet .stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.finish-confirm-sheet .stat small {
+  font-size: 11px;
+  color: var(--ink-2);
+}
+.finish-confirm-sheet .stat strong {
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.finish-warning {
+  padding: 8px 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: var(--r-control);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
 }
 
 /* Сегментированный прогресс-бар тренировки */

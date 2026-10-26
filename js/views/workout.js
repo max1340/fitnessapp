@@ -975,7 +975,7 @@ export function mount(root) {
       h("div", { class: "active-top" },
         h("div", { class: "active-row1" },
           h("h2", { class: "section grow" }, session.programName),
-          h("button", { class: "btn icon", type: "button", title: t("workout.deleteWorkoutTitle"), "aria-label": t("workout.deleteWorkoutTitle"), onclick: cancel }, icon("trash", 18))),
+          h("button", { class: "btn small text-btn cancel-workout-btn", type: "button", title: t("workout.deleteWorkoutTitle"), onclick: cancel }, t("common.cancel"))),
         h("div", { class: "active-row2" },
           h("div", { class: "active-meta" }, clockEl, pausedBadge, h("span", { class: "muted" }, "·"), progTextEl),
           h("div", { class: "row gap" },
@@ -1083,21 +1083,23 @@ export function mount(root) {
       }
     }
 
-    const closeFn = sheet(h("div", { class: "stack finish-confirm-sheet" },
-      h("h3", { style: "margin:0" }, t("workout.confirmFinishTitle")),
+    let sh;
+    const sheetContent = h("div", { class: "stack finish-confirm-sheet" },
+      h("h3", { style: "margin:0; font-size:18px" }, t("workout.confirmFinishTitle")),
       h("p", { class: "muted small", style: "margin:0" }, t("workout.confirmFinishPrompt")),
       h("div", { class: "stats" },
-        h("div", { class: "stat" }, h("small", { class: "muted" }, t("workout.confirmFinishSets", { done: doneCount, total: totalSets }).split(":")[0]), h("strong", {}, `${doneCount}/${totalSets}`)),
+        h("div", { class: "stat" }, h("small", { class: "muted" }, t("workout.sumSets")), h("strong", {}, `${doneCount}/${totalSets}`)),
         h("div", { class: "stat" }, h("small", { class: "muted" }, t("workout.sumTime")), h("strong", {}, `${durMin} ${t("workout.minUnit")}`)),
         h("div", { class: "stat" }, h("small", { class: "muted" }, t("workout.sumVolume")), h("strong", {}, volStr)),
         prCount > 0 ? h("div", { class: "stat" }, h("small", { class: "muted" }, "PR"), h("strong", {}, String(prCount))) : null
       ),
-      undone > 0 ? h("div", { class: "finish-warning" }, t("workout.confirmFinishIncomplete", { n: undone })) : null,
-      h("div", { class: "row gap", style: "margin-top:12px" },
-        h("button", { class: "btn grow", type: "button", onclick: () => closeFn() }, t("workout.continueBtn")),
-        h("button", { class: "btn danger grow", type: "button", onclick: () => { closeFn(); doFinish(); } }, t("workout.confirmFinishBtn"))
+      undone > 0 ? h("div", { class: "finish-warning", style: "color:var(--accent); font-weight:600; font-size:13px" }, t("workout.confirmFinishIncomplete", { n: undone })) : null,
+      h("div", { class: "stack", style: "margin-top:14px; gap:8px" },
+        h("button", { class: "btn danger block", type: "button", onclick: () => { sh.close(); doFinish(); } }, t("workout.confirmFinishBtn")),
+        h("button", { class: "btn block", type: "button", onclick: () => sh.close() }, t("workout.continueBtn"))
       )
-    ));
+    );
+    sh = sheet(sheetContent);
   }
 
   function doFinish() {

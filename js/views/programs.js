@@ -118,13 +118,14 @@ export function mount(root) {
   const showArchived = h("input", { type: "checkbox", class: "ios-switch" });
 
   function openProgramMenu(p) {
-    const closeMenu = sheet(h("div", { class: "stack" },
+    let menuSheet;
+    menuSheet = sheet(h("div", { class: "stack" },
       h("h3", { style: "margin:0" }, p.name),
       h("button", {
         class: "btn block",
         type: "button",
         onclick: () => {
-          closeMenu();
+          menuSheet.close();
           saveProgram({ ...p, id: uid(), name: p.name + t("programs.copySuffix"), baselineSessionId: null });
           toast(t("programs.duplicatedToast"));
           paint();
@@ -134,7 +135,7 @@ export function mount(root) {
         class: "btn block",
         type: "button",
         onclick: async () => {
-          closeMenu();
+          menuSheet.close();
           if (p.archived || await confirmDialog(t("programs.archiveConfirm", { name: p.name }), { ok: t("programs.archive") })) {
             saveProgram({ ...p, archived: !p.archived });
             paint();
@@ -145,7 +146,7 @@ export function mount(root) {
         class: "btn danger block",
         type: "button",
         onclick: async () => {
-          closeMenu();
+          menuSheet.close();
           if (await confirmDialog(t("programs.deleteConfirm", { name: p.name }), { ok: t("common.delete"), danger: true })) {
             deleteProgram(p.id);
             toast(t("programs.deletedToast"));
