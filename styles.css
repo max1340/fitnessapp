@@ -843,11 +843,11 @@ input[type="checkbox"]:not(.ios-switch):checked::after { transform: rotate(-45de
 /* ---------- Карточка «Итог тренировки» (Share Card) ---------- */
 .share-canvas-wrap {
   display: flex; justify-content: center; align-items: center;
-  background: var(--s2); border: 1px solid var(--line); border-radius: 16px; padding: 10px;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 20px; padding: 12px;
 }
 .share-canvas {
-  width: 100%; max-width: 420px; height: auto; display: block; border-radius: 12px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, .28);
+  width: 100%; max-width: 440px; height: auto; display: block; border-radius: 16px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, .22);
 }
 
 /* ---------- Анимации ---------- */

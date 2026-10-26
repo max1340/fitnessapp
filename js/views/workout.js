@@ -5,7 +5,7 @@ import { entryCard, checkSetPR } from "./entryCard.js";
 import { pickExercise } from "./exercises.js";
 import { startRest, stopRest, pauseRest, resumeRest } from "../timer.js";
 import { renderBodyMap, ZONES, mapMuscleToZones } from "../bodyMap.js";
-import { t, tMuscle } from "../i18n.js";
+import { t, tMuscle, isEn } from "../i18n.js";
 
 /* ---------- Screen Wake Lock ---------- */
 let wakeLock = null, wantLock = false;
@@ -142,12 +142,45 @@ function fitText(ctx, text, maxW) {
 function renderShareCanvas(canvas, session, meta, theme = "dark") {
   const { stats, li, cmp, prItems = [], mapItems = [] } = meta;
   const pal = theme === "light"
-    ? { bg: "#f6f6f7", s1: "#ffffff", s2: "#ececee", line: "#d6d6da", fg: "#0b0b0c", mut: "#6b6b72" }
-    : { bg: "#0b0b0c", s1: "#151517", s2: "#1f1f22", line: "#2a2a2e", fg: "#f2f2f3", mut: "#8b8b92" };
+    ? {
+        bg: "#FFFFFF",
+        cardBg: "#FFFFFF",
+        kpiBg: "#F4F4F6",
+        s2: "#ECECEF",
+        line: "#EAEAEA",
+        rowLine: "#F2F2F6",
+        fg: "#0A0A0B",
+        mut: "#8E8E93",
+        barTop: "#0A0A0B",
+        barSub: "#A1A1A6",
+        badgeBg: "#0A0A0B",
+        badgeFg: "#FFFFFF",
+        bodyOutline: "#DEDEE3",
+        bodyInactive: "#ECECEF",
+        bodyActive: "#0A0A0B"
+      }
+    : {
+        bg: "#0E0E10",
+        cardBg: "#161619",
+        kpiBg: "#1C1C20",
+        s2: "#26262B",
+        line: "#2A2A2E",
+        rowLine: "#202024",
+        fg: "#F4F4F6",
+        mut: "#8E8E93",
+        barTop: "#F4F4F6",
+        barSub: "#636366",
+        badgeBg: "#F4F4F6",
+        badgeFg: "#0A0A0B",
+        bodyOutline: "#333338",
+        bodyInactive: "#222226",
+        bodyActive: "#F4F4F6"
+      };
 
   const prNames = new Set(prItems.map(p => p.name));
   const exRows = [];
   let totalWorkSets = 0;
+  let totalPrCount = 0;
   for (const e of session.entries || []) {
     if (e.skipped) continue;
     const work = (e.sets || []).filter(s => s.done && !s.isWarmup && s.reps > 0);
@@ -160,22 +193,39 @@ function renderShareCanvas(canvas, session, meta, theme = "dark") {
       }
     }
     const u = unitLabel(e.unit);
-    const bestTxt = (bestSet.weight ?? 0) > 0
-      ? `${t("workout.shareSetsOnly", { n: work.length })} · ${t("workout.shareBestSet", { w: fmtNum(bestSet.weight), u, r: bestSet.reps })}`
-      : `${t("workout.shareSetsOnly", { n: work.length })} × ${bestSet.reps}`;
+    const hasPr = prNames.has(e.exerciseName) || prNames.has(getExercise(e.exerciseId)?.name);
+    if (hasPr) totalPrCount++;
     exRows.push({
       name: getExercise(e.exerciseId)?.name || e.exerciseName,
-      detail: bestTxt,
-      hasPr: prNames.has(e.exerciseName) || prNames.has(getExercise(e.exerciseId)?.name)
+      setsCount: work.length,
+      weight: bestSet.weight,
+      reps: bestSet.reps,
+      unit: u,
+      hasPr
     });
   }
-  const shownEx = exRows.slice(0, 7);
+  const shownEx = exRows;
 
-  const W = 720;
-  const pad = 28;
+  const W = 760;
+  const pad = 36;
   const innerW = W - pad * 2;
-  const exBoxH = shownEx.length ? (52 + shownEx.length * 44 + 12) : 0;
-  const H = 132 + 104 + 16 + 266 + (exBoxH ? 16 + exBoxH : 0) + 52;
+
+  // Рассчитываем высоту секции мышц
+  const sortedMuscles = [...mapItems].sort((a, b) => b.sets - a.sets).slice(0, 5);
+  const maxMuscleSets = sortedMuscles[0]?.sets || 1;
+  const mapH = 44 + Math.max(160, sortedMuscles.length * 36) + 16;
+
+  // Рассчитываем высоту секции упражнений
+  const rowH = 48;
+  const exHeaderH = 34;
+  const exTotalH = shownEx.length ? (exHeaderH + shownEx.length * rowH + 8) : 0;
+
+  // Полная высота canvas
+  const statY = 104;
+  const statH = 96;
+  const mapY = statY + statH + 20;
+  const exY = mapY + mapH + 26;
+  const H = exY + exTotalH + 34;
   const scale = 2;
 
   canvas.width = W * scale;
@@ -183,94 +233,138 @@ function renderShareCanvas(canvas, session, meta, theme = "dark") {
   const ctx = canvas.getContext("2d");
   ctx.scale(scale, scale);
 
-  const font = (weight, size) => `${weight} ${size}px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
+  const font = (weight, size) => `${weight} ${size}px "Golos Text", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
 
-  // 1. Фон и внешняя рамка
+  // 1. Фон карточки (закругленный холст)
   ctx.fillStyle = pal.bg;
-  ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = pal.line;
-  ctx.lineWidth = 2;
-  rrect(ctx, 10, 10, W - 20, H - 20, 22);
-  ctx.stroke();
-
-  // 2. Шапка: эмблема, дата, заголовок программы
-  ctx.fillStyle = pal.fg;
-  rrect(ctx, pad, 28, 42, 42, 11);
+  rrect(ctx, 0, 0, W, H, 28);
   ctx.fill();
+
+  // 2. Шапка: эмблема, название, никнейм и дата
+  ctx.fillStyle = pal.fg;
+  rrect(ctx, pad, 36, 44, 44, 12);
+  ctx.fill();
+
   ctx.strokeStyle = pal.bg;
   ctx.lineWidth = 2.4;
   ctx.lineCap = "round";
   ctx.save();
-  ctx.translate(pad + 9, 37);
+  ctx.translate(pad + 10, 45);
   ctx.stroke(new Path2D("M6 8v8M3 10v4M18 8v8M21 10v4M6 12h12"));
   ctx.restore();
 
-  ctx.fillStyle = pal.mut;
-  ctx.font = font(700, 12);
-  ctx.textBaseline = "alphabetic";
-  ctx.fillText(t("app.splashTitle") + (state.user?.displayName ? ` · ${state.user.displayName}` : ""), pad + 54, 45);
-  ctx.font = font(500, 13);
-  ctx.fillText(fmtDate(session.startedAt, true), pad + 54, 64);
-
+  // Название бренда и автор
   ctx.fillStyle = pal.fg;
-  ctx.font = font(800, 26);
-  ctx.fillText(fitText(ctx, session.programName || t("workout.freeWorkout"), innerW), pad, 108);
+  ctx.font = font(800, 13);
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(t("app.splashTitle").toUpperCase(), pad + 56, 52);
+
+  const authorName = state.user?.displayName || "max_134";
+  ctx.fillStyle = pal.mut;
+  ctx.font = font(500, 12);
+  ctx.fillText(authorName, pad + 56, 70);
+
+  // Дата и время (справа вверху)
+  ctx.fillStyle = pal.mut;
+  ctx.font = font(500, 13);
+  ctx.textAlign = "right";
+  ctx.fillText(fmtDate(session.startedAt, true), pad + innerW, 58);
+  ctx.textAlign = "left";
 
   // 3. Сетка из 4 карточек ключевых метрик
-  const statY = 128;
-  const statGap = 10;
+  const statGap = 12;
   const statW = (innerW - statGap * 3) / 4;
-  const statH = 92;
   const kg = unitLabel("kg");
-  const sign = n => (n > 0 ? "+" : "") + formatNum(n, 1);
-  const fourthLabel = li ? t("workout.sumLoadIndex") : t("workout.sumBestE1rm");
-  const fourthVal = li ? formatNum(li.li, 1) : (stats.bestE1rm ? `${formatNum(stats.bestE1rm, 1)} ${kg}` : "—");
-  const fourthSub = cmp !== null ? `${sign(cmp)}%` : "";
+
+  // Подготовка данных для 4 плашек
+  // Карточка 1: Объём
+  const volVal = `${formatNum(stats.volume, 0)}`;
+  const volSub = cmp !== null
+    ? `${cmp > 0 ? "+" : ""}${formatNum(cmp, 0)}% ${isEn() ? "vs prev." : "к прошлой"}`
+    : (isEn() ? "first workout" : "первая тренировка");
+
+  // Карточка 2: Время
+  const durMin = session.durationMin || Math.max(1, Math.round(((session.finishedAt || Date.now()) - session.startedAt) / 60000)) || 0;
+  let timeVal = "";
+  if (durMin >= 60) {
+    const h = Math.floor(durMin / 60);
+    const m = durMin % 60;
+    timeVal = isEn() ? `${h} h ${m} m` : `${h} ч ${m} мин`;
+  } else {
+    timeVal = isEn() ? `${durMin} min` : `${durMin} мин`;
+  }
+  const timeSub = isEn() ? "including rest" : "включая отдых";
+
+  // Карточка 3: Рабочих сетов
+  const setsVal = String(totalWorkSets);
+  const exCount = session.entries ? session.entries.filter(e => !e.skipped).length : 0;
+  const setsSub = isEn()
+    ? `${exCount} ${exCount === 1 ? "exercise" : "exercises"}`
+    : `${exCount} ${exCount >= 2 && exCount <= 4 ? "упражнения" : "упражнений"}`;
+
+  // Карточка 4: Индекс нагрузки
+  const liVal = li ? formatNum(li.li, 0) : "100";
+  const liSub = li ? (isEn() ? "program base" : "база программы") : (isEn() ? "program base" : "база программы");
 
   const statCards = [
-    { label: t("workout.sumVolume"), val: `${formatNum(stats.volume, 0)} ${kg}`, sub: "" },
-    { label: t("workout.sumTime"), val: `${session.durationMin ?? "—"} ${t("workout.minUnit")}`, sub: "" },
-    { label: t("workout.shareWorkSets"), val: String(totalWorkSets), sub: prItems.length ? `${prItems.length} PR` : "" },
-    { label: fourthLabel, val: fourthVal, sub: fourthSub }
+    { label: t("workout.sumVolume"), val: volVal, unit: ` ${kg}`, sub: volSub },
+    { label: t("workout.sumTime"), val: timeVal, unit: "", sub: timeSub },
+    { label: t("workout.shareWorkSets"), val: setsVal, unit: "", sub: setsSub },
+    { label: t("workout.sumLoadIndex"), val: liVal, unit: "", sub: liSub }
   ];
 
   statCards.forEach((sc, i) => {
     const x = pad + i * (statW + statGap);
-    ctx.fillStyle = pal.s1;
-    ctx.strokeStyle = pal.line;
-    ctx.lineWidth = 1.5;
-    rrect(ctx, x, statY, statW, statH, 14);
+    ctx.fillStyle = pal.kpiBg;
+    rrect(ctx, x, statY, statW, statH, 16);
     ctx.fill();
-    ctx.stroke();
 
+    // Заголовок карточки
     ctx.fillStyle = pal.mut;
-    ctx.font = font(600, 12);
-    ctx.fillText(fitText(ctx, sc.label, statW - 24), x + 14, statY + 26);
+    ctx.font = font(500, 12);
+    ctx.fillText(fitText(ctx, sc.label, statW - 24), x + 16, statY + 26);
 
+    // Главное число
     ctx.fillStyle = pal.fg;
-    ctx.font = font(800, 22);
-    ctx.fillText(fitText(ctx, sc.val, statW - 24), x + 14, statY + 58);
+    ctx.font = font(800, 24);
+    ctx.fillText(sc.val, x + 16, statY + 58);
 
+    if (sc.unit) {
+      const numW = ctx.measureText(sc.val).width;
+      ctx.font = font(700, 14);
+      ctx.fillText(sc.unit, x + 16 + numW, statY + 58);
+    }
+
+    // Подподпись
     if (sc.sub) {
       ctx.fillStyle = pal.mut;
-      ctx.font = font(700, 12);
-      ctx.fillText(sc.sub, x + 14, statY + 78);
+      ctx.font = font(500, 11);
+      ctx.fillText(fitText(ctx, sc.sub, statW - 24), x + 16, statY + 80);
     }
   });
 
   // 4. Панель: Анатомический силуэт (Спереди + Сзади) и распределение по мышцам
-  const mapY = statY + statH + 16;
-  const mapH = 266;
-  ctx.fillStyle = pal.s1;
+  ctx.fillStyle = pal.cardBg;
   ctx.strokeStyle = pal.line;
-  ctx.lineWidth = 1.5;
-  rrect(ctx, pad, mapY, innerW, mapH, 16);
+  ctx.lineWidth = 1;
+  rrect(ctx, pad, mapY, innerW, mapH, 20);
   ctx.fill();
   ctx.stroke();
 
+  // Заголовок панели
   ctx.fillStyle = pal.mut;
-  ctx.font = font(700, 12);
-  ctx.fillText(t("workout.musclesWorked").toUpperCase(), pad + 18, mapY + 26);
+  ctx.font = font(700, 11);
+  ctx.fillText(t("workout.musclesWorked").toUpperCase(), pad + 20, mapY + 26);
+
+  // Справа в заголовке панели: "5 мышечных групп"
+  const mgCount = mapItems.length;
+  const groupsText = isEn()
+    ? `${mgCount} ${mgCount === 1 ? "muscle group" : "muscle groups"}`
+    : `${mgCount} ${mgCount >= 2 && mgCount <= 4 ? "мышечные группы" : "мышечных групп"}`;
+  ctx.font = font(500, 12);
+  ctx.textAlign = "right";
+  ctx.fillText(groupsText, pad + innerW - 20, mapY + 26);
+  ctx.textAlign = "left";
 
   const zoneStats = new Map();
   let maxZoneSets = 0;
@@ -285,14 +379,14 @@ function renderShareCanvas(canvas, session, meta, theme = "dark") {
     }
   }
 
-  const drawFigure = (side, cx, cy, sc, labelText) => {
+  const drawFigure = (side, cx, cy, sc) => {
     ctx.save();
     ctx.translate(cx, cy);
     ctx.scale(sc, sc);
 
-    // Голова и контур тела
-    ctx.fillStyle = pal.s2;
-    ctx.strokeStyle = pal.line;
+    // Голова
+    ctx.fillStyle = pal.bodyInactive;
+    ctx.strokeStyle = pal.bodyOutline;
     ctx.lineWidth = 1.3;
     ctx.beginPath();
     ctx.arc(0, 18, 11, 0, Math.PI * 2);
@@ -302,7 +396,7 @@ function renderShareCanvas(canvas, session, meta, theme = "dark") {
     ctx.stroke(new Path2D("M -6,28 L -7,38 M 6,28 L 7,38"));
     const bodyP = new Path2D(BODY_OUTLINE_PATH);
     ctx.save();
-    ctx.globalAlpha = 0.45;
+    ctx.fillStyle = pal.bodyInactive;
     ctx.fill(bodyP);
     ctx.restore();
     ctx.stroke(bodyP);
@@ -312,14 +406,13 @@ function renderShareCanvas(canvas, session, meta, theme = "dark") {
       const ratio = maxZoneSets > 0 && sets > 0 ? sets / maxZoneSets : 0;
       ctx.save();
       if (sets === 0) {
-        ctx.fillStyle = pal.s1;
-        ctx.globalAlpha = 0.7;
-        ctx.strokeStyle = pal.line;
+        ctx.fillStyle = pal.bodyInactive;
+        ctx.strokeStyle = pal.bodyOutline;
         ctx.lineWidth = 1;
       } else {
-        ctx.fillStyle = pal.fg;
-        ctx.globalAlpha = Math.max(0.35, Math.min(1.0, 0.35 + ratio * 0.65));
-        ctx.strokeStyle = pal.fg;
+        ctx.fillStyle = pal.bodyActive;
+        ctx.globalAlpha = Math.max(0.40, Math.min(1.0, 0.40 + ratio * 0.60));
+        ctx.strokeStyle = pal.bodyActive;
         ctx.lineWidth = 1.2;
       }
       for (const d of z.paths) {
@@ -327,109 +420,132 @@ function renderShareCanvas(canvas, session, meta, theme = "dark") {
         ctx.fill(p);
         ctx.globalAlpha = 1;
         ctx.stroke(p);
-        if (sets > 0) ctx.globalAlpha = Math.max(0.35, Math.min(1.0, 0.35 + ratio * 0.65));
+        if (sets > 0) ctx.globalAlpha = Math.max(0.40, Math.min(1.0, 0.40 + ratio * 0.60));
       }
       ctx.restore();
     }
     ctx.restore();
-
-    ctx.fillStyle = pal.mut;
-    ctx.font = font(700, 10);
-    ctx.textAlign = "center";
-    ctx.fillText(labelText, cx, cy + 242 * sc);
-    ctx.textAlign = "left";
   };
 
-  drawFigure("front", pad + 92, mapY + 36, 0.86, t("bodyMap.front"));
-  drawFigure("back", pad + 228, mapY + 36, 0.86, t("bodyMap.back"));
+  drawFigure("front", pad + 64, mapY + 44, 0.64);
+  drawFigure("back", pad + 152, mapY + 44, 0.64);
 
   // Правая колонка внутри панели мышц — полоски мышечных групп
-  const sortedMuscles = [...mapItems].sort((a, b) => b.sets - a.sets).slice(0, 6);
-  const maxMuscleSets = sortedMuscles[0]?.sets || 1;
-  const barX = pad + 324;
-  const barW = innerW - 344;
+  const listX = pad + 242;
+  const listW = innerW - 262;
+
   sortedMuscles.forEach((m, idx) => {
-    const ry = mapY + 48 + idx * 34;
+    const ry = mapY + 54 + idx * 36;
     const mName = tMuscle(m.muscle);
+    const pct = Math.round((m.sets / (totalWorkSets || 1)) * 100);
+
+    // Название мышцы
     ctx.fillStyle = pal.fg;
     ctx.font = font(700, 13);
-    ctx.fillText(fitText(ctx, mName, barW - 60), barX, ry);
+    ctx.fillText(fitText(ctx, mName, listW - 130), listX, ry);
 
-    const cntTxt = t("workout.shareSetsOnly", { n: m.sets });
-    ctx.fillStyle = pal.mut;
-    ctx.font = font(600, 12);
+    // Сеты и процент
+    const statText = isEn()
+      ? `${m.sets} sets · ${pct}%`
+      : `${m.sets} сет. · ${pct}%`;
+    ctx.font = font(800, 13);
+    ctx.fillStyle = pal.fg;
     ctx.textAlign = "right";
-    ctx.fillText(cntTxt, barX + barW, ry);
+    ctx.fillText(statText, listX + listW, ry);
     ctx.textAlign = "left";
 
     // Полоска
+    const barY = ry + 7;
+    const barH = 6;
     ctx.fillStyle = pal.s2;
-    rrect(ctx, barX, ry + 6, barW, 7, 4);
+    rrect(ctx, listX, barY, listW, barH, 3);
     ctx.fill();
-    ctx.fillStyle = pal.fg;
-    rrect(ctx, barX, ry + 6, Math.max(10, (m.sets / maxMuscleSets) * barW), 7, 4);
+
+    const fillW = Math.max(10, (m.sets / maxMuscleSets) * listW);
+    ctx.fillStyle = idx === 0 ? pal.barTop : pal.barSub;
+    rrect(ctx, listX, barY, fillW, barH, 3);
     ctx.fill();
   });
 
-  // 5. Список упражнений
+  // 5. Список выполненных упражнений
   if (shownEx.length) {
-    const exY = mapY + mapH + 16;
-    ctx.fillStyle = pal.s1;
-    ctx.strokeStyle = pal.line;
-    ctx.lineWidth = 1.5;
-    rrect(ctx, pad, exY, innerW, exBoxH, 16);
-    ctx.fill();
-    ctx.stroke();
-
     ctx.fillStyle = pal.mut;
-    ctx.font = font(700, 12);
-    ctx.fillText(t("workout.shareExercises").toUpperCase(), pad + 18, exY + 28);
+    ctx.font = font(700, 11);
+    ctx.fillText(t("workout.shareExercises").toUpperCase(), pad + 4, exY + 14);
+
+    if (totalPrCount > 0) {
+      ctx.font = font(700, 11);
+      ctx.textAlign = "right";
+      ctx.fillText(`PR: ${totalPrCount}`, pad + innerW, exY + 14);
+      ctx.textAlign = "left";
+    }
+
+    const startY = exY + 30;
 
     shownEx.forEach((row, idx) => {
-      const ry = exY + 46 + idx * 44;
-      ctx.fillStyle = pal.s2;
-      rrect(ctx, pad + 14, ry, innerW - 28, 36, 9);
-      ctx.fill();
+      const ry = startY + idx * rowH;
 
-      // Номер
+      // 1. Номер
       ctx.fillStyle = pal.mut;
-      ctx.font = font(700, 12);
-      ctx.fillText(String(idx + 1) + ".", pad + 26, ry + 23);
+      ctx.font = font(700, 13);
+      ctx.fillText(String(idx + 1), pad + 4, ry + 24);
 
-      // Значения справа
-      ctx.fillStyle = pal.mut;
-      ctx.font = font(600, 13);
-      ctx.textAlign = "right";
-      ctx.fillText(row.detail, pad + innerW - 26, ry + 23);
-      const detailW = ctx.measureText(row.detail).width;
-      ctx.textAlign = "left";
-
-      let prOffset = 0;
+      // 2. PR бейдж (если есть)
+      let rightOffset = 0;
       if (row.hasPr) {
-        prOffset = 34;
-        const bx = pad + innerW - 26 - detailW - 36;
-        ctx.fillStyle = pal.fg;
-        rrect(ctx, bx, ry + 9, 28, 18, 5);
+        rightOffset = 36;
+        const bx = pad + innerW - 30;
+        ctx.fillStyle = pal.badgeBg;
+        rrect(ctx, bx, ry + 12, 30, 18, 9);
         ctx.fill();
-        ctx.fillStyle = pal.bg;
+        ctx.fillStyle = pal.badgeFg;
         ctx.font = font(800, 10);
         ctx.textAlign = "center";
-        ctx.fillText("PR", bx + 14, ry + 22);
+        ctx.fillText("PR", bx + 15, ry + 24);
         ctx.textAlign = "left";
       }
 
+      // 3. Вес и повторы
       ctx.fillStyle = pal.fg;
-      ctx.font = font(700, 14);
-      ctx.fillText(fitText(ctx, row.name, innerW - 95 - detailW - prOffset), pad + 48, ry + 23);
+      ctx.font = font(800, 14);
+      ctx.textAlign = "right";
+      const valText = (row.weight ?? 0) > 0
+        ? `${fmtNum(row.weight)} ${row.unit} × ${row.reps}`
+        : `${row.reps}`;
+      const valX = pad + innerW - rightOffset;
+      ctx.fillText(valText, valX, ry + 24);
+      const valW = ctx.measureText(valText).width;
+      ctx.textAlign = "left";
+
+      // 4. Количество сетов
+      ctx.fillStyle = pal.mut;
+      ctx.font = font(500, 12);
+      ctx.textAlign = "right";
+      const setsText = isEn()
+        ? `${row.setsCount} ${row.setsCount === 1 ? "set" : "sets"}`
+        : `${row.setsCount} ${row.setsCount >= 2 && row.setsCount <= 4 ? "сета" : "сетов"}`;
+      const setsX = valX - valW - 14;
+      ctx.fillText(setsText, setsX, ry + 24);
+      const setsW = ctx.measureText(setsText).width;
+      ctx.textAlign = "left";
+
+      // 5. Название упражнения
+      ctx.fillStyle = pal.fg;
+      ctx.font = font(800, 14);
+      const maxNameW = setsX - (pad + 32) - setsW - 14;
+      ctx.fillText(fitText(ctx, row.name, maxNameW), pad + 32, ry + 24);
+
+      // Разделитель между строками упражнений
+      if (idx < shownEx.length - 1) {
+        ctx.strokeStyle = pal.rowLine;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(pad, ry + rowH - 2);
+        ctx.lineTo(pad + innerW, ry + rowH - 2);
+        ctx.stroke();
+      }
     });
   }
-
-  // 6. Подвал
-  ctx.fillStyle = pal.mut;
-  ctx.font = font(600, 12);
-  ctx.textAlign = "center";
-  ctx.fillText(t("app.name").toUpperCase(), W / 2, H - 22);
-  ctx.textAlign = "left";
 }
 
 export function openShareCard(session, meta) {
