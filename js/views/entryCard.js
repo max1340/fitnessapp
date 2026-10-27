@@ -437,7 +437,7 @@ export function entryCard(entry, ctx) {
   const headPrBadge = h("span", { class: "pr-badge", hidden: true }, "PR");
   const muscleTagEl = muscle ? h("span", { class: "muscle-tag" }, muscle) : null;
   const clockIconEl = h("span", { class: "entry-clock-ico", title: t("entry.restHint") }, icon("clock", 13));
-  const subEl = h("small", { class: "muted" });
+  const subEl = h("span", { class: "entry-sub-text" });
 
   const foldBtn = h("button", {
     class: "btn icon entry-fold-btn",
@@ -529,15 +529,17 @@ export function entryCard(entry, ctx) {
           }
         }
       },
-        h("span", { class: "entry-title-row" },
+        h("div", { class: "entry-title-row" },
           doneCheckEl,
-          h("strong", {}, `${ctx.index + 1}. ${entry.exerciseName}`),
-          headPrBadge,
+          h("strong", { class: "entry-title-text" }, `${ctx.index + 1}. ${entry.exerciseName}`),
+          headPrBadge),
+        h("div", { class: "entry-sub-row" },
           muscleTagEl,
-          clockIconEl),
-        subEl),
-      foldBtn,
-      extraActions),
+          clockIconEl,
+          subEl)),
+      h("div", { class: "entry-head-actions" },
+        foldBtn,
+        extraActions)),
     bodyCollapse
   );
 
@@ -552,6 +554,9 @@ export function entryCard(entry, ctx) {
     foldBtn.setAttribute("title", lbl);
     const hasEntryPR = entry.sets.some(s => checkSetPR(s, unit, ctx.prBaseline));
     headPrBadge.hidden = !(isCol && hasEntryPR);
+    if (muscleTagEl) muscleTagEl.hidden = isCol;
+    if (clockIconEl) clockIconEl.hidden = isCol;
+    if (extraActions) extraActions.hidden = isCol;
     subEl.textContent = isCol ? buildSummaryText() : subParts.join(" · ");
     subEl.hidden = !subEl.textContent;
   }

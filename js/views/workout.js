@@ -21,7 +21,7 @@ function releaseLock() { wantLock = false; if (wakeLock) { wakeLock.release().ca
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && wantLock) acquireLock(); });
 
 /* ---------- Сборка тренировки ---------- */
-const fmtSet = (s, unit) => `${fmtNum(s.weight ?? 0)} ${unitLabel(unit)} × ${s.reps ?? "?"}`;
+const fmtSet = (s, unit) => `${fmtNum(s.weight ?? 0)}\u00A0${unitLabel(unit)}\u00A0×\u00A0${s.reps ?? "?"}`;
 
 function parseTargetRange(targetReps) {
   const s = String(targetReps || "").trim();
