@@ -4,22 +4,6 @@ import { authErrorMessage, sendReset } from "../auth.js";
 import { t, getLang } from "../i18n.js";
 import { isStandalone, promptPwaInstall } from "../pwa.js";
 
-const LS_COLLAPSED_KEY = "fitness:stg:collapsed";
-
-function readCollapsedState() {
-  try {
-    const raw = localStorage.getItem(LS_COLLAPSED_KEY);
-    return new Set(raw ? JSON.parse(raw) : []);
-  } catch {
-    return new Set();
-  }
-}
-
-function writeCollapsedState(set) {
-  try {
-    localStorage.setItem(LS_COLLAPSED_KEY, JSON.stringify([...set]));
-  } catch { /* ignore */ }
-}
 
 export function applyTheme() {
   const tMode = state.settings.theme;
@@ -221,7 +205,7 @@ function openBodyweightSheet(onSave) {
 export function openSettings() {
   const wrap = h("div", { class: "stack stg-wrap" });
   let sh = null;
-  const collapsedSet = readCollapsedState();
+  const openCategories = new Set();
 
   function renderContent() {
     clear(wrap);
@@ -259,9 +243,9 @@ export function openSettings() {
 
     /* Helper: Accordion Category */
     function buildCategory(catId, title, cardContent) {
-      const isCollapsed = collapsedSet.has(catId);
+      const isOpen = openCategories.has(catId);
       const catEl = h("div", {
-        class: "stg-category" + (isCollapsed ? " collapsed" : ""),
+        class: "stg-category" + (isOpen ? "" : " collapsed"),
         dataset: { category: catId }
       });
 
@@ -269,17 +253,16 @@ export function openSettings() {
       const headBtn = h("button", {
         type: "button",
         class: "stg-category-head",
-        "aria-expanded": !isCollapsed ? "true" : "false",
+        "aria-expanded": isOpen ? "true" : "false",
         onclick: () => {
-          if (collapsedSet.has(catId)) {
-            collapsedSet.delete(catId);
+          if (openCategories.has(catId)) {
+            openCategories.delete(catId);
           } else {
-            collapsedSet.add(catId);
+            openCategories.add(catId);
           }
-          writeCollapsedState(collapsedSet);
-          const nowCollapsed = collapsedSet.has(catId);
-          catEl.classList.toggle("collapsed", nowCollapsed);
-          headBtn.setAttribute("aria-expanded", !nowCollapsed ? "true" : "false");
+          const nowOpen = openCategories.has(catId);
+          catEl.classList.toggle("collapsed", !nowOpen);
+          headBtn.setAttribute("aria-expanded", nowOpen ? "true" : "false");
           haptic("light");
         }
       },
@@ -427,13 +410,6 @@ export function openSettings() {
         t("settings.autoStartRestSub"),
         iosSwitch(st.autoStartRest !== false, checked => {
           updateSettings({ autoStartRest: checked });
-        })
-      ),
-      row(
-        t("settings.suggestWarmup"),
-        t("settings.suggestWarmupSub"),
-        iosSwitch(!!st.suggestWarmup, checked => {
-          updateSettings({ suggestWarmup: checked });
         })
       ),
       row(

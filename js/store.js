@@ -72,8 +72,7 @@ export const DEFAULT_SETTINGS = {
   vibration: true,
   notifications: true,
   theme: "dark", // dark | light | system
-  autoStartRest: true,
-  suggestWarmup: false
+  autoStartRest: true
 };
 
 export const state = {

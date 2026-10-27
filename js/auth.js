@@ -95,9 +95,10 @@ export function authErrorMessage(err) {
   switch (code) {
     case "auth/invalid-credential":
     case "auth/wrong-password":
-    case "auth/user-not-found":
     case "auth/invalid-login-credentials":
       return t("auth.err.invalidCredential");
+    case "auth/user-not-found":
+      return t("auth.err.userNotFound");
     case "auth/email-already-in-use": return t("auth.err.emailInUse");
     case "auth/weak-password": return t("auth.err.weakPassword");
     case "auth/too-many-requests": return t("auth.err.tooMany");

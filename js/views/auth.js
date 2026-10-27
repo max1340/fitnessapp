@@ -140,19 +140,27 @@ export function openAuthScreen(onSuccess) {
           ev.preventDefault();
           resetError = "";
           resetInfo = "";
+          const targetEmail = (emailInp.value || "").trim();
+          if (!targetEmail || !targetEmail.includes("@")) {
+            resetError = t("auth.errInvalidEmail");
+            render();
+            return;
+          }
+          if (typeof navigator !== "undefined" && navigator.onLine === false) {
+            resetError = t("auth.err.offline");
+            render();
+            return;
+          }
           resetLoading = true;
           render();
           try {
-            await sendPasswordReset(emailInp.value.trim());
+            await sendPasswordReset(targetEmail);
             haptic("success");
             resetInfo = t("auth.resetSent");
+            toast(t("auth.resetSentToast", { email: targetEmail }));
           } catch (err) {
             haptic("error");
-            if (err && err.code === "auth/user-not-found") {
-              resetInfo = t("auth.resetSent");
-            } else {
-              resetError = authErrorMessage(err);
-            }
+            resetError = authErrorMessage(err);
           }
           resetLoading = false;
           render();
@@ -470,7 +478,6 @@ export function openAuthScreen(onSuccess) {
       if (wizardError) errEl.append(icon("x", 14), wizardError);
 
       wizardBody.append(
-        leadText,
         h("div", { class: "auth-field" },
           h("label", { for: "reg-name", class: "auth-label" }, t("auth.nameLabel")),
           nameInp
@@ -487,12 +494,6 @@ export function openAuthScreen(onSuccess) {
         ),
         errEl
       );
-
-      setTimeout(() => {
-        if (!regName) nameInp.focus();
-        else if (!regEmail) emailInp.focus();
-        else passInp.focus();
-      }, 100);
     }
 
     // STEP 2: ПАРАМЕТРЫ
@@ -888,7 +889,16 @@ export function openAuthScreen(onSuccess) {
             haptic("error");
             wizardSubmitting = false;
             const code = err && err.code;
-            if (code === "auth/email-already-in-use" || code === "auth/weak-password" || code === "auth/invalid-email") {
+            if (code === "auth/email-already-in-use") {
+              mode = "login";
+              loginEmail = regEmail;
+              loginPass = "";
+              loginError = t("auth.emailAlreadyRegistered");
+              step = 1;
+              render();
+              return;
+            }
+            if (code === "auth/weak-password" || code === "auth/invalid-email") {
               wizardError = authErrorMessage(err);
               step = 1;
               render();

@@ -887,6 +887,7 @@ input[type="checkbox"]:not(.ios-switch):checked::after { transform: rotate(-45de
   padding: 14px 16px 8px;
   position: relative;
   gap: 8px;
+  z-index: 25;
 }
 .builder-header-left {
   display: flex;
@@ -985,6 +986,12 @@ input[type="checkbox"]:not(.ios-switch):checked::after { transform: rotate(-45de
   position: relative;
   flex-shrink: 0;
   transition: color 150ms ease, border-color 150ms ease;
+  z-index: 30;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+.builder-close-btn svg {
+  pointer-events: none;
 }
 .builder-close-btn::after {
   content: '';
@@ -1182,11 +1189,9 @@ input[type="checkbox"]:not(.ios-switch):checked::after { transform: rotate(-45de
   font-weight: 600;
   color: var(--ink);
   line-height: 1.25;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  white-space: nowrap;
   overflow: hidden;
-  word-break: break-word;
+  text-overflow: ellipsis;
 }
 .builder-ex-muscle {
   font-size: 11px;
@@ -1229,21 +1234,30 @@ input[type="checkbox"]:not(.ios-switch):checked::after { transform: rotate(-45de
 .builder-ex-collapse {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 300ms cubic-bezier(.2, 0, 0, 1);
+  transition: grid-template-rows 240ms cubic-bezier(.2, 0, 0, 1), visibility 240ms;
   overflow: hidden;
+  visibility: hidden;
   border-top: 1px solid transparent;
 }
 .builder-ex-item.is-open .builder-ex-collapse {
   grid-template-rows: 1fr;
+  visibility: visible;
   border-top-color: var(--line);
 }
 .builder-ex-body {
   min-height: 0;
+  overflow: hidden;
   padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 14px;
   background: var(--bg);
+}
+.builder-ex-item:not(.is-open) .builder-ex-body {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
 }
 
 /* Controls inside accordion */
@@ -1854,13 +1868,13 @@ input[type="checkbox"]:not(.ios-switch):checked::after { transform: rotate(-45de
 }
 
 .sheet-wrap { position: fixed; inset: 0; z-index: 50; max-width: 100vw; display: flex; justify-content: center; align-items: flex-end; }
-.sheet-backdrop { position: absolute; inset: 0; background: var(--shade); }
+.sheet-backdrop { position: absolute; inset: 0; background: var(--shade); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .sheet {
   position: relative; width: min(100%, var(--col)); max-width: 100vw; max-height: 92dvh; display: flex; flex-direction: column; background: var(--bg);
   border: 1px solid var(--line); border-bottom: 0; border-radius: 20px 20px 0 0; padding-bottom: var(--safe-b);
 }
 .sheet.full { height: 92dvh; }
-.sheet-head { position: relative; display: flex; align-items: center; gap: 8px; padding: 14px 8px 8px 16px; border-bottom: 1px solid var(--line); touch-action: none; }
+.sheet-head { position: relative; display: flex; align-items: center; gap: 8px; padding: 14px 8px 8px 16px; border-bottom: 1px solid var(--line); touch-action: none; z-index: 25; }
 .sheet-grab { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); width: 36px; height: 4px; border-radius: 99px; background: var(--line); }
 .sheet-head h2 { flex: 1; font-size: 18px; }
 .sheet-body { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px; flex: 1; overscroll-behavior: contain; }
@@ -3107,11 +3121,12 @@ body.auth-open #app { visibility: hidden; pointer-events: none; }
 .stg-category-body {
   display: grid;
   grid-template-rows: 1fr;
-  transition: grid-template-rows 250ms cubic-bezier(0.2, 0, 0, 1);
+  transition: grid-template-rows 260ms cubic-bezier(0.2, 0, 0, 1), visibility 260ms;
 }
 
 .stg-category.collapsed .stg-category-body {
   grid-template-rows: 0fr;
+  visibility: hidden;
 }
 
 .stg-category-inner {
@@ -4557,10 +4572,19 @@ input[type="checkbox"].ios-switch:checked::after {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
   margin-top: -2px;
+  padding-bottom: 2px;
+}
+.builder-rest-chips-wrap::-webkit-scrollbar {
+  display: none;
 }
 .builder-rest-chip {
+  flex-shrink: 0;
+  white-space: nowrap;
   padding: 5px 11px;
   font-size: 12px;
   font-weight: 600;
@@ -4583,6 +4607,7 @@ input[type="checkbox"].ios-switch:checked::after {
 }
 .builder-ex-body {
   min-height: 0;
+  overflow: hidden;
   padding: 12px 14px 14px;
   display: flex;
   flex-direction: column;
@@ -4594,4 +4619,59 @@ input[type="checkbox"].ios-switch:checked::after {
   padding: 0 12px;
   font-size: 13.5px;
   border-radius: 10px;
+}
+
+/* Muscle Groups 2-Column Square Grid */
+.ex-muscle-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  width: 100%;
+}
+.ex-muscle-card {
+  aspect-ratio: 1 / 1;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  transition: transform 120ms ease, border-color 150ms ease, background 150ms ease;
+  position: relative;
+  overflow: hidden;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.ex-muscle-card:active {
+  transform: scale(0.97);
+  background: var(--row);
+}
+.ex-muscle-title {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+.ex-muscle-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border-radius: 8px;
+  background: var(--row);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
 }

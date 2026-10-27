@@ -219,9 +219,17 @@ export function sheet(content, { title = "", full = false, onClose, beforeClose,
     backBtnEl,
     h("h2", {}, title), actions || null, closeBtn);
   const box = h("section", { class: "sheet" + (full ? " full" : ""), role: "dialog", "aria-modal": "true", "aria-label": title }, head, body);
-  const el = h("div", { class: "sheet-wrap" },
-    h("div", { class: "sheet-backdrop", onclick: () => api.requestClose() }),
-    box);
+  const backdrop = h("div", {
+    class: "sheet-backdrop",
+    role: "button",
+    "aria-label": t("common.close"),
+    tabindex: -1,
+    onclick: (e) => {
+      e.stopPropagation();
+      api.requestClose();
+    }
+  });
+  const el = h("div", { class: "sheet-wrap" }, backdrop, box);
 
   // Свайп вниз по шапке модального листа для закрытия
   head.addEventListener("pointerdown", e => {
@@ -282,6 +290,13 @@ export function sheet(content, { title = "", full = false, onClose, beforeClose,
   return api;
 }
 export const closeTopSheet = () => { const s = openSheets[openSheets.length - 1]; if (s) { s.requestClose(); return true; } return false; };
+
+window.addEventListener("keydown", e => {
+  if (e.key === "Escape" && openSheets.length > 0) {
+    const top = openSheets[openSheets.length - 1];
+    if (top) top.requestClose();
+  }
+});
 
 export function confirmDialog(message, { ok = t("common.yes"), cancel = t("common.cancel"), danger = false } = {}) {
   return new Promise(resolve => {

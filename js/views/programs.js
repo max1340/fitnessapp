@@ -277,7 +277,12 @@ export function openProgramEditor(program) {
     type: "button",
     class: "builder-close-btn",
     "aria-label": t("common.close"),
-    onclick: () => sh.requestClose()
+    onpointerdown: (e) => e.stopPropagation(),
+    onclick: (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      sh.requestClose();
+    }
   }, icon("x", 16));
 
   // Live Meta string
@@ -412,7 +417,10 @@ export function openProgramEditor(program) {
       const infoEl = h("div", { class: "builder-ex-info" }, nameEl, muscleEl);
 
       function fmtSetsCount(n) {
-        return `${n} ${isEn() ? (n === 1 ? "set" : "sets") : (n >= 2 && n <= 4 ? "сета" : "сетов")}`;
+        if (isEn()) return `${n} ${n === 1 ? "set" : "sets"}`;
+        if (n % 10 === 1 && n % 100 !== 11) return `${n} сет`;
+        if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) return `${n} сета`;
+        return `${n} сетов`;
       }
       const summaryEl = h("span", { class: "builder-ex-summary" }, fmtSetsCount(it.sets || 3));
       const chevronEl = h("span", { class: "builder-chevron" }, icon("down", 18));
@@ -990,8 +998,13 @@ export function openProgramEditor(program) {
     beforeClose: async () => {
       if (!dirty) return true;
       return new Promise((resolve) => {
-        let confirmSheet;
-        confirmSheet = sheet(
+        let settled = false;
+        const settle = (val) => {
+          if (settled) return;
+          settled = true;
+          resolve(val);
+        };
+        const confirmSheet = sheet(
           h("div", { class: "stack", style: "gap: 16px; padding: 8px 0;" },
             h("div", { style: "display: flex; flex-direction: column; gap: 6px;" },
               h("h3", { style: "margin: 0; font-size: 18px; font-weight: 700;" }, t("builder.unsavedTitle")),
@@ -1005,7 +1018,7 @@ export function openProgramEditor(program) {
                 onclick: () => {
                   confirmSheet.close();
                   save(true);
-                  resolve(true);
+                  settle(true);
                 }
               }, t("builder.unsavedSave")),
               h("button", {
@@ -1015,7 +1028,7 @@ export function openProgramEditor(program) {
                 onclick: () => {
                   dirty = false;
                   confirmSheet.close();
-                  resolve(true);
+                  settle(true);
                 }
               }, t("builder.unsavedDiscard")),
               h("button", {
@@ -1024,12 +1037,15 @@ export function openProgramEditor(program) {
                 style: "height: 48px;",
                 onclick: () => {
                   confirmSheet.close();
-                  resolve(false);
+                  settle(false);
                 }
               }, t("builder.unsavedStay"))
             )
           ),
-          { title: "" }
+          {
+            title: "",
+            onClose: () => settle(false)
+          }
         );
       });
     }
