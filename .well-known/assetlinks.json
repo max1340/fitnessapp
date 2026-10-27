@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.max1340.fitnessapp",
+      "sha256_cert_fingerprints": [
+        "5F:7A:76:F6:8A:50:29:AF:55:4F:9F:7A:82:7E:BE:32:2C:E2:67:83:50:86:62:0F:3F:79:ED:41:7F:3E:5D:A3"
+      ]
+    }
+  }
+]

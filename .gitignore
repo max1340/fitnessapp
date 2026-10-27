@@ -1,3 +1,8 @@
 photo_*.jpg
 .DS_Store
 Thumbs.db
+/android-twa/build/
+/android-twa/app/build/
+/android-twa/.gradle/
+/android-twa/local.properties
+
