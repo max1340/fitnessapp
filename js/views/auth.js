@@ -24,6 +24,11 @@ function getPasswordStrength(pwd) {
 }
 
 export function openAuthScreen(onSuccess) {
+  const splash = document.getElementById("splash");
+  if (splash) {
+    splash.classList.add("hide");
+    setTimeout(() => { if (splash && splash.parentNode) splash.remove(); }, 150);
+  }
   let el = document.getElementById("auth-screen");
   if (!el) {
     el = h("div", { id: "auth-screen", class: "auth-screen" });

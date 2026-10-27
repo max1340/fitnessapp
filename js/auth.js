@@ -29,12 +29,34 @@ export function onAuthChange(cb) {
  * Первое состояние авторизации. Не зависит от сети: SDK берёт закэшированного пользователя из IndexedDB.
  * Если за timeoutMs ответа нет — считаем, что сессии нет (показываем экран входа), а не висим на сплэше.
  */
-export function waitForInitialAuth(timeoutMs = 6000) {
+export function waitForInitialAuth(timeoutMs = 3500) {
   return new Promise(resolve => {
     let done = false;
-    const finish = u => { if (done) return; done = true; clearTimeout(timer); unsub(); resolve(u); };
-    const timer = setTimeout(() => finish(null), timeoutMs);
-    const unsub = onAuthStateChanged(auth, u => finish(toUser(u)), () => finish(null));
+    let timer = null;
+    let unsub = null;
+    const finish = u => {
+      if (done) return;
+      done = true;
+      if (timer) clearTimeout(timer);
+      if (typeof unsub === "function") {
+        try { unsub(); } catch { /* ignore */ }
+      }
+      resolve(u);
+    };
+    timer = setTimeout(() => finish(null), timeoutMs);
+    try {
+      unsub = onAuthStateChanged(
+        auth,
+        u => finish(toUser(u)),
+        err => {
+          console.warn("onAuthStateChanged error:", err);
+          finish(null);
+        }
+      );
+    } catch (e) {
+      console.warn("onAuthStateChanged failed:", e);
+      finish(null);
+    }
   });
 }
 
