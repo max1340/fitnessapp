@@ -126,7 +126,6 @@ function route({ force = false } = {}) {
     if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
   });
 }
-}
 
 export function openCommandPalette() {
   openPalette();
