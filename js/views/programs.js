@@ -881,7 +881,7 @@ export function mount(root) {
           h("small", { class: "muted" }, t("programs.cardSub", { count: p.items.length, names: names.join(", ") || "—" }))),
         h("div", { class: "row card-actions" },
           !p.archived && (!act || isCurrentActive) ? h("button", {
-            class: "btn small primary start-btn", type: "button",
+            class: "btn small primary", type: "button",
             onclick: () => {
               haptic("medium");
               if (!act) startSession(p);
