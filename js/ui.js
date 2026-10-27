@@ -146,7 +146,10 @@ const ICONS = {
   eye: "M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7zM12 15a3 3 0 100-6 3 3 0 000 6z",
   eyeOff: "M9.88 9.88a3 3 0 104.24 4.24M10.73 5.08A10.43 10.43 0 0112 5c7 0 10 7 10 7a13.16 13.16 0 01-1.67 2.68M6.61 6.61A13.526 13.526 0 002 12s3 7 10 7a9.74 9.74 0 005.39-1.61M2 2l20 20",
   lock: "M19 11H5a2 2 0 00-2 2v7a2 2 0 002 2h14a2 2 0 002-2v-7a2 2 0 00-2-2zM7 11V7a5 5 0 0110 0v4",
-  arrowLeft: "M19 12H5M12 19l-7-7 7-7"
+  arrowLeft: "M19 12H5M12 19l-7-7 7-7",
+  chevronDown: "M6 9l6 6 6-6",
+  chevronRight: "M9 18l6-6-6-6",
+  chevronLeft: "M15 18l-6-6 6-6"
 };
 export function icon(name, size = 22) {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -204,12 +207,15 @@ const openSheets = [];
  * Нижний лист. content — Node. opts: {title, full, onClose, beforeClose, actions}
  * Возвращает { close, requestClose, el, body }.
  */
-export function sheet(content, { title = "", full = false, onClose, beforeClose, actions } = {}) {
+export function sheet(content, { title = "", full = false, onClose, beforeClose, actions, backBtn = false } = {}) {
   const root = document.getElementById("sheets");
   const body = h("div", { class: "sheet-body" }, content);
-  const closeBtn = iconBtn("x", t("common.close"), () => api.requestClose());
-  const head = h("header", { class: "sheet-head" },
+  const closeAction = () => api.requestClose();
+  const closeBtn = backBtn ? null : iconBtn("x", t("common.close"), closeAction);
+  const backBtnEl = backBtn ? iconBtn("arrowLeft", t("common.back") || "Назад", closeAction, "sheet-back-btn") : null;
+  const head = h("header", { class: "sheet-head" + (backBtn ? " has-back" : "") },
     h("div", { class: "sheet-grab", "aria-hidden": "true" }),
+    backBtnEl,
     h("h2", {}, title), actions || null, closeBtn);
   const box = h("section", { class: "sheet" + (full ? " full" : ""), role: "dialog", "aria-modal": "true", "aria-label": title }, head, body);
   const el = h("div", { class: "sheet-wrap" },

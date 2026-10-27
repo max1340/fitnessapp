@@ -1348,7 +1348,7 @@ export function mount(root) {
           }
           updateProgress();
           if (pr) toast(t("workout.newPrToast", { name: e.exerciseName }));
-          if (!set.isWarmup) startRest(e.restSec ?? state.settings.restSec, buildNextLabel(session, e));
+          if (!set.isWarmup && state.settings.autoStartRest !== false) startRest(e.restSec ?? state.settings.restSec, buildNextLabel(session, e));
           setTimeout(() => {
             const nextPending = entriesBox.querySelector(".set:not(.done)");
             if (nextPending) {

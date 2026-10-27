@@ -1,8 +1,25 @@
 import { h, clear, sheet, toast, confirmDialog, parseNum, fmtNum, fmtRest, icon, haptic } from "../ui.js";
-import { state, updateSettings, exportData, importData, downloadCsv, unitLabel, logoutProfile, doneSessions, pendingCount, waitForSync, deleteAccount } from "../store.js";
-import { authErrorMessage } from "../auth.js";
+import { state, updateSettings, exportData, importData, downloadCsv, unitLabel, logoutProfile, doneSessions, pendingCount, waitForSync, flushOfflineQueue, logBodyweight, saveDoc } from "../store.js";
+import { authErrorMessage, sendReset } from "../auth.js";
 import { t, getLang } from "../i18n.js";
 import { isStandalone, promptPwaInstall } from "../pwa.js";
+
+const LS_COLLAPSED_KEY = "fitness:stg:collapsed";
+
+function readCollapsedState() {
+  try {
+    const raw = localStorage.getItem(LS_COLLAPSED_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeCollapsedState(set) {
+  try {
+    localStorage.setItem(LS_COLLAPSED_KEY, JSON.stringify([...set]));
+  } catch { /* ignore */ }
+}
 
 export function applyTheme() {
   const tMode = state.settings.theme;
@@ -51,86 +68,446 @@ function openDeleteAccount() {
   dsh = sheet(form, { title: t("settings.deleteAccount") });
 }
 
+/** Смена пароля: подтверждение отправки ссылки на email */
+async function changePassword() {
+  const email = state.user?.email;
+  if (!email) {
+    toast(t("auth.errFillAll"));
+    return;
+  }
+  const ok = await confirmDialog(t("settings.changePasswordConfirm", { email }), { ok: t("settings.changePassword") });
+  if (!ok) return;
+  try {
+    await sendReset(email);
+    haptic("success");
+    toast(t("settings.changePasswordSent", { email }));
+  } catch (err) {
+    haptic("error");
+    toast(authErrorMessage(err));
+  }
+}
+
+/** Модальное окно профиля: просмотр статистики и редактирование имени */
+function openProfileSheet(onUpdate) {
+  const curName = state.user?.displayName || "";
+  const curEmail = state.user?.email || "—";
+  const nameInp = h("input", {
+    type: "text",
+    class: "auth-input",
+    value: curName,
+    placeholder: t("auth.namePlaceholder")
+  });
+  let prSheet = null;
+  const saveBtn = h("button", {
+    class: "btn primary",
+    type: "button",
+    onclick: async () => {
+      const nextName = nameInp.value.trim();
+      if (nextName) {
+        if (state.user) {
+          state.user.displayName = nextName;
+          saveDoc("meta", { id: "profile", displayName: nextName }).catch(console.error);
+        }
+        haptic("success");
+        toast(t("settings.nameSaved"));
+        if (onUpdate) onUpdate();
+        if (prSheet) prSheet.close();
+      }
+    }
+  }, t("common.save"));
+
+  const doneCnt = doneSessions().length;
+  const progCnt = state.programs.filter(p => !p.archived).length;
+  const exCnt = state.exercises.filter(e => !e.archived).length;
+
+  const initials = (curName || curEmail).replace(/[^a-zA-Zа-яА-Я0-9]/g, "").slice(0, 2).toUpperCase() || "U";
+
+  const content = h("div", { class: "stack", style: "gap:16px" },
+    h("div", { class: "stg-profile-card", style: "cursor:default" },
+      h("div", { class: "stg-profile-left" },
+        h("div", { class: "stg-avatar" }, initials),
+        h("div", { class: "stg-profile-info" },
+          h("strong", { class: "stg-profile-name" }, curName || curEmail),
+          h("small", { class: "stg-profile-email" }, curEmail)
+        )
+      )
+    ),
+    h("div", { class: "field" },
+      h("span", {}, t("settings.editProfile")),
+      nameInp
+    ),
+    saveBtn,
+    h("div", { class: "stg-profile-stats-grid" },
+      h("div", { class: "stg-stat-tile" },
+        h("span", { class: "stg-stat-num" }, String(doneCnt)),
+        h("span", { class: "stg-stat-lbl" }, t("progress.ovWorkouts"))
+      ),
+      h("div", { class: "stg-stat-tile" },
+        h("span", { class: "stg-stat-num" }, String(progCnt)),
+        h("span", { class: "stg-stat-lbl" }, t("nav.programs"))
+      ),
+      h("div", { class: "stg-stat-tile" },
+        h("span", { class: "stg-stat-num" }, String(exCnt)),
+        h("span", { class: "stg-stat-lbl" }, t("nav.exercises"))
+      )
+    )
+  );
+
+  prSheet = sheet(content, { title: t("settings.profileTitle") });
+}
+
+/** Модальное окно логирования веса тела */
+function openBodyweightSheet(onSave) {
+  const currentKg = state.settings.bodyweightKg ?? (state.bodyweightLog[state.bodyweightLog.length - 1]?.weight ?? null);
+  const u = state.settings.defaultUnit || "kg";
+  const displayVal = currentKg ? (u === "lb" ? Math.round(currentKg * 2.20462 * 10) / 10 : currentKg) : "";
+
+  const inp = h("input", {
+    type: "number",
+    step: "0.1",
+    min: "20",
+    max: "500",
+    class: "auth-input",
+    value: displayVal ? String(displayVal) : "",
+    placeholder: u === "lb" ? "160" : "75.0"
+  });
+
+  let bwSheet = null;
+  const saveBtn = h("button", {
+    class: "btn primary",
+    type: "button",
+    onclick: () => {
+      const v = parseFloat(inp.value.replace(",", "."));
+      if (v > 0) {
+        const kg = u === "lb" ? Math.round(v / 2.20462 * 10) / 10 : v;
+        logBodyweight(kg);
+        haptic("success");
+        toast(t("settings.bodyweightSaved", { w: fmtNum(v), u }));
+        if (onSave) onSave();
+        if (bwSheet) bwSheet.close();
+      }
+    }
+  }, t("settings.bodyweightSave"));
+
+  const log = (state.bodyweightLog || []).slice(-8).reverse();
+  const historyList = h("div", { class: "bw-history-list" },
+    ...log.map(item => {
+      const dt = new Date(item.t);
+      const dateStr = dt.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+      const valStr = u === "lb" ? `${fmtNum(Math.round(item.weight * 2.20462 * 10) / 10)} lb` : `${fmtNum(item.weight)} кг`;
+      return h("div", { class: "bw-history-row" },
+        h("span", { class: "bw-history-date" }, dateStr),
+        h("strong", { class: "bw-history-val" }, valStr)
+      );
+    })
+  );
+
+  const content = h("div", { class: "stack", style: "gap:16px" },
+    h("p", { class: "muted", style: "margin:0;font-size:13px;" }, t("settings.bodyweightSub")),
+    h("div", { class: "field" },
+      h("span", {}, t("settings.bodyweightEnter") + ` (${u})`),
+      inp
+    ),
+    saveBtn,
+    log.length > 0 ? h("div", { class: "stack", style: "gap:8px;margin-top:8px;" },
+      h("span", { class: "stg-category-title" }, t("settings.bodyweightHistory")),
+      historyList
+    ) : null
+  );
+
+  bwSheet = sheet(content, { title: t("settings.bodyweightSheetTitle") });
+}
+
 export function openSettings() {
   const wrap = h("div", { class: "stack stg-wrap" });
   let sh = null;
+  const collapsedSet = readCollapsedState();
 
   function renderContent() {
     clear(wrap);
     const st = state.settings;
+
     if (sh) {
       const h2 = sh.el.querySelector(".sheet-head h2");
       if (h2) h2.textContent = t("settings.title");
-      const closeBtn = sh.el.querySelector(".sheet-head .btn.icon");
-      if (closeBtn) {
-        closeBtn.setAttribute("aria-label", t("common.close"));
-        closeBtn.setAttribute("title", t("common.close"));
+      const backBtn = sh.el.querySelector(".sheet-head .sheet-back-btn");
+      if (backBtn) {
+        backBtn.setAttribute("aria-label", t("common.back"));
+        backBtn.setAttribute("title", t("common.back"));
       }
       sh.el.querySelector(".sheet")?.setAttribute("aria-label", t("settings.title"));
     }
 
-    const segmented = (key, options, onAfterChange) => {
-      const curVal = key === "lang" ? getLang() : st[key];
-      const seg = h("div", { class: "seg-control" });
-      options.forEach(([v, l]) => {
-        const active = String(curVal) === String(v);
+    /* 1. Profile Card */
+    const curUsername = state.user?.displayName || state.user?.email || "—";
+    const initials = curUsername.replace(/[^a-zA-Zа-яА-Я0-9]/g, "").slice(0, 2).toUpperCase() || "U";
+    const userEmail = state.user?.email || "test@mail.com";
+
+    const profileCard = h("div", {
+      class: "stg-profile-card",
+      onclick: () => openProfileSheet(() => renderContent())
+    },
+      h("div", { class: "stg-profile-left" },
+        h("div", { class: "stg-avatar" }, initials),
+        h("div", { class: "stg-profile-info" },
+          h("strong", { class: "stg-profile-name" }, curUsername),
+          h("small", { class: "stg-profile-email" }, userEmail)
+        )
+      ),
+      h("span", { class: "stg-chevron" }, icon("chevronRight", 18))
+    );
+
+    /* Helper: Accordion Category */
+    function buildCategory(catId, title, cardContent) {
+      const isCollapsed = collapsedSet.has(catId);
+      const catEl = h("div", {
+        class: "stg-category" + (isCollapsed ? " collapsed" : ""),
+        dataset: { category: catId }
+      });
+
+      const chevron = h("span", { class: "stg-category-chevron" }, icon("chevronDown", 16));
+      const headBtn = h("button", {
+        type: "button",
+        class: "stg-category-head",
+        "aria-expanded": !isCollapsed ? "true" : "false",
+        onclick: () => {
+          if (collapsedSet.has(catId)) {
+            collapsedSet.delete(catId);
+          } else {
+            collapsedSet.add(catId);
+          }
+          writeCollapsedState(collapsedSet);
+          const nowCollapsed = collapsedSet.has(catId);
+          catEl.classList.toggle("collapsed", nowCollapsed);
+          headBtn.setAttribute("aria-expanded", !nowCollapsed ? "true" : "false");
+          haptic("light");
+        }
+      },
+        h("span", { class: "stg-category-title" }, title),
+        chevron
+      );
+
+      const inner = h("div", { class: "stg-category-inner" }, cardContent);
+      const body = h("div", { class: "stg-category-body" }, inner);
+
+      catEl.append(headBtn, body);
+      return catEl;
+    }
+
+    /* Helper: Row components */
+    const row = (title, sub, rightEl, onclick = null, isDanger = false) => {
+      const content = [
+        h("div", { class: "stg-row-left" },
+          h("span", { class: "stg-row-title" + (isDanger ? " danger" : "") }, title),
+          sub ? h("small", { class: "stg-row-sub" }, sub) : null
+        ),
+        h("div", { class: "stg-row-right" }, rightEl)
+      ];
+      if (onclick) {
+        return h("button", {
+          type: "button",
+          class: "stg-row tappable",
+          onclick
+        }, ...content);
+      }
+      return h("div", { class: "stg-row" }, ...content);
+    };
+
+    const segControl = (options, curVal, onChange) => {
+      const seg = h("div", { class: "stg-seg-control" });
+      options.forEach(([val, label]) => {
+        const active = String(curVal) === String(val);
         const btn = h("button", {
           type: "button",
-          class: "seg-btn" + (active ? " on" : ""),
+          class: "stg-seg-btn" + (active ? " active" : ""),
           onclick: () => {
             if (active) return;
-            updateSettings({ [key]: v });
-            applyTheme();
-            renderContent();
-            if (onAfterChange) onAfterChange();
+            onChange(val);
           }
-        }, l);
+        }, label);
         seg.append(btn);
       });
       return seg;
     };
 
-    const stepField = (key, stepDelta, minVal, badgeFormatter) => {
-      const badgeEl = badgeFormatter ? h("strong", { class: "stg-val-badge" }, badgeFormatter(st[key])) : null;
-      const inp = h("input", { type: "text", inputmode: "decimal", value: fmtNum(st[key]) });
-      const applyVal = raw => {
-        const v = parseNum(raw);
-        if (v && v >= minVal) {
-          const clean = Math.round(v * 100) / 100;
-          updateSettings({ [key]: clean });
-          inp.value = fmtNum(clean);
-          if (badgeEl && badgeFormatter) badgeEl.textContent = badgeFormatter(clean);
-        } else {
-          inp.value = fmtNum(state.settings[key]);
-        }
-      };
-      inp.addEventListener("change", () => applyVal(inp.value));
-      const bump = d => {
-        const cur = Number(state.settings[key]) || 0;
-        applyVal(Math.max(minVal, cur + d));
-      };
-      const stepperEl = h("div", { class: "stepper stg-stepper" },
-        h("button", { class: "btn step", type: "button", onclick: () => bump(-stepDelta) }, icon("minus", 14)),
-        inp,
-        h("button", { class: "btn step", type: "button", onclick: () => bump(stepDelta) }, icon("plus", 14))
-      );
-      return { stepperEl, badgeEl, applyVal };
-    };
-
-    const toggleRow = (title, sub, checked, onChange, isLast = false) => {
+    const iosSwitch = (checked, onChange) => {
       const inp = h("input", { type: "checkbox", class: "ios-switch", checked: !!checked });
-      inp.addEventListener("change", () => onChange(inp.checked, inp));
-      return h("label", { class: "stg-toggle-row" + (isLast ? " last" : "") },
-        h("span", { class: "stg-toggle-text" },
-          h("span", { class: "stg-toggle-title" }, title),
-          sub ? h("small", { class: "muted stg-toggle-sub" }, sub) : null),
-        inp
-      );
+      inp.addEventListener("change", () => onChange(inp.checked));
+      return inp;
     };
 
-    const file = h("input", { type: "file", accept: "application/json,.json", hidden: true });
-    file.addEventListener("change", async () => {
-      const f = file.files[0]; if (!f) return;
+    const stepper = (valSec, onChange) => {
+      const valEl = h("span", { class: "stg-step-val" }, fmtRest(valSec));
+      const minusBtn = h("button", {
+        type: "button",
+        class: "stg-step-btn",
+        onclick: () => {
+          const next = Math.max(15, (Number(state.settings.restSec) || 210) - 15);
+          onChange(next);
+        }
+      }, icon("minus", 14));
+      const plusBtn = h("button", {
+        type: "button",
+        class: "stg-step-btn",
+        onclick: () => {
+          const next = Math.min(600, (Number(state.settings.restSec) || 210) + 15);
+          onChange(next);
+        }
+      }, icon("plus", 14));
+
+      return h("div", { class: "stg-stepper" }, minusBtn, valEl, plusBtn);
+    };
+
+    /* Category 1: ВНЕШНИЙ ВИД */
+    const appearanceCard = h("div", { class: "stg-card" },
+      row(
+        t("settings.theme"),
+        null,
+        segControl([
+          ["system", t("settings.themeSystem")],
+          ["light", t("settings.themeLight")],
+          ["dark", t("settings.themeDark")]
+        ], st.theme, v => {
+          updateSettings({ theme: v });
+          applyTheme();
+          renderContent();
+        })
+      ),
+      row(
+        t("settings.lang"),
+        null,
+        segControl([
+          ["ru", "RU"],
+          ["en", "EN"]
+        ], getLang(), v => {
+          updateSettings({ lang: v });
+          renderContent();
+        })
+      )
+    );
+
+    /* Category 2: ТРЕНИРОВКА */
+    const isKg = (st.defaultUnit || "kg") === "kg";
+    const progressionSteps = isKg
+      ? [[1.25, "1,25"], [2.5, "2,5"], [5, "5"]]
+      : [[2.5, "2,5"], [5, "5"], [10, "10"]];
+    const curStep = isKg ? Number(st.stepKg || 2.5) : Number(st.stepLb || 5);
+
+    const workoutCard = h("div", { class: "stg-card" },
+      row(
+        t("settings.defaultUnits"),
+        t("settings.defaultUnitsSub"),
+        segControl([
+          ["kg", "кг"],
+          ["lb", "lb"]
+        ], st.defaultUnit || "kg", v => {
+          updateSettings({ defaultUnit: v });
+          renderContent();
+        })
+      ),
+      row(
+        t("settings.restSec"),
+        null,
+        stepper(st.restSec || 210, sec => {
+          updateSettings({ restSec: sec });
+          renderContent();
+        })
+      ),
+      row(
+        t("settings.progressionStep"),
+        null,
+        segControl(progressionSteps, curStep, val => {
+          if (isKg) updateSettings({ stepKg: val });
+          else updateSettings({ stepLb: val });
+          renderContent();
+        })
+      ),
+      row(
+        t("settings.autoStartRest"),
+        t("settings.autoStartRestSub"),
+        iosSwitch(st.autoStartRest !== false, checked => {
+          updateSettings({ autoStartRest: checked });
+        })
+      ),
+      row(
+        t("settings.suggestWarmup"),
+        t("settings.suggestWarmupSub"),
+        iosSwitch(!!st.suggestWarmup, checked => {
+          updateSettings({ suggestWarmup: checked });
+        })
+      ),
+      row(
+        t("settings.vibration"),
+        null,
+        iosSwitch(st.vibration !== false, checked => {
+          updateSettings({ vibration: checked });
+          if (checked) haptic("medium");
+        })
+      ),
+      row(
+        t("settings.sound"),
+        null,
+        iosSwitch(st.sound !== false, checked => {
+          updateSettings({ sound: checked });
+        })
+      )
+    );
+
+    /* Category 3: ПОКАЗАТЕЛИ ТЕЛА */
+    const currentKg = state.settings.bodyweightKg ?? (state.bodyweightLog[state.bodyweightLog.length - 1]?.weight ?? null);
+    const u = state.settings.defaultUnit || "kg";
+    const displayWeight = currentKg
+      ? (u === "lb" ? `${fmtNum(Math.round(currentKg * 2.20462 * 10) / 10)} lb` : `${fmtNum(currentKg)} кг`)
+      : "—";
+
+    const bodyCard = h("div", { class: "stg-card" },
+      row(
+        t("settings.bodyweight"),
+        t("settings.bodyweightSub"),
+        h("div", { class: "row gap" },
+          h("strong", { class: "stg-row-val" }, displayWeight),
+          h("span", { class: "stg-chevron" }, icon("chevronRight", 18))
+        ),
+        () => openBodyweightSheet(() => renderContent())
+      )
+    );
+
+    /* Category 4: ДАННЫЕ */
+    const pCount = pendingCount();
+    const isPending = pCount > 0;
+    const syncDot = h("span", { class: "stg-status-dot " + (isPending ? "pending" : "synced") });
+    const syncRowLeft = h("div", { class: "stg-row-left" },
+      h("div", { class: "row gap", style: "gap:6px;" },
+        syncDot,
+        h("span", { class: "stg-row-title" },
+          isPending ? t("settings.queuePending", { n: pCount, w: "" }) : t("settings.queueSynced")
+        )
+      ),
+      h("small", { class: "stg-row-sub" },
+        isPending ? t("settings.queuePendingSub") : t("settings.queueSyncedSub")
+      )
+    );
+
+    const syncBtn = h("button", {
+      type: "button",
+      class: "btn-pill-outline",
+      onclick: async e => {
+        e.stopPropagation();
+        syncBtn.disabled = true;
+        syncBtn.textContent = "...";
+        try {
+          flushOfflineQueue();
+          await waitForSync(5000);
+          haptic("success");
+          toast(t("settings.syncDone"));
+        } catch { /* ignore */ }
+        renderContent();
+      }
+    }, t("settings.syncBtn"));
+
+    const fileInp = h("input", { type: "file", accept: "application/json,.json", hidden: true });
+    fileInp.addEventListener("change", async () => {
+      const f = fileInp.files[0]; if (!f) return;
       try {
         const text = await f.text();
         if (!(await confirmDialog(t("settings.importConfirm"), { ok: t("settings.importOk") }))) return;
@@ -139,28 +516,79 @@ export function openSettings() {
         toast(t("settings.importedToast", { n }));
         renderContent();
       } catch (e) { haptic("error"); toast(t("settings.importError", { msg: e.message })); }
-      file.value = "";
+      fileInp.value = "";
     });
 
-    const curUsername = state.user?.displayName || state.user?.email || "—";
-    const initials = curUsername.replace(/[^a-zA-Zа-яА-Я0-9]/g, "").slice(0, 2).toUpperCase() || "U";
-    const doneCnt = doneSessions().length;
-    const progCnt = state.programs.filter(p => !p.archived).length;
-    const exCnt = state.exercises.filter(e => !e.archived).length;
+    const dataCard = h("div", { class: "stg-card" },
+      h("div", { class: "stg-row" },
+        syncRowLeft,
+        h("div", { class: "stg-row-right" }, syncBtn)
+      ),
+      row(
+        t("settings.exportCsvBtn"),
+        t("settings.exportCsvSub"),
+        h("span", { class: "stg-chevron" }, icon("chevronRight", 18)),
+        () => { downloadCsv(); toast(t("settings.csvExportedToast")); }
+      ),
+      row(
+        t("settings.exportJsonBtn"),
+        t("settings.exportJsonSub"),
+        h("span", { class: "stg-chevron" }, icon("chevronRight", 18)),
+        () => {
+          const blob = new Blob([exportData()], { type: "application/json" });
+          const a = h("a", {
+            href: URL.createObjectURL(blob),
+            download: `fitness-backup-${curUsername.replace(/[^\p{L}\p{N}_-]+/gu, "_").slice(0, 40)}-${new Date().toISOString().slice(0, 10)}.json`
+          });
+          document.body.append(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        }
+      ),
+      row(
+        t("settings.importJsonBtn"),
+        t("settings.importJsonSub"),
+        h("span", { class: "stg-chevron" }, icon("chevronRight", 18)),
+        () => fileInp.click()
+      ),
+      fileInp
+    );
 
-    const profileBox = h("div", { class: "stg-card stg-profile-card" },
-      h("div", { class: "stg-profile-left" },
-        h("div", { class: "stg-avatar" }, initials),
-        h("div", { class: "stg-profile-meta" },
-          h("strong", { class: "stg-profile-name" }, curUsername),
-          state.user?.email && state.user.email !== curUsername ? h("small", { class: "muted" }, state.user.email) : null,
-          h("small", { class: "muted" }, t("settings.profileStats", { workouts: doneCnt, programs: progCnt, exercises: exCnt })))),
-      h("button", {
-        class: "btn small stg-logout-btn",
-        type: "button",
-        onclick: async () => {
+    /* Category 5: ПРИЛОЖЕНИЕ */
+    const installed = isStandalone();
+    const appCard = h("div", { class: "stg-card" },
+      row(
+        t("settings.installTitle"),
+        t("settings.installSub"),
+        installed
+          ? h("span", { class: "stg-installed-badge" }, icon("check", 14), t("settings.installedBadge"))
+          : h("button", {
+            type: "button",
+            class: "btn-pill-solid",
+            onclick: e => { e.stopPropagation(); promptPwaInstall(); }
+          }, t("settings.installBtn")),
+        installed ? null : () => promptPwaInstall()
+      ),
+      row(
+        t("settings.version"),
+        null,
+        h("span", { class: "stg-version-badge" }, "1.4.2 · " + t("settings.versionCurrent"))
+      )
+    );
+
+    /* Category 6: АККАУНТ */
+    const accountCard = h("div", { class: "stg-card" },
+      row(
+        t("settings.changePassword"),
+        t("settings.changePasswordSub"),
+        h("span", { class: "stg-chevron" }, icon("chevronRight", 18)),
+        () => changePassword()
+      ),
+      row(
+        t("settings.logout"),
+        null,
+        h("span", { class: "stg-chevron" }, icon("chevronRight", 18)),
+        async () => {
           if (!(await confirmDialog(t("settings.logoutConfirm", { user: curUsername }), { ok: t("settings.logoutOk") }))) return;
-          // неотправленные локальные записи: предупреждаем и предлагаем дождаться синхронизации
           if (pendingCount() > 0) {
             if (await confirmDialog(t("settings.logoutPendingWarn", { n: pendingCount() }), { ok: t("settings.logoutWait") })) {
               toast(t("settings.logoutWaiting"));
@@ -171,117 +599,28 @@ export function openSettings() {
           if (sh) sh.close();
           try { await logoutProfile(); } catch (e) { toast(authErrorMessage(e)); }
         }
-      }, t("settings.logoutShort"))
-    );
-
-    const restCtrl = stepField("restSec", 15, 15, v => fmtRest(v));
-    const restPresets = h("div", { class: "stg-presets" },
-      ...[60, 90, 120, 180, 210].map(sec =>
-        h("button", {
-          type: "button",
-          class: "btn small tag stg-preset" + (Number(st.restSec) === sec ? " on" : ""),
-          onclick: () => {
-            updateSettings({ restSec: sec });
-            renderContent();
-          }
-        }, fmtRest(sec)))
-    );
-
-    const kgCtrl = stepField("stepKg", 0.5, 0.25);
-    const lbCtrl = stepField("stepLb", 1, 0.5);
-
-    const actionRow = (ico, title, sub, onclick, isLast = false) => h("button", {
-      type: "button",
-      class: "stg-action-row" + (isLast ? " last" : ""),
-      onclick
-    },
-      h("span", { class: "stg-action-ico" }, icon(ico, 18)),
-      h("span", { class: "stg-action-text" },
-        h("span", { class: "stg-action-title" }, title),
-        h("small", { class: "muted" }, sub)),
-      h("span", { class: "stg-action-arr" }, "→")
-    );
-
-    wrap.append(
-      profileBox,
-
-      h("div", { class: "stg-section" },
-        h("span", { class: "group" }, t("settings.appearanceGroup")),
-        h("div", { class: "stg-card stack" },
-          h("div", { class: "stg-seg-row" },
-            h("span", { class: "stg-label" }, t("settings.lang")),
-            segmented("lang", [["ru", "Русский"], ["en", "English"]])),
-          h("div", { class: "stg-seg-row" },
-            h("span", { class: "stg-label" }, t("settings.theme")),
-            segmented("theme", [["dark", t("settings.themeDark")], ["light", t("settings.themeLight")], ["system", t("settings.themeSystem")]])),
-          h("div", { class: "stg-seg-row" },
-            h("span", { class: "stg-label" }, t("settings.defaultUnits")),
-            segmented("defaultUnit", [["kg", unitLabel("kg")], ["lb", "lb"]]))
-        )
       ),
-
-      h("div", { class: "stg-section" },
-        h("span", { class: "group" }, t("settings.workoutGroup")),
-        h("div", { class: "stg-card stack" },
-          h("div", { class: "stack", style: "gap:8px" },
-            h("span", { class: "stg-label" }, t("settings.restSec")),
-            restPresets,
-            restCtrl.stepperEl),
-          h("div", { class: "row gap" },
-            h("div", { class: "field grow" }, h("span", {}, t("settings.stepKg")), kgCtrl.stepperEl),
-            h("div", { class: "field grow" }, h("span", {}, t("settings.stepLb")), lbCtrl.stepperEl))
-        )
-      ),
-
-      h("div", { class: "stg-section" },
-        h("span", { class: "stg-sec-title" }, t("settings.feedbackGroup")),
-        h("div", { class: "stg-card stg-list-card" },
-          toggleRow(t("settings.sound"), t("settings.soundSub"), st.sound, val => updateSettings({ sound: val })),
-          toggleRow(t("settings.vibration"), t("settings.vibrationSub"), st.vibration, val => {
-            updateSettings({ vibration: val });
-            if (val) haptic("medium");
-          }),
-          toggleRow(t("settings.notifications"), t("settings.notificationsSub"), st.notifications !== false, async val => {
-            if (val && "Notification" in window && Notification.permission === "default") {
-              await Notification.requestPermission().catch(() => {});
-            }
-            updateSettings({ notifications: val });
-          }, true)
-        )
-      ),
-
-      h("div", { class: "stg-section" },
-        h("span", { class: "stg-sec-title" }, t("settings.dataGroup")),
-        h("div", { class: "stg-card stg-list-card" },
-          actionRow("download", t("settings.exportCsvBtn"), t("settings.exportCsvSub"), () => {
-            downloadCsv(); toast(t("settings.csvExportedToast"));
-          }),
-          actionRow("copy", t("settings.exportJsonBtn"), t("settings.exportJsonSub"), () => {
-            const blob = new Blob([exportData()], { type: "application/json" });
-            const a = h("a", { href: URL.createObjectURL(blob), download: `fitness-backup-${curUsername.replace(/[^\p{L}\p{N}_-]+/gu, "_").slice(0, 40)}-${new Date().toISOString().slice(0, 10)}.json` });
-            document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-          }),
-          actionRow("plus", t("settings.importJsonBtn"), t("settings.importJsonSub"), () => file.click()),
-          file,
-          actionRow("trash", t("settings.deleteAccount"), t("settings.deleteAccountSub"), () => openDeleteAccount(), true)
-        )
-      ),
-
-      h("div", { class: "stg-section" },
-        h("span", { class: "stg-sec-title" }, t("pwa.settingsGroup")),
-        h("div", { class: "stg-card stg-list-card" },
-          !isStandalone()
-            ? actionRow("download", t("pwa.settingsTitle"), t("pwa.settingsSub"), () => promptPwaInstall(), true)
-            : h("div", { class: "stg-action-row last", style: "cursor:default" },
-                h("span", { class: "stg-action-ico", style: "color:var(--ok, #4caf50)" }, icon("check", 18)),
-                h("span", { class: "stg-action-text" },
-                  h("span", { class: "stg-action-title" }, t("pwa.installedBadge")),
-                  h("small", { class: "muted" }, t("pwa.installedSub"))))
-        )
+      row(
+        t("settings.deleteAccount"),
+        t("settings.deleteAccountSub"),
+        h("span", { class: "stg-chevron danger" }, icon("chevronRight", 18)),
+        () => openDeleteAccount(),
+        true
       )
+    );
+
+    /* Сборка экрана */
+    wrap.append(
+      profileCard,
+      buildCategory("appearance", t("settings.appearanceGroup"), appearanceCard),
+      buildCategory("workout", t("settings.workoutGroup"), workoutCard),
+      buildCategory("body", t("settings.bodyMetricsGroup"), bodyCard),
+      buildCategory("data", t("settings.dataGroup"), dataCard),
+      buildCategory("app", t("settings.appGroup"), appCard),
+      buildCategory("account", t("settings.accountGroup"), accountCard)
     );
   }
 
   renderContent();
-  sh = sheet(wrap, { title: t("settings.title"), full: true });
+  sh = sheet(wrap, { title: t("settings.title"), full: true, backBtn: true });
 }

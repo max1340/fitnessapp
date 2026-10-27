@@ -69,7 +69,9 @@ export const DEFAULT_SETTINGS = {
   sound: true,
   vibration: true,
   notifications: true,
-  theme: "dark" // dark | light | system
+  theme: "dark", // dark | light | system
+  autoStartRest: true,
+  suggestWarmup: false
 };
 
 export const state = {
