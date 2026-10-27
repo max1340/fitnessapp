@@ -24,6 +24,43 @@ export function canDirectPrompt() {
   return !isStandalone() && !!deferredPrompt;
 }
 
+export function canShowInstallBanner() {
+  if (typeof window === "undefined") return false;
+  if (isStandalone()) return false;
+  if (typeof localStorage !== "undefined" && localStorage.getItem("pwa_banner_dismissed") === "1") return false;
+  return canDirectPrompt() || isIos();
+}
+
+export function dismissInstallBanner() {
+  if (typeof localStorage !== "undefined") {
+    localStorage.setItem("pwa_banner_dismissed", "1");
+  }
+}
+
+export function renderSlimInstallBanner(onDismiss) {
+  if (!canShowInstallBanner()) return null;
+  const bar = h("div", { class: "pwa-slim-bar", role: "region", "aria-label": t("pwa.settingsTitle") },
+    h("div", { class: "pwa-slim-ico", "aria-hidden": "true" }, icon("download", 16)),
+    h("span", { class: "pwa-slim-text" }, t("pwa.slimText")),
+    h("button", {
+      type: "button",
+      class: "pwa-slim-btn",
+      onclick: () => promptPwaInstall()
+    }, t("pwa.installAction")),
+    h("button", {
+      type: "button",
+      class: "pwa-slim-close",
+      "aria-label": t("common.close"),
+      onclick: () => {
+        dismissInstallBanner();
+        bar.remove();
+        if (typeof onDismiss === "function") onDismiss();
+      }
+    }, icon("x", 14))
+  );
+  return bar;
+}
+
 export function onPwaChange(fn) {
   pwaListeners.add(fn);
   return () => pwaListeners.delete(fn);
