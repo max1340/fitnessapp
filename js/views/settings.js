@@ -488,13 +488,17 @@ export function openSettings() {
       )
     );
 
+    const syncIcon = icon("refresh", 18);
     const syncBtn = h("button", {
       type: "button",
-      class: "btn-pill-outline",
+      class: "stg-sync-btn",
+      "aria-label": t("settings.syncBtn"),
+      title: t("settings.syncBtn"),
       onclick: async e => {
         e.stopPropagation();
+        if (syncBtn.disabled) return;
         syncBtn.disabled = true;
-        syncBtn.textContent = "...";
+        syncIcon.classList.add("spinning");
         try {
           flushOfflineQueue();
           await waitForSync(5000);
@@ -503,7 +507,7 @@ export function openSettings() {
         } catch { /* ignore */ }
         renderContent();
       }
-    }, t("settings.syncBtn"));
+    }, syncIcon);
 
     const fileInp = h("input", { type: "file", accept: "application/json,.json", hidden: true });
     fileInp.addEventListener("change", async () => {

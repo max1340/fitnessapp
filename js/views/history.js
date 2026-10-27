@@ -169,7 +169,7 @@ function openEditor(original) {
     saveSession(s); haptic("success"); sh.close(); toast(t("history.savedToast"));
   };
   const sh = sheet(h("div", { class: "stack" },
-    h("div", { class: "stg-card hist-open-head" },
+    h("div", { class: "hist-open-head" },
       h("div", { class: "hist-open-title-row" },
         h("strong", { class: "hist-open-prog" }, s.programName),
         h("span", { class: "ex-group-badge" }, `${formatNum(sessionStats(s).volume, 0)} ${unitLabel("kg")}`)),

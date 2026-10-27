@@ -149,7 +149,8 @@ const ICONS = {
   arrowLeft: "M19 12H5M12 19l-7-7 7-7",
   chevronDown: "M6 9l6 6 6-6",
   chevronRight: "M9 18l6-6-6-6",
-  chevronLeft: "M15 18l-6-6 6-6"
+  chevronLeft: "M15 18l-6-6 6-6",
+  refresh: "M21 2v6h-6M3 12a9 9 0 0115.36-6.36L21 8M3 22v-6h6M21 12a9 9 0 01-15.36 6.36L3 16"
 };
 export function icon(name, size = 22) {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");

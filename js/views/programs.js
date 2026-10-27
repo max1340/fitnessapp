@@ -366,7 +366,6 @@ export function openProgramEditor(program) {
                   name: ex.name,
                   muscleGroup: ex.muscleGroup,
                   sets: ex.defaultSets || 3,
-                  targetReps: "8-10",
                   restSec: ex.defaultRestSec || 120,
                   note: ""
                 });
@@ -412,7 +411,10 @@ export function openProgramEditor(program) {
       const muscleEl = h("span", { class: "builder-ex-muscle" }, (ex ? ex.muscleGroup : it.muscleGroup || "").toUpperCase());
       const infoEl = h("div", { class: "builder-ex-info" }, nameEl, muscleEl);
 
-      const summaryEl = h("span", { class: "builder-ex-summary" }, `${it.sets || 3} × ${it.targetReps || "8-10"}`);
+      function fmtSetsCount(n) {
+        return `${n} ${isEn() ? (n === 1 ? "set" : "sets") : (n >= 2 && n <= 4 ? "сета" : "сетов")}`;
+      }
+      const summaryEl = h("span", { class: "builder-ex-summary" }, fmtSetsCount(it.sets || 3));
       const chevronEl = h("span", { class: "builder-chevron" }, icon("down", 18));
 
       const headerRight = h("div", { class: "builder-ex-header-right" }, summaryEl, chevronEl);
@@ -437,16 +439,17 @@ export function openProgramEditor(program) {
         }
       }, headerLeft, headerRight);
 
-      // Accordion Body
-      // Row 1: Sets
+      // Accordion Body: Compact & Clean Layout
+      // Col 1: Sets Stepper
       const setsVal = h("span", { class: "builder-stepper-val" }, String(it.sets || 3));
       const setsMinus = h("button", {
         type: "button",
         class: "builder-stepper-btn",
+        "aria-label": t("builder.setsLabel") + " -",
         onclick: () => {
           it.sets = Math.max(1, (it.sets || 3) - 1);
           setsVal.textContent = String(it.sets);
-          summaryEl.textContent = `${it.sets} × ${it.targetReps || "8-10"}`;
+          summaryEl.textContent = fmtSetsCount(it.sets);
           setDirty(true);
           scheduleLiveMeta();
           haptic("light");
@@ -456,10 +459,11 @@ export function openProgramEditor(program) {
       const setsPlus = h("button", {
         type: "button",
         class: "builder-stepper-btn",
+        "aria-label": t("builder.setsLabel") + " +",
         onclick: () => {
           it.sets = Math.min(20, (it.sets || 3) + 1);
           setsVal.textContent = String(it.sets);
-          summaryEl.textContent = `${it.sets} × ${it.targetReps || "8-10"}`;
+          summaryEl.textContent = fmtSetsCount(it.sets);
           setDirty(true);
           scheduleLiveMeta();
           haptic("light");
@@ -467,47 +471,14 @@ export function openProgramEditor(program) {
       }, icon("plus", 16));
 
       const setsStepper = h("div", { class: "builder-stepper" }, setsMinus, setsVal, setsPlus);
-      const setsGroup = h("div", { class: "builder-field-group" },
-        h("span", { class: "builder-field-label" }, t("builder.setsLabel")),
-        setsStepper
-      );
 
-      // Row 2: Target Reps Segmented (5 zones)
-      const repsRanges = ["3-5", "6-8", "8-10", "10-12", "15-20"];
-      const currentReps = it.targetReps || "8-10";
-      const repsHintEl = h("div", { class: "builder-reps-hint" }, getRepTip(currentReps));
-
-      const repsButtons = repsRanges.map(range => {
-        const btn = h("button", {
-          type: "button",
-          class: "builder-reps-btn" + (range === currentReps ? " active" : ""),
-          onclick: () => {
-            it.targetReps = range;
-            summaryEl.textContent = `${it.sets || 3} × ${it.targetReps}`;
-            repsButtons.forEach(b => b.classList.remove("active"));
-            btn.classList.add("active");
-            repsHintEl.textContent = getRepTip(range);
-            setDirty(true);
-            scheduleLiveMeta();
-            haptic("light");
-          }
-        }, range.replace("-", "–"));
-        return btn;
-      });
-
-      const repsSegmented = h("div", { class: "builder-reps-segmented" }, ...repsButtons);
-      const repsGroup = h("div", { class: "builder-field-group" },
-        h("span", { class: "builder-field-label" }, t("builder.repsTargetLabel")),
-        repsSegmented,
-        repsHintEl
-      );
-
-      // Row 3: Rest Presets & Stepper
+      // Col 2: Rest Stepper & Chips
       const restPresets = [
         { sec: 60, label: "1:00" },
         { sec: 90, label: "1:30" },
         { sec: 120, label: "2:00" },
-        { sec: 150, label: "2:30" }
+        { sec: 150, label: "2:30" },
+        { sec: 180, label: "3:00" }
       ];
       const curRest = it.restSec != null ? it.restSec : 120;
       const restValEl = h("span", { class: "builder-stepper-val" }, fmtRest(curRest));
@@ -539,6 +510,7 @@ export function openProgramEditor(program) {
       const restMinus = h("button", {
         type: "button",
         class: "builder-stepper-btn",
+        "aria-label": t("builder.restLabel") + " -",
         onclick: () => {
           it.restSec = Math.max(15, (it.restSec || 120) - 15);
           updateRestPresetStyles(it.restSec);
@@ -551,6 +523,7 @@ export function openProgramEditor(program) {
       const restPlus = h("button", {
         type: "button",
         class: "builder-stepper-btn",
+        "aria-label": t("builder.restLabel") + " +",
         onclick: () => {
           it.restSec = Math.min(600, (it.restSec || 120) + 15);
           updateRestPresetStyles(it.restSec);
@@ -561,16 +534,22 @@ export function openProgramEditor(program) {
       }, icon("plus", 16));
 
       const restStepper = h("div", { class: "builder-stepper" }, restMinus, restValEl, restPlus);
-      const restRow = h("div", { class: "builder-rest-row" },
-        h("div", { class: "builder-rest-presets" }, ...presetButtons),
-        restStepper
-      );
-      const restGroup = h("div", { class: "builder-field-group" },
-        h("span", { class: "builder-field-label" }, t("builder.restLabel")),
-        restRow
+
+      // Compact 2-column grid for Sets & Rest
+      const compactGrid = h("div", { class: "builder-compact-grid" },
+        h("div", { class: "builder-field-compact" },
+          h("span", { class: "builder-field-label" }, t("builder.setsLabel")),
+          setsStepper
+        ),
+        h("div", { class: "builder-field-compact" },
+          h("span", { class: "builder-field-label" }, t("builder.restLabel")),
+          restStepper
+        )
       );
 
-      // Row 4: Note Input
+      const restChipsRow = h("div", { class: "builder-rest-chips-wrap" }, ...presetButtons);
+
+      // Note Input
       const noteInput = h("input", {
         type: "text",
         class: "builder-note-input",
@@ -582,7 +561,7 @@ export function openProgramEditor(program) {
         setDirty(true);
       });
 
-      // Row 5: Item Actions
+      // Actions
       const dupBtn = h("button", {
         type: "button",
         class: "builder-btn-subtle",
@@ -622,9 +601,8 @@ export function openProgramEditor(program) {
 
       const collapseEl = h("div", { class: "builder-ex-collapse", role: "region" },
         h("div", { class: "builder-ex-body" },
-          setsGroup,
-          repsGroup,
-          restGroup,
+          compactGrid,
+          restChipsRow,
           noteInput,
           actionsRow
         )
@@ -758,7 +736,7 @@ export function openProgramEditor(program) {
 
       const previewItems = tpl.items.map((it, i) => {
         const name = isEn() ? it.nameEn || it.name : it.name;
-        return h("div", {}, `${i + 1}. ${name} — ${it.sets} × ${it.targetReps}`);
+        return h("div", {}, `${i + 1}. ${name} — ${it.sets} ${isEn() ? (it.sets === 1 ? 'set' : 'sets') : (it.sets >= 2 && it.sets <= 4 ? 'сета' : 'сетов')}`);
       });
       const previewList = h("div", { class: "builder-tpl-preview" }, ...previewItems);
 
