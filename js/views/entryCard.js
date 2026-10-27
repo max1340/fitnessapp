@@ -3,7 +3,7 @@ import { h, icon, iconBtn, fmtNum, parseNum, toast, haptic, showUndoSnackbar } f
 import { state, getExercise, stepFor, unitLabel, warmupSymbol } from "../store.js";
 import { toKg, epley, MAX_E1RM_REPS } from "../metrics.js";
 import { openExerciseHistory } from "./exercises.js";
-import { t } from "../i18n.js";
+import { t, localizeHintString } from "../i18n.js";
 
 const round = n => Math.round(n * 100) / 100;
 const COACH_WARMUP_KEY = "fitness.coachmark.warmup";
@@ -296,9 +296,9 @@ export function entryCard(entry, ctx) {
               if (set.hintReps != null) { set.reps = set.hintReps; const ri = repsInputs.get(set); if (ri) ri.value = fmtNum(set.reps); propagateReps(i); }
               ctx.onChange();
               paintSets();
-              toast(t("entry.appliedToast", { hint: set.hint }));
+              toast(t("entry.appliedToast", { hint: localizeHintString(set.hint) }));
             }
-          }, "↺ " + set.hint)
+          }, "↺ " + localizeHintString(set.hint))
         : null;
 
       const hasPr = !!checkSetPR(set, unit, ctx.prBaseline);
@@ -393,7 +393,8 @@ export function entryCard(entry, ctx) {
   const exObj = getExercise(entry.exerciseId);
   const muscle = exObj?.muscleGroup || "";
   const isBw = !!(entry.isBodyweight || exObj?.isBodyweight);
-  const firstHint = (entry.sets.find(s => s.hint) || {}).hint || "";
+  const rawHint = (entry.sets.find(s => s.hint) || {}).hint || "";
+  const firstHint = rawHint ? localizeHintString(rawHint) : "";
   const subParts = [];
   if (isBw && state.settings.bodyweightKg) subParts.push(t("entry.bwSub", { bw: fmtNum(state.settings.bodyweightKg) }));
   if (entry.targetReps) subParts.push(t("entry.targetSub", { target: entry.targetReps }));

@@ -178,21 +178,26 @@ export function localizeProgram(p) {
   };
 }
 
-function localizeHintString(hint) {
+export function localizeHintString(hint) {
   if (!hint || typeof hint !== "string") return hint;
-  let s = hint;
-  if (currentLang === "en") {
-    s = s.replace(/^прошлый раз:\s*/i, "last time: ")
-         .replace(/^стартовое:\s*/i, "starter: ")
-         .replace(/^из «([^»]+)»:\s*/i, (_, prog) => `from "${localizeProgramName(prog)}": `)
-         .replace(/(\d),(\d)/g, "$1.$2")
-         .replace(/\sкг\b/g, " kg");
-  } else {
-    s = s.replace(/^last time:\s*/i, "прошлый раз: ")
-         .replace(/^starter:\s*/i, "стартовое: ")
-         .replace(/^from "([^"]+)":\s*/i, (_, prog) => `из «${localizeProgramName(prog)}»: `)
+  let s = hint.trim();
+  const isRu = currentLang === "ru";
+  if (isRu) {
+    s = s.replace(/^(?:last time|last|прошлый раз|прошл)[\s\u00A0]*:?[\s\u00A0]*/i, "прошл:\u00A0")
+         .replace(/^(?:starter|start|стартовое|стартовый|старт)[\s\u00A0]*:?[\s\u00A0]*/i, "старт:\u00A0")
+         .replace(/^(?:from\s*["«]([^"»]+)["»]|из\s*[«"]([^»"]+)[»"])[:\s]*[\s\u00A0]*/i, (_, p1, p2) => `${localizeProgramName((p1 || p2).trim())}:\u00A0`)
          .replace(/(\d)\.(\d)/g, "$1,$2")
-         .replace(/\skg\b/g, " кг");
+         .replace(/[\s\u00A0]*\b(?:kg|kgs|кг)\b/gi, "\u00A0кг")
+         .replace(/[\s\u00A0]*\b(?:lb|lbs|фунт|фунтов)\b/gi, "\u00A0фунт")
+         .replace(/[\s\u00A0]*[×xX*][\s\u00A0]*/g, "\u00A0×\u00A0");
+  } else {
+    s = s.replace(/^(?:прошлый раз|прошл|last time|last)[\s\u00A0]*:?[\s\u00A0]*/i, "last:\u00A0")
+         .replace(/^(?:стартовое|стартовый|старт|starter|start)[\s\u00A0]*:?[\s\u00A0]*/i, "start:\u00A0")
+         .replace(/^(?:из\s*[«"]([^»"]+)[»"]|from\s*["«]([^"»]+)["»])[:\s]*[\s\u00A0]*/i, (_, p1, p2) => `${localizeProgramName((p1 || p2).trim())}:\u00A0`)
+         .replace(/(\d),(\d)/g, "$1.$2")
+         .replace(/[\s\u00A0]*\b(?:кг|kg|kgs)\b/gi, "\u00A0kg")
+         .replace(/[\s\u00A0]*\b(?:фунт|фунтов|lb|lbs)\b/gi, "\u00A0lb")
+         .replace(/[\s\u00A0]*[×xX*][\s\u00A0]*/g, "\u00A0×\u00A0");
   }
   return s;
 }
