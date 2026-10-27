@@ -8,72 +8,72 @@ import { t, isEn } from "../i18n.js";
 export const PROGRAM_TEMPLATES = [
   {
     id: "tpl-fullbody",
-    nameRu: "Фулбоди (Всё тело)",
+    nameRu: "Full Body (Фулбоди)",
     nameEn: "Full Body",
-    descRu: "Комплексная проработка всего тела за одно занятие. Идеально для 2–3 тренировок в неделю с максимальным стимулом для роста силы и массы.",
+    descRu: "Базовая программа на всё тело. 2–3 тренировки в неделю с равномерной нагрузкой.",
     descEn: "Full-body workout for 2–3 sessions per week. Balanced volume across all major muscle groups.",
     tagRu: "Все мышцы · 5 упр. · ~55 мин",
     tagEn: "All Muscles · 5 ex · ~55 min",
     items: [
-      { exerciseId: "ex-squat", name: "Приседания со штангой", nameEn: "Barbell Squat", muscleGroup: "Ноги", sets: 3, targetReps: "8-10", restSec: 180 },
+      { exerciseId: "ex-squat", name: "Приседания со штангой", nameEn: "Barbell Squat", muscleGroup: "Квадрицепс", sets: 3, targetReps: "8-10", restSec: 180 },
       { exerciseId: "ex-bench-press", name: "Жим штанги лёжа", nameEn: "Barbell Bench Press", muscleGroup: "Грудь", sets: 3, targetReps: "8-10", restSec: 180 },
       { exerciseId: "seed-pullups", name: "Подтягивания", nameEn: "Pull-ups", muscleGroup: "Спина", sets: 3, targetReps: "8-10", restSec: 180, isBodyweight: true },
-      { exerciseId: "ex-ohp-db", name: "Жим гантелей сидя", nameEn: "Seated Dumbbell OHP", muscleGroup: "Дельты", sets: 3, targetReps: "10-12", restSec: 120 },
-      { exerciseId: "ex-rdl", name: "Румынская тяга", nameEn: "Romanian Deadlift", muscleGroup: "Ноги", sets: 3, targetReps: "10-12", restSec: 150 }
+      { exerciseId: "ex-ohp-db", name: "Жим гантелей сидя", nameEn: "Seated Dumbbell OHP", muscleGroup: "Плечи", sets: 3, targetReps: "10-12", restSec: 120 },
+      { exerciseId: "ex-rdl", name: "Румынская тяга", nameEn: "Romanian Deadlift", muscleGroup: "Задняя поверхность бедра", sets: 3, targetReps: "10-12", restSec: 150 }
     ]
   },
   {
     id: "tpl-upper",
     nameRu: "Верх тела (Upper Body)",
     nameEn: "Upper Body",
-    descRu: "Мощный акцент на грудь, широчайшие спины, плечевой пояс и руки. Базовый тренировочный день сплита «Верх / Низ».",
+    descRu: "Грудь, спина, дельты и руки. Верхняя половина сплита Верх / Низ.",
     descEn: "Intense upper body focus: chest, lats, shoulders, and arms. Core of an Upper/Lower split.",
     tagRu: "Грудь + Спина + Плечи · 5 упр. · ~50 мин",
     tagEn: "Chest + Back + Shoulders · 5 ex · ~50 min",
     items: [
       { exerciseId: "ex-bench-press", name: "Жим штанги лёжа", nameEn: "Barbell Bench Press", muscleGroup: "Грудь", sets: 4, targetReps: "6-8", restSec: 180 },
       { exerciseId: "ex-bb-row", name: "Тяга штанги в наклоне", nameEn: "Bent-over Barbell Row", muscleGroup: "Спина", sets: 4, targetReps: "8-10", restSec: 150 },
-      { exerciseId: "ex-incline-db", name: "Жим гантелей на наклонной (30°)", nameEn: "Incline DB Press (30°)", muscleGroup: "Грудь", sets: 3, targetReps: "8-10", restSec: 120 },
+      { exerciseId: "ex-incline-db", name: "Жим гантелей наклонный (30°)", nameEn: "Incline DB Press (30°)", muscleGroup: "Грудь", sets: 3, targetReps: "8-10", restSec: 120 },
       { exerciseId: "seed-pullups", name: "Подтягивания", nameEn: "Pull-ups", muscleGroup: "Спина", sets: 3, targetReps: "8-12", restSec: 150, isBodyweight: true },
-      { exerciseId: "ex-db-lat-raise", name: "Махи гантелями в стороны", nameEn: "DB Lateral Raises", muscleGroup: "Средняя дельта", sets: 3, targetReps: "12-15", restSec: 90 }
+      { exerciseId: "ex-db-lat-raise", name: "Махи гантелями в стороны", nameEn: "DB Lateral Raises", muscleGroup: "Плечи (Средняя)", sets: 3, targetReps: "12-15", restSec: 90 }
     ]
   },
   {
     id: "tpl-lower",
     nameRu: "Низ тела (Lower Body)",
     nameEn: "Lower Body",
-    descRu: "Прицельная нагрузка на квадрицепсы, бицепс бедра, ягодичные мышцы и голень. Вторая половина сплита «Верх / Низ».",
+    descRu: "Квадрицепсы, задняя цепь, ягодицы и икры. Нижняя половина сплита Верх / Низ.",
     descEn: "Targeted quad, hamstring, glute, and calf training. The lower half of an Upper/Lower split.",
-    tagRu: "Квадрицепс + Бицепс бедра + Ягодицы · 4 упр. · ~45 мин",
+    tagRu: "Ноги + Ягодицы · 4 упр. · ~45 мин",
     tagEn: "Quads + Hamstrings + Glutes · 4 ex · ~45 min",
     items: [
-      { exerciseId: "ex-squat", name: "Приседания со штангой", nameEn: "Barbell Squat", muscleGroup: "Ноги", sets: 4, targetReps: "6-8", restSec: 180 },
-      { exerciseId: "ex-rdl", name: "Румынская тяга", nameEn: "Romanian Deadlift", muscleGroup: "Ноги", sets: 4, targetReps: "8-10", restSec: 150 },
-      { exerciseId: "ex-leg-press", name: "Жим ногами в тренажёре", nameEn: "Leg Press", muscleGroup: "Ноги", sets: 3, targetReps: "10-12", restSec: 120 },
-      { exerciseId: "ex-leg-curl", name: "Сгибания ног лёжа", nameEn: "Lying Leg Curls", muscleGroup: "Ноги", sets: 3, targetReps: "12-15", restSec: 90 }
+      { exerciseId: "ex-squat", name: "Приседания со штангой", nameEn: "Barbell Squat", muscleGroup: "Квадрицепс", sets: 4, targetReps: "6-8", restSec: 180 },
+      { exerciseId: "ex-rdl", name: "Румынская тяга", nameEn: "Romanian Deadlift", muscleGroup: "Задняя поверхность бедра", sets: 4, targetReps: "8-10", restSec: 150 },
+      { exerciseId: "ex-leg-press", name: "Жим ногами в тренажёре", nameEn: "Leg Press", muscleGroup: "Квадрицепс", sets: 3, targetReps: "10-12", restSec: 120 },
+      { exerciseId: "ex-leg-curl", name: "Сгибания ног лёжа", nameEn: "Lying Leg Curls", muscleGroup: "Задняя поверхность бедра", sets: 3, targetReps: "12-15", restSec: 90 }
     ]
   },
   {
     id: "tpl-push",
-    nameRu: "Push (Жим — Грудь, Плечи, Трицепс)",
+    nameRu: "Push (Грудь / Плечи / Трицепс)",
     nameEn: "Push (Chest, Shoulders, Triceps)",
-    descRu: "Все жимовые и толкающие движения. Классика эффективного 3-дневного сплита Push / Pull / Legs.",
+    descRu: "Жимовой день сплита Push / Pull / Legs.",
     descEn: "All pushing motions: chest, anterior delts, and triceps. Standard Push/Pull/Legs session.",
-    tagRu: "Грудь + Дельты + Трицепс · 5 упр. · ~50 мин",
+    tagRu: "Грудь + Плечи + Трицепс · 5 упр. · ~50 мин",
     tagEn: "Chest + Delts + Triceps · 5 ex · ~50 min",
     items: [
       { exerciseId: "ex-bench-press", name: "Жим штанги лёжа", nameEn: "Barbell Bench Press", muscleGroup: "Грудь", sets: 4, targetReps: "6-8", restSec: 180 },
-      { exerciseId: "ex-incline-db", name: "Жим гантелей на наклонной (30°)", nameEn: "Incline DB Press (30°)", muscleGroup: "Грудь", sets: 3, targetReps: "8-10", restSec: 120 },
-      { exerciseId: "ex-ohp-db", name: "Жим гантелей сидя", nameEn: "Seated Dumbbell OHP", muscleGroup: "Дельты", sets: 3, targetReps: "8-10", restSec: 120 },
+      { exerciseId: "ex-incline-db", name: "Жим гантелей наклонный (30°)", nameEn: "Incline DB Press (30°)", muscleGroup: "Грудь", sets: 3, targetReps: "8-10", restSec: 120 },
+      { exerciseId: "ex-ohp-db", name: "Жим гантелей сидя", nameEn: "Seated Dumbbell OHP", muscleGroup: "Плечи", sets: 3, targetReps: "8-10", restSec: 120 },
       { exerciseId: "ex-dips", name: "Отжимания на брусьях", nameEn: "Parallel Bar Dips", muscleGroup: "Грудь", sets: 3, targetReps: "8-12", restSec: 120, isBodyweight: true },
-      { exerciseId: "ex-rope-pushdown", name: "Разгибания с канатом в блоке", nameEn: "Cable Rope Pushdown", muscleGroup: "Трицепс (Lateral)", sets: 3, targetReps: "12-15", restSec: 90 }
+      { exerciseId: "ex-rope-pushdown", name: "Разгибания на блоке с канатом", nameEn: "Cable Rope Pushdown", muscleGroup: "Трицепс", sets: 3, targetReps: "12-15", restSec: 90 }
     ]
   },
   {
     id: "tpl-pull",
-    nameRu: "Pull (Тяга — Спина, Дельты, Бицепс)",
+    nameRu: "Pull (Спина / Бицепс / Задняя дельта)",
     nameEn: "Pull (Back, Rear Delts, Biceps)",
-    descRu: "Все тяговые движения: развитие ширины и плотности спины, задних пучков дельт и двуглавой мышцы плеча.",
+    descRu: "Тяговый день сплита Push / Pull / Legs.",
     descEn: "All pulling motions: lat width, back thickness, rear delts, and biceps.",
     tagRu: "Спина + Бицепс + Дельты · 5 упр. · ~50 мин",
     tagEn: "Back + Biceps + Delts · 5 ex · ~50 min",
@@ -81,7 +81,7 @@ export const PROGRAM_TEMPLATES = [
       { exerciseId: "seed-pullups", name: "Подтягивания", nameEn: "Pull-ups", muscleGroup: "Спина", sets: 4, targetReps: "6-10", restSec: 180, isBodyweight: true },
       { exerciseId: "ex-bb-row", name: "Тяга штанги в наклоне", nameEn: "Bent-over Barbell Row", muscleGroup: "Спина", sets: 4, targetReps: "8-10", restSec: 150 },
       { exerciseId: "ex-seated-row", name: "Тяга горизонтального блока", nameEn: "Seated Cable Row", muscleGroup: "Спина", sets: 3, targetReps: "10-12", restSec: 120 },
-      { exerciseId: "ex-rear-delt", name: "Обратная бабочка / Задняя дельта", nameEn: "Reverse Fly / Rear Delt", muscleGroup: "Задняя дельта", sets: 3, targetReps: "12-15", restSec: 90 },
+      { exerciseId: "ex-rear-delt", name: "Разведение гантелей в наклоне", nameEn: "Reverse Fly / Rear Delt", muscleGroup: "Плечи (Задняя)", sets: 3, targetReps: "12-15", restSec: 90 },
       { exerciseId: "ex-bb-curl", name: "Подъём EZ-штанги на бицепс", nameEn: "EZ-Bar Biceps Curl", muscleGroup: "Бицепс", sets: 3, targetReps: "10-12", restSec: 90 }
     ]
   },
@@ -89,16 +89,16 @@ export const PROGRAM_TEMPLATES = [
     id: "tpl-arms",
     nameRu: "Руки и плечи (Arms & Shoulders)",
     nameEn: "Arms & Shoulders",
-    descRu: "Изолированная проработка дельтовидных мышц, бицепса и трицепса для максимального мышечного объёма и формы.",
+    descRu: "Специализация на дельты, бицепс и трицепс.",
     descEn: "Hypertrophy-focused arm and shoulder volume for maximal pump and shape.",
     tagRu: "Плечи + Бицепс + Трицепс · 5 упр. · ~45 мин",
     tagEn: "Shoulders + Biceps + Triceps · 5 ex · ~45 min",
     items: [
-      { exerciseId: "ex-ohp-db", name: "Жим гантелей сидя", nameEn: "Seated Dumbbell OHP", muscleGroup: "Дельты", sets: 4, targetReps: "8-10", restSec: 120 },
-      { exerciseId: "ex-db-lat-raise", name: "Махи гантелями в стороны", nameEn: "DB Lateral Raises", muscleGroup: "Средняя дельта", sets: 4, targetReps: "12-15", restSec: 75 },
+      { exerciseId: "ex-ohp-db", name: "Жим гантелей сидя", nameEn: "Seated Dumbbell OHP", muscleGroup: "Плечи", sets: 4, targetReps: "8-10", restSec: 120 },
+      { exerciseId: "ex-db-lat-raise", name: "Махи гантелями в стороны", nameEn: "DB Lateral Raises", muscleGroup: "Плечи (Средняя)", sets: 4, targetReps: "12-15", restSec: 75 },
       { exerciseId: "ex-bb-curl", name: "Подъём EZ-штанги на бицепс", nameEn: "EZ-Bar Biceps Curl", muscleGroup: "Бицепс", sets: 3, targetReps: "10-12", restSec: 90 },
       { exerciseId: "ex-skullcrusher", name: "Французский жим с EZ-штангой", nameEn: "EZ-Bar Skull Crusher", muscleGroup: "Трицепс", sets: 3, targetReps: "10-12", restSec: 90 },
-      { exerciseId: "ex-hammer-curl", name: "Молотки с гантелями", nameEn: "Hammer Curls", muscleGroup: "Бицепс", sets: 3, targetReps: "12-15", restSec: 75 }
+      { exerciseId: "ex-hammer-curl", name: "Молотковые сгибания", nameEn: "Hammer Curls", muscleGroup: "Бицепс", sets: 3, targetReps: "12-15", restSec: 75 }
     ]
   }
 ];
@@ -145,15 +145,15 @@ function calcProgramStats(items) {
     const ex = getExercise(it.exerciseId);
     const sets = Number(it.sets) || 3;
     totalSets += sets;
-    const rest = it.restSec != null ? it.restSec : (ex ? ex.defaultRestSec : 180);
+    const rest = it.restSec != null ? it.restSec : (ex ? ex.defaultRestSec : 120);
     totalRestSec += sets * (rest || 120);
 
-    if (ex) {
-      const mg = (ex.muscleGroup || t("common.other")).trim();
+    const mg = (ex?.muscleGroup || it.muscleGroup || t("common.other")).trim();
+    if (mg) {
       if (!byMuscle.has(mg)) byMuscle.set(mg, { muscle: mg, sets: 0, exercises: [] });
       const rec = byMuscle.get(mg);
       rec.sets += sets;
-      rec.exercises.push(ex.name);
+      rec.exercises.push(ex ? ex.name : it.name);
     }
   }
 
@@ -167,11 +167,9 @@ function calcProgramStats(items) {
   };
 }
 
-function getCoachAdvice(items) {
-  if (!items.length) {
-    return [t("builder.coachEmpty")];
-  }
-  const tips = [];
+function getProgramAnalysis(items) {
+  if (!items.length) return [];
+  const findings = [];
   let totalSets = 0;
   let pushSets = 0;
   let pullSets = 0;
@@ -181,40 +179,54 @@ function getCoachAdvice(items) {
     const ex = getExercise(it.exerciseId);
     const sets = Number(it.sets) || 3;
     totalSets += sets;
-    const mg = (ex?.muscleGroup || "").toLowerCase();
-    if (mg.includes("грудь") || mg.includes("chest") || mg.includes("трицепс") || mg.includes("triceps") || (mg.includes("дельта") && !mg.includes("задн")) || mg.includes("передн") || mg.includes("средн")) {
+    const mg = (ex?.muscleGroup || it.muscleGroup || "").toLowerCase();
+    if (mg.includes("грудь") || mg.includes("chest") || mg.includes("трицепс") || mg.includes("triceps") || (mg.includes("плеч") && !mg.includes("задн")) || mg.includes("shoulder") || mg.includes("press")) {
       pushSets += sets;
     }
-    if (mg.includes("спин") || mg.includes("back") || mg.includes("бицепс") || mg.includes("biceps") || mg.includes("задн") || mg.includes("трапец")) {
+    if (mg.includes("спин") || mg.includes("back") || mg.includes("бицепс") || mg.includes("biceps") || mg.includes("задн") || mg.includes("тяг") || mg.includes("pull") || mg.includes("row")) {
       pullSets += sets;
     }
-    if (mg.includes("ног") || mg.includes("leg") || mg.includes("квадр") || mg.includes("ягодиц") || mg.includes("икр")) {
+    if (mg.includes("ног") || mg.includes("leg") || mg.includes("квадр") || mg.includes("ягодиц") || mg.includes("икр") || mg.includes("бедр") || mg.includes("squat")) {
       legSets += sets;
     }
   }
 
-  if (items.length < 3) {
-    tips.push(t("builder.coachFew"));
-  }
-  if (totalSets > 24) {
-    tips.push(t("builder.coachHigh", { sets: totalSets }));
-  }
-
-  if (pushSets >= 6 && pullSets === 0) {
-    tips.push(t("builder.coachNeedPull"));
-  } else if (pullSets >= 6 && pushSets === 0 && legSets === 0) {
-    tips.push(t("builder.coachPullDay"));
-  } else if (legSets >= 6 && pushSets === 0 && pullSets === 0) {
-    tips.push(t("builder.coachLegsDay"));
-  } else if (pushSets > 0 && pullSets > 0 && legSets > 0) {
-    tips.push(t("builder.coachFullbody"));
-  } else if (pushSets > 0 && pullSets > 0 && legSets === 0) {
-    tips.push(t("builder.coachUpper"));
-  } else if (tips.length === 0) {
-    tips.push(t("builder.coachOk"));
+  // 1. Antagonist push vs pull
+  if (pushSets > 0 && pullSets > 0) {
+    if (pushSets > 2 * pullSets) {
+      findings.push({ type: "bad", text: t("builder.analysisImbalancePush", { push: pushSets, pull: pullSets }) });
+    } else if (pullSets > 2 * pushSets) {
+      findings.push({ type: "bad", text: t("builder.analysisImbalancePull", { push: pushSets, pull: pullSets }) });
+    } else if (Math.abs(pushSets - pullSets) <= 2 || pushSets === pullSets) {
+      findings.push({ type: "ok", text: t("builder.analysisBalancedUpper", { push: pushSets, pull: pullSets }) });
+    }
+  } else if (pushSets >= 4 && pullSets === 0) {
+    findings.push({ type: "warn", text: t("builder.analysisNeedPull") });
+  } else if (pullSets >= 4 && pushSets === 0) {
+    findings.push({ type: "warn", text: t("builder.analysisNeedPush") });
   }
 
-  return tips;
+  // 2. Volume
+  if (totalSets >= 12 && totalSets <= 22) {
+    findings.push({ type: "ok", text: t("builder.analysisOptVolume", { sets: totalSets }) });
+  } else if (totalSets > 22) {
+    findings.push({ type: "warn", text: t("builder.analysisHigh", { sets: totalSets }) });
+  } else if (items.length > 0 && items.length < 3) {
+    findings.push({ type: "warn", text: t("builder.analysisFew", { n: items.length }) });
+  }
+
+  // 3. Legs
+  if (legSets === 0 && (pushSets > 0 || pullSets > 0)) {
+    findings.push({ type: "warn", text: t("builder.analysisNoLegs") });
+  } else if (legSets > 0 && pushSets > 0 && pullSets > 0) {
+    findings.push({ type: "ok", text: t("builder.analysisBalancedFull") });
+  }
+
+  if (findings.length === 0) {
+    findings.push({ type: "ok", text: t("builder.analysisBalanced") });
+  }
+
+  return findings;
 }
 
 export function openProgramEditor(program) {
@@ -223,604 +235,846 @@ export function openProgramEditor(program) {
   p.items.forEach(it => (it._key = it._key || uid()));
 
   let dirty = false;
-  let activeTab = "items"; // "items" | "balance" | "templates"
+  let activeTab = "exercises"; // "exercises" | "balance" | "templates"
+  const expandedKeys = new Set(p.items.length > 0 ? [p.items[0]._key] : []);
+  let selectedTemplateId = PROGRAM_TEMPLATES[0].id;
+  let liveDebounce = null;
+  let savedTimer = null;
 
-  // Элементы заголовка и навигации
-  const nameInput = h("input", {
-    type: "text",
-    class: "builder-name-input",
-    value: p.name,
-    placeholder: t("builder.namePlaceholder"),
-    autocomplete: "off"
-  });
-  nameInput.addEventListener("input", () => {
-    p.name = nameInput.value;
-    dirty = true;
-    errEl.hidden = true;
-  });
-
-  const errEl = h("p", { class: "error", hidden: true });
-
-  const clearNameBtn = iconBtn("x", t("common.close"), () => {
-    nameInput.value = "";
-    p.name = "";
-    dirty = true;
-    nameInput.focus();
-  });
-
-  const nameBox = h("div", { class: "builder-name-box" },
-    icon("edit", 17),
-    nameInput,
-    clearNameBtn
-  );
-
-  const quickNameChips = [
-    { label: t("builder.chipFullbodyA"), val: isEn() ? "Full Body A" : "Фулбоди А" },
-    { label: t("builder.chipFullbodyB"), val: isEn() ? "Full Body B" : "Фулбоди Б" },
-    { label: t("builder.chipUpper"), val: isEn() ? "Upper Body" : "Верх тела" },
-    { label: t("builder.chipLower"), val: isEn() ? "Lower Body" : "Низ тела" },
-    { label: t("builder.chipPush"), val: isEn() ? "Push (Chest/Delts)" : "Push (Жим)" },
-    { label: t("builder.chipPull"), val: isEn() ? "Pull (Back/Biceps)" : "Pull (Тяга)" },
-    { label: t("builder.chipLegs"), val: isEn() ? "Leg Day" : "День ног" },
-    { label: t("builder.chipArms"), val: isEn() ? "Arms & Shoulders" : "Руки и плечи" }
-  ];
-
-  const quickNamesWrap = h("div", { class: "builder-quick-names" },
-    ...quickNameChips.map(c => h("button", {
-      type: "button",
-      class: "builder-name-chip",
-      onclick: () => {
-        nameInput.value = c.val;
-        p.name = c.val;
-        dirty = true;
-        errEl.hidden = true;
-        haptic("light");
+  function setDirty(isDirty) {
+    dirty = isDirty;
+    if (statusDot) {
+      if (dirty) {
+        statusDot.className = "builder-status-dot dirty";
+        statusLabel.textContent = t("builder.statusDirty");
+      } else {
+        statusDot.className = "builder-status-dot saved";
+        statusLabel.textContent = t("builder.statusSaved");
       }
-    }, c.label))
-  );
-
-  const nameSection = h("div", { class: "builder-name-wrap" },
-    h("span", { class: "stg-row-label" }, t("builder.nameLabel")),
-    nameBox,
-    quickNamesWrap,
-    errEl
-  );
-
-  // Живая плашка сводки
-  const liveBadge = h("div", { class: "builder-live-badge" });
-  const liveSubhead = h("div", { class: "builder-subhead" },
-    liveBadge,
-    h("span", { class: "builder-live-dot" })
-  );
-
-  function updateLiveSubhead() {
-    const stats = calcProgramStats(p.items);
-    liveBadge.textContent = t("builder.subLive", {
-      time: stats.estMinutes,
-      ex: stats.exerciseCount,
-      sets: stats.totalSets
-    });
+    }
   }
 
-  // Табы
-  const tabBtnItems = h("button", {
+  // Header Elements
+  const titleText = h("span", { class: "builder-title-text" }, p.name || t("builder.defaultProgName"));
+  const pencilBtn = h("button", {
     type: "button",
-    class: "builder-tab active",
-    onclick: () => switchTab("items")
-  }, t("builder.tabExercises"), h("span", { class: "builder-tab-badge" }, String(p.items.length)));
+    class: "builder-pencil-btn",
+    "aria-label": t("common.rename"),
+    onclick: (e) => { e.stopPropagation(); openRenameSheet(); }
+  }, icon("edit", 16));
 
-  const tabBtnBalance = h("button", {
+  const titleBtn = h("button", {
     type: "button",
-    class: "builder-tab",
+    class: "builder-title-btn",
+    onclick: openRenameSheet
+  }, titleText, pencilBtn);
+
+  const statusDot = h("span", { class: "builder-status-dot " + (dirty ? "dirty" : "saved") });
+  const statusLabel = h("span", {}, dirty ? t("builder.statusDirty") : t("builder.statusSaved"));
+  const statusChip = h("div", { class: "builder-status-chip", "aria-live": "polite" }, statusDot, statusLabel);
+
+  const closeBtn = h("button", {
+    type: "button",
+    class: "builder-close-btn",
+    "aria-label": t("common.close"),
+    onclick: () => sh.requestClose()
+  }, icon("x", 16));
+
+  // Live Meta string
+  const liveMetaEl = h("div", { class: "builder-live-meta" });
+
+  function scheduleLiveMeta() {
+    if (liveDebounce) clearTimeout(liveDebounce);
+    liveDebounce = setTimeout(() => {
+      const stats = calcProgramStats(p.items);
+      liveMetaEl.textContent = t("builder.liveMeta", {
+        time: stats.estMinutes,
+        ex: stats.exerciseCount,
+        sets: stats.totalSets
+      });
+      tabBtn1.textContent = t("builder.tabExercisesCount", { n: stats.exerciseCount });
+    }, 150);
+  }
+
+  // Tabs segmented control
+  const thumb = h("div", { class: "builder-tab-thumb" });
+  const tabBtn1 = h("button", {
+    type: "button",
+    class: "builder-tab-btn",
+    role: "tab",
+    "aria-selected": "true",
+    onclick: () => switchTab("exercises")
+  }, t("builder.tabExercisesCount", { n: p.items.length }));
+
+  const tabBtn2 = h("button", {
+    type: "button",
+    class: "builder-tab-btn",
+    role: "tab",
+    "aria-selected": "false",
     onclick: () => switchTab("balance")
   }, t("builder.tabBalance"));
 
-  const tabBtnTemplates = h("button", {
+  const tabBtn3 = h("button", {
     type: "button",
-    class: "builder-tab",
+    class: "builder-tab-btn",
+    role: "tab",
+    "aria-selected": "false",
     onclick: () => switchTab("templates")
   }, t("builder.tabTemplates"));
 
-  const tabsWrap = h("nav", { class: "builder-tabs" },
-    tabBtnItems, tabBtnBalance, tabBtnTemplates
+  const segmentedControl = h("div", { class: "builder-segmented-control", role: "tablist" },
+    thumb,
+    tabBtn1,
+    tabBtn2,
+    tabBtn3
   );
 
-  function switchTab(tabKey) {
-    if (activeTab === tabKey) return;
-    activeTab = tabKey;
-    tabBtnItems.classList.toggle("active", activeTab === "items");
-    tabBtnBalance.classList.toggle("active", activeTab === "balance");
-    tabBtnTemplates.classList.toggle("active", activeTab === "templates");
+  const tabsStickyWrap = h("div", { class: "builder-tabs-sticky" }, segmentedControl);
+
+  function switchTab(tab) {
+    activeTab = tab;
+    const tabIdx = tab === "exercises" ? 0 : (tab === "balance" ? 1 : 2);
+    thumb.style.transform = `translateX(${tabIdx * 100}%)`;
+    tabBtn1.setAttribute("aria-selected", tab === "exercises" ? "true" : "false");
+    tabBtn2.setAttribute("aria-selected", tab === "balance" ? "true" : "false");
+    tabBtn3.setAttribute("aria-selected", tab === "templates" ? "true" : "false");
     haptic("light");
     paintPane();
   }
 
-  const paneContainer = h("div", { class: "builder-pane" });
+  const paneContainer = h("div", { class: "builder-content" });
 
-  // Drag-and-drop сортировка
-  const syncOrder = keys => {
-    p.items = keys.map(k => p.items.find(i => i._key === k)).filter(Boolean);
-    dirty = true;
-  };
-
-  const moveItem = (idx, d) => {
-    const j = idx + d;
-    if (j < 0 || j >= p.items.length) return;
-    [p.items[idx], p.items[j]] = [p.items[j], p.items[idx]];
-    dirty = true;
-    haptic("light");
-    renderItemsTab();
-    updateLiveSubhead();
-  };
-
-  // 1. Отрисовка вкладки «Упражнения»
+  // Tab 1: Exercises
   function renderItemsTab() {
     clear(paneContainer);
-    tabBtnItems.querySelector(".builder-tab-badge").textContent = String(p.items.length);
 
-    paneContainer.append(nameSection);
-
-    // Мини-полоска баланса (если есть упражнения)
-    if (p.items.length > 0) {
-      const stats = calcProgramStats(p.items);
-      const miniChips = stats.byMuscle.slice(0, 5).map(m =>
-        h("span", { class: "builder-mini-tag" }, `${m.muscle}: ${m.sets} с.`)
-      );
-      const miniBalance = h("div", {
-        class: "builder-mini-balance",
-        onclick: () => switchTab("balance")
-      },
-        h("div", { class: "builder-mini-chips" },
-          h("strong", { style: "font-size:12px; margin-right:4px;" }, t("builder.balanceStrip")),
-          ...miniChips
-        ),
-        h("span", { class: "builder-mini-more" }, t("builder.balanceDetail"))
-      );
-      paneContainer.append(miniBalance);
-    }
-
-    if (!p.items.length) {
-      const emptyState = h("div", { class: "builder-empty" },
-        h("div", { class: "builder-empty-icon" }, icon("dumbbell", 30)),
-        h("h3", { class: "builder-empty-title" }, t("builder.emptyTitle")),
-        h("p", { class: "builder-empty-sub" }, t("builder.emptySub")),
+    if (p.items.length === 0) {
+      const emptyState = h("div", { class: "builder-empty-state" },
+        icon("drag", 48),
+        h("div", { class: "builder-empty-title" }, t("builder.emptyTitle")),
+        h("div", { class: "builder-empty-sub" }, t("builder.emptySub")),
         h("div", { class: "builder-empty-actions" },
           h("button", {
+            type: "button",
             class: "btn primary block",
-            type: "button",
-            onclick: () => pickExercise(ex => {
-              p.items.push({
-                _key: uid(),
-                exerciseId: ex.id,
-                sets: ex.defaultSets || 3,
-                targetReps: "8-10",
-                restSec: ex.defaultRestSec ?? 180,
-                note: ""
+            style: "height: 44px; font-weight: 600;",
+            onclick: () => {
+              pickExercise(ex => {
+                p.items.push({
+                  _key: uid(),
+                  exerciseId: ex.id,
+                  name: ex.name,
+                  muscleGroup: ex.muscleGroup,
+                  sets: ex.defaultSets || 3,
+                  targetReps: "8-10",
+                  restSec: ex.defaultRestSec || 120,
+                  note: ""
+                });
+                expandedKeys.add(p.items[p.items.length - 1]._key);
+                setDirty(true);
+                scheduleLiveMeta();
+                renderItemsTab();
               });
-              dirty = true;
-              renderItemsTab();
-              updateLiveSubhead();
-            }, { multi: true })
-          }, icon("plus", 17), t("builder.addExBtn")),
+            }
+          }, t("builder.emptyAdd")),
           h("button", {
-            class: "btn block",
             type: "button",
+            class: "btn block",
+            style: "height: 44px;",
             onclick: () => switchTab("templates")
-          }, t("builder.chooseTplBtn"))
+          }, t("builder.emptyTpl"))
         )
       );
       paneContainer.append(emptyState);
       return;
     }
 
-    const itemsBox = h("div", { class: "builder-items" });
-    enableDragSort(itemsBox, keys => {
-      syncOrder(keys);
-      renderItemsTab();
-      updateLiveSubhead();
-    });
+    const listEl = h("div", { class: "builder-ex-list" });
 
     p.items.forEach((it, idx) => {
       const ex = getExercise(it.exerciseId);
+      const isExpanded = expandedKeys.has(it._key);
 
-      // 1. Шапка карточки
-      const cardHead = h("div", { class: "builder-card-head" },
-        h("button", {
-          class: "btn icon drag-handle",
-          type: "button",
-          "aria-label": t("programs.dragTitle"),
-          title: t("programs.dragTitle")
-        }, icon("drag", 18)),
-        h("span", { class: "builder-card-idx" }, String(idx + 1)),
-        h("div", { class: "builder-card-info" },
-          h("span", { class: "builder-card-title" }, ex ? ex.name : t("programs.exDeleted")),
-          h("span", { class: "builder-card-muscle" }, ex ? ex.muscleGroup : "")
-        ),
-        h("div", { class: "builder-card-tools" },
-          iconBtn("up", t("programs.moveUp"), () => moveItem(idx, -1)),
-          iconBtn("down", t("programs.moveDown"), () => moveItem(idx, 1)),
-          iconBtn("x", t("programs.removeFromProg"), () => {
-            const deleted = p.items[idx];
-            const delIdx = idx;
-            p.items.splice(idx, 1);
-            dirty = true;
-            haptic("medium");
-            renderItemsTab();
-            updateLiveSubhead();
-            showUndoSnackbar(t("builder.itemDeleted"), t("common.undo"), () => {
-              p.items.splice(delIdx, 0, deleted);
-              dirty = true;
-              renderItemsTab();
-              updateLiveSubhead();
-            });
-          })
-        )
-      );
+      const itemCard = h("div", {
+        class: "builder-ex-item" + (isExpanded ? " is-open" : ""),
+        "data-key": it._key
+      });
 
-      // 2. Степпер подходов
+      // Accordion Header
+      const dragHandle = h("div", {
+        class: "builder-drag-handle drag-handle",
+        "aria-label": "Drag",
+        title: "Drag to reorder"
+      }, icon("drag", 16));
+
+      const idxEl = h("span", { class: "builder-ex-idx" }, String(idx + 1));
+      const nameEl = h("span", { class: "builder-ex-name" }, ex ? (isEn() ? ex.nameEn || ex.name : ex.name) : it.name);
+      const muscleEl = h("span", { class: "builder-ex-muscle" }, (ex ? ex.muscleGroup : it.muscleGroup || "").toUpperCase());
+      const infoEl = h("div", { class: "builder-ex-info" }, nameEl, muscleEl);
+
+      const summaryEl = h("span", { class: "builder-ex-summary" }, `${it.sets || 3} × ${it.targetReps || "8-10"}`);
+      const chevronEl = h("span", { class: "builder-chevron" }, icon("down", 18));
+
+      const headerRight = h("div", { class: "builder-ex-header-right" }, summaryEl, chevronEl);
+      const headerLeft = h("div", { class: "builder-ex-header-left" }, dragHandle, idxEl, infoEl);
+
+      const headerBtn = h("div", {
+        class: "builder-ex-header",
+        role: "button",
+        "aria-expanded": isExpanded ? "true" : "false",
+        onclick: (e) => {
+          if (e.target.closest(".drag-handle")) return;
+          if (expandedKeys.has(it._key)) {
+            expandedKeys.delete(it._key);
+            itemCard.classList.remove("is-open");
+            headerBtn.setAttribute("aria-expanded", "false");
+          } else {
+            expandedKeys.add(it._key);
+            itemCard.classList.add("is-open");
+            headerBtn.setAttribute("aria-expanded", "true");
+          }
+          haptic("light");
+        }
+      }, headerLeft, headerRight);
+
+      // Accordion Body
+      // Row 1: Sets
       const setsVal = h("span", { class: "builder-stepper-val" }, String(it.sets || 3));
-      const setsStepper = h("div", { class: "builder-stepper-row" },
-        h("span", { class: "builder-stepper-label" }, t("builder.setsLabel")),
-        h("div", { class: "builder-stepper-ctrl" },
-          h("button", {
-            type: "button",
-            class: "builder-stepper-btn",
-            onclick: () => {
-              it.sets = Math.max(1, (it.sets || 3) - 1);
-              setsVal.textContent = String(it.sets);
-              dirty = true;
-              haptic("light");
-              updateLiveSubhead();
-            }
-          }, "−"),
-          setsVal,
-          h("button", {
-            type: "button",
-            class: "builder-stepper-btn",
-            onclick: () => {
-              it.sets = Math.min(15, (it.sets || 3) + 1);
-              setsVal.textContent = String(it.sets);
-              dirty = true;
-              haptic("light");
-              updateLiveSubhead();
-            }
-          }, "+")
-        )
+      const setsMinus = h("button", {
+        type: "button",
+        class: "builder-stepper-btn",
+        onclick: () => {
+          it.sets = Math.max(1, (it.sets || 3) - 1);
+          setsVal.textContent = String(it.sets);
+          summaryEl.textContent = `${it.sets} × ${it.targetReps || "8-10"}`;
+          setDirty(true);
+          scheduleLiveMeta();
+          haptic("light");
+        }
+      }, icon("minus", 16));
+
+      const setsPlus = h("button", {
+        type: "button",
+        class: "builder-stepper-btn",
+        onclick: () => {
+          it.sets = Math.min(20, (it.sets || 3) + 1);
+          setsVal.textContent = String(it.sets);
+          summaryEl.textContent = `${it.sets} × ${it.targetReps || "8-10"}`;
+          setDirty(true);
+          scheduleLiveMeta();
+          haptic("light");
+        }
+      }, icon("plus", 16));
+
+      const setsStepper = h("div", { class: "builder-stepper" }, setsMinus, setsVal, setsPlus);
+      const setsGroup = h("div", { class: "builder-field-group" },
+        h("span", { class: "builder-field-label" }, t("builder.setsLabel")),
+        setsStepper
       );
 
-      // 3. Целевые повторы и цели с подсказками
-      const repPresets = [
-        { label: t("builder.goalStrength"), val: "3-5" },
-        { label: t("builder.goalPower"), val: "6-8" },
-        { label: t("builder.goalHyp"), val: "8-10" },
-        { label: t("builder.goalVolume"), val: "10-12" },
-        { label: t("builder.goalPump"), val: "15-20" }
-      ];
+      // Row 2: Target Reps Segmented (5 zones)
+      const repsRanges = ["3-5", "6-8", "8-10", "10-12", "15-20"];
+      const currentReps = it.targetReps || "8-10";
+      const repsHintEl = h("div", { class: "builder-reps-hint" }, getRepTip(currentReps));
 
-      const repsInput = h("input", {
-        type: "text",
-        class: "builder-custom-reps",
-        value: it.targetReps || "8-10",
-        placeholder: "8-10",
-        "aria-label": t("builder.repsTargetLabel")
-      });
-
-      const repTip = h("div", { class: "builder-target-tip" }, getRepTip(it.targetReps || "8-10"));
-
-      const presetBtns = repPresets.map(rp => {
+      const repsButtons = repsRanges.map(range => {
         const btn = h("button", {
           type: "button",
-          class: "builder-preset-pill" + (it.targetReps === rp.val ? " active" : ""),
+          class: "builder-reps-btn" + (range === currentReps ? " active" : ""),
           onclick: () => {
-            it.targetReps = rp.val;
-            repsInput.value = rp.val;
-            repTip.textContent = getRepTip(rp.val);
-            presetBtns.forEach(b => b.classList.remove("active"));
+            it.targetReps = range;
+            summaryEl.textContent = `${it.sets || 3} × ${it.targetReps}`;
+            repsButtons.forEach(b => b.classList.remove("active"));
             btn.classList.add("active");
-            dirty = true;
+            repsHintEl.textContent = getRepTip(range);
+            setDirty(true);
+            scheduleLiveMeta();
             haptic("light");
           }
-        }, rp.label);
+        }, range.replace("-", "–"));
         return btn;
       });
 
-      repsInput.addEventListener("input", () => {
-        it.targetReps = repsInput.value.trim();
-        repTip.textContent = getRepTip(it.targetReps);
-        presetBtns.forEach(b => b.classList.toggle("active", b.textContent.includes(it.targetReps)));
-        dirty = true;
-      });
-
-      const targetBox = h("div", { class: "builder-target-box" },
-        h("div", { class: "builder-target-head" },
-          h("span", {}, t("builder.repsTargetLabel")),
-          repsInput
-        ),
-        h("div", { class: "builder-target-presets" }, ...presetBtns),
-        repTip
+      const repsSegmented = h("div", { class: "builder-reps-segmented" }, ...repsButtons);
+      const repsGroup = h("div", { class: "builder-field-group" },
+        h("span", { class: "builder-field-label" }, t("builder.repsTargetLabel")),
+        repsSegmented,
+        repsHintEl
       );
 
-      // 4. Отдых между подходами
+      // Row 3: Rest Presets & Stepper
       const restPresets = [
-        { sec: 60, label: "60с (1 мин)" },
-        { sec: 90, label: "90с (1.5 мин)" },
-        { sec: 120, label: "120с (2 мин)" },
-        { sec: 180, label: "180с (3 мин)" },
-        { sec: 210, label: "210с (3.5 мин)" }
+        { sec: 60, label: "1:00" },
+        { sec: 90, label: "1:30" },
+        { sec: 120, label: "2:00" },
+        { sec: 150, label: "2:30" }
       ];
-      const curRestSec = it.restSec != null ? it.restSec : (ex ? ex.defaultRestSec : 180);
+      const curRest = it.restSec != null ? it.restSec : 120;
+      const restValEl = h("span", { class: "builder-stepper-val" }, fmtRest(curRest));
 
-      const restPills = restPresets.map(rp => {
+      let presetButtons = [];
+      function updateRestPresetStyles(val) {
+        presetButtons.forEach(b => {
+          b.classList.toggle("active", b._sec === val);
+        });
+        restValEl.textContent = fmtRest(val);
+      }
+
+      presetButtons = restPresets.map(preset => {
         const btn = h("button", {
           type: "button",
-          class: "builder-rest-pill" + (curRestSec === rp.sec ? " active" : ""),
+          class: "builder-rest-chip" + (curRest === preset.sec ? " active" : ""),
           onclick: () => {
-            it.restSec = rp.sec;
-            restPills.forEach(b => b.classList.remove("active"));
-            btn.classList.add("active");
-            dirty = true;
+            it.restSec = preset.sec;
+            updateRestPresetStyles(preset.sec);
+            setDirty(true);
+            scheduleLiveMeta();
             haptic("light");
-            updateLiveSubhead();
           }
-        }, rp.label);
+        }, preset.label);
+        btn._sec = preset.sec;
         return btn;
       });
 
-      const restBox = h("div", { class: "builder-rest-box" },
-        h("span", { class: "builder-rest-head" }, t("builder.restLabel")),
-        h("div", { class: "builder-rest-presets" }, ...restPills)
+      const restMinus = h("button", {
+        type: "button",
+        class: "builder-stepper-btn",
+        onclick: () => {
+          it.restSec = Math.max(15, (it.restSec || 120) - 15);
+          updateRestPresetStyles(it.restSec);
+          setDirty(true);
+          scheduleLiveMeta();
+          haptic("light");
+        }
+      }, icon("minus", 16));
+
+      const restPlus = h("button", {
+        type: "button",
+        class: "builder-stepper-btn",
+        onclick: () => {
+          it.restSec = Math.min(600, (it.restSec || 120) + 15);
+          updateRestPresetStyles(it.restSec);
+          setDirty(true);
+          scheduleLiveMeta();
+          haptic("light");
+        }
+      }, icon("plus", 16));
+
+      const restStepper = h("div", { class: "builder-stepper" }, restMinus, restValEl, restPlus);
+      const restRow = h("div", { class: "builder-rest-row" },
+        h("div", { class: "builder-rest-presets" }, ...presetButtons),
+        restStepper
+      );
+      const restGroup = h("div", { class: "builder-field-group" },
+        h("span", { class: "builder-field-label" }, t("builder.restLabel")),
+        restRow
       );
 
-      // 5. Заметка
+      // Row 4: Note Input
       const noteInput = h("input", {
         type: "text",
-        class: "builder-item-note",
+        class: "builder-note-input",
         value: it.note || "",
-        placeholder: t("builder.notePlaceholder"),
-        oninput: ev => { it.note = ev.target.value; dirty = true; }
+        placeholder: t("builder.notePlaceholder")
+      });
+      noteInput.addEventListener("input", () => {
+        it.note = noteInput.value;
+        setDirty(true);
       });
 
-      const card = h("article", { class: "builder-card", dataset: { key: it._key } },
-        cardHead,
-        setsStepper,
-        targetBox,
-        restBox,
-        noteInput
+      // Row 5: Item Actions
+      const dupBtn = h("button", {
+        type: "button",
+        class: "builder-btn-subtle",
+        onclick: () => {
+          const clone = JSON.parse(JSON.stringify(it));
+          clone._key = uid();
+          p.items.splice(idx + 1, 0, clone);
+          expandedKeys.add(clone._key);
+          setDirty(true);
+          scheduleLiveMeta();
+          renderItemsTab();
+          haptic("light");
+        }
+      }, icon("copy", 14), t("builder.duplicate"));
+
+      const removeBtn = h("button", {
+        type: "button",
+        class: "builder-btn-quiet-danger",
+        onclick: () => {
+          const removed = p.items.splice(idx, 1)[0];
+          expandedKeys.delete(it._key);
+          setDirty(true);
+          scheduleLiveMeta();
+          renderItemsTab();
+          haptic("light");
+          showUndoSnackbar(t("builder.itemDeleted"), t("common.undo"), () => {
+            p.items.splice(idx, 0, removed);
+            expandedKeys.add(removed._key);
+            setDirty(true);
+            scheduleLiveMeta();
+            renderItemsTab();
+          }, 10000);
+        }
+      }, icon("trash", 14), t("builder.removeEx"));
+
+      const actionsRow = h("div", { class: "builder-item-actions" }, dupBtn, removeBtn);
+
+      const collapseEl = h("div", { class: "builder-ex-collapse", role: "region" },
+        h("div", { class: "builder-ex-body" },
+          setsGroup,
+          repsGroup,
+          restGroup,
+          noteInput,
+          actionsRow
+        )
       );
 
-      itemsBox.append(card);
+      itemCard.append(headerBtn, collapseEl);
+      listEl.append(itemCard);
     });
 
-    paneContainer.append(itemsBox);
+    enableDragSort(listEl, (newKeys) => {
+      const map = new Map(p.items.map(it => [it._key, it]));
+      p.items = newKeys.map(k => map.get(k)).filter(Boolean);
+      setDirty(true);
+      scheduleLiveMeta();
+      [...listEl.children].forEach((child, i) => {
+        const idEl = child.querySelector(".builder-ex-idx");
+        if (idEl) idEl.textContent = String(i + 1);
+      });
+    });
 
-    // Кнопка добавления
-    const addBtn = h("button", {
-      class: "btn primary block",
+    // Dashed Add Exercise button
+    const addDashedBtn = h("button", {
       type: "button",
-      onclick: () => pickExercise(ex => {
-        p.items.push({
-          _key: uid(),
-          exerciseId: ex.id,
-          sets: ex.defaultSets || 3,
-          targetReps: "8-10",
-          restSec: ex.defaultRestSec ?? 180,
-          note: ""
+      class: "builder-add-dashed",
+      onclick: () => {
+        pickExercise(ex => {
+          p.items.push({
+            _key: uid(),
+            exerciseId: ex.id,
+            name: ex.name,
+            muscleGroup: ex.muscleGroup,
+            sets: ex.defaultSets || 3,
+            targetReps: "8-10",
+            restSec: ex.defaultRestSec || 120,
+            note: ""
+          });
+          expandedKeys.add(p.items[p.items.length - 1]._key);
+          setDirty(true);
+          scheduleLiveMeta();
+          renderItemsTab();
         });
-        dirty = true;
-        renderItemsTab();
-        updateLiveSubhead();
-      }, { multi: true })
-    }, icon("plus", 18), t("builder.addExBtn"));
+      }
+    }, icon("plus", 16), t("builder.addExDashed"));
 
-    paneContainer.append(addBtn);
+    paneContainer.append(listEl, addDashedBtn);
   }
 
-  // 2. Отрисовка вкладки «Баланс мышц»
+  // Tab 2: Balance
   function renderBalanceTab() {
     clear(paneContainer);
     const stats = calcProgramStats(p.items);
+    const findings = getProgramAnalysis(p.items);
 
-    // Анатомическая карта тела
-    const mapBox = h("div", { class: "panel" },
-      h("h3", { class: "group", style: "margin-top:0" }, t("programs.muscleCoverage")),
-      renderBodyMap(stats.byMuscle, { compact: false })
+    // Section 1: Coverage
+    const coverageTitle = h("div", { class: "builder-section-title" }, t("builder.coverageTitle"));
+    const bodyMapNode = renderBodyMap(stats.byMuscle, { compact: false });
+
+    const silhouettesBlock = h("div", { class: "builder-silhouettes-block" },
+      bodyMapNode
     );
 
-    // Сетка ключевых метрик
-    const metricGrid = h("div", { class: "builder-metric-grid" },
-      h("div", { class: "builder-metric-card" },
-        h("span", { class: "builder-metric-val" }, `~${stats.estMinutes} мин`),
-        h("span", { class: "builder-metric-lbl" }, t("builder.metricDuration"))),
-      h("div", { class: "builder-metric-card" },
-        h("span", { class: "builder-metric-val" }, String(stats.totalSets)),
-        h("span", { class: "builder-metric-lbl" }, t("builder.metricSets"))),
-      h("div", { class: "builder-metric-card" },
-        h("span", { class: "builder-metric-val" }, String(stats.exerciseCount)),
-        h("span", { class: "builder-metric-lbl" }, t("builder.metricExercises"))),
-      h("div", { class: "builder-metric-card" },
-        h("span", { class: "builder-metric-val" }, String(stats.muscleCount)),
-        h("span", { class: "builder-metric-lbl" }, t("builder.metricMuscles")))
-    );
-
-    // Советы тренера
-    const tips = getCoachAdvice(p.items);
-    const coachCard = h("div", { class: "builder-coach-card" },
-      h("div", { class: "builder-coach-head" }, icon("help", 18), t("builder.coachTitle")),
-      h("div", { class: "builder-coach-body" },
-        ...tips.map(tp => h("div", { class: "builder-coach-item" }, tp))
-      )
-    );
-
-    // Распределение объёма по мышцам
-    const maxMuscleSets = stats.byMuscle.reduce((m, x) => Math.max(m, x.sets), 1);
-    const progressRows = stats.byMuscle.sort((a, b) => b.sets - a.sets).map(m => {
+    // Muscle volume distribution bars
+    const sortedMuscles = [...stats.byMuscle].sort((a, b) => b.sets - a.sets);
+    const volumeRows = sortedMuscles.map(m => {
       const pct = stats.totalSets > 0 ? Math.round((m.sets / stats.totalSets) * 100) : 0;
-      const fillW = Math.round((m.sets / maxMuscleSets) * 100);
-      return h("div", { class: "builder-progress-row" },
-        h("div", { class: "builder-progress-labels" },
-          h("span", {}, m.muscle),
-          h("span", { class: "muted" }, `${m.sets} с. (${pct}%)`)
+      return h("div", { class: "builder-volume-row" },
+        h("div", { class: "builder-volume-meta" },
+          h("span", { class: "builder-volume-name" }, m.muscle),
+          h("span", { class: "builder-volume-val" }, t("builder.volumeSetsPct", { sets: m.sets, pct }))
         ),
-        h("div", { class: "builder-progress-track" },
-          h("div", { class: "builder-progress-fill", style: `width: ${fillW}%` })
+        h("div", { class: "builder-volume-track" },
+          h("div", { class: "builder-volume-fill", style: `width: ${pct}%;` })
         )
       );
     });
 
-    const progressCard = stats.byMuscle.length > 0 ? h("div", { class: "builder-progress-card" },
-      h("span", { class: "builder-progress-head" }, t("builder.loadDistribution")),
-      ...progressRows
-    ) : null;
+    const volumeList = h("div", { class: "builder-volume-list" },
+      volumeRows.length > 0 ? volumeRows : h("div", { style: "font-size: 13px; color: var(--ink-2);" }, t("builder.emptySub"))
+    );
 
-    paneContainer.append(mapBox, metricGrid, coachCard, progressCard);
+    const coverageSection = h("div", { class: "builder-section" },
+      coverageTitle,
+      silhouettesBlock,
+      volumeList
+    );
+
+    // Section 2: Program Analysis
+    const analysisTitle = h("div", { class: "builder-section-title" }, t("builder.analysisTitle"));
+    const findingItems = findings.map(f => h("div", { class: "builder-finding-item" },
+      h("span", { class: "builder-finding-dot " + f.type }),
+      h("span", {}, f.text)
+    ));
+
+    const findingsList = h("div", { class: "builder-findings-list" }, ...findingItems);
+    const analysisSection = h("div", { class: "builder-section" },
+      analysisTitle,
+      findingsList
+    );
+
+    paneContainer.append(coverageSection, analysisSection);
   }
 
-  // 3. Отрисовка вкладки «Шаблоны»
+  // Tab 3: Templates
   function renderTemplatesTab() {
     clear(paneContainer);
 
-    const head = h("div", { style: "display:flex; flex-direction:column; gap:4px;" },
-      h("h3", { style: "margin:0; font-size:17px; font-weight:800;" }, t("builder.tplTitle")),
-      h("p", { class: "muted small", style: "margin:0;" }, t("builder.tplSub"))
-    );
+    const notice = h("div", { class: "builder-tpl-notice" }, t("builder.tplNotice"));
+    const list = h("div", { class: "builder-tpl-list" });
 
-    const tplGrid = h("div", { class: "builder-tpl-grid" },
-      ...PROGRAM_TEMPLATES.map(tpl => {
-        const title = isEn() ? tpl.nameEn : tpl.nameRu;
-        const desc = isEn() ? tpl.descEn : tpl.descRu;
-        const tag = isEn() ? tpl.tagEn : tpl.tagRu;
+    PROGRAM_TEMPLATES.forEach(tpl => {
+      const isSelected = selectedTemplateId === tpl.id;
+      const card = h("div", {
+        class: "builder-tpl-card" + (isSelected ? " selected" : ""),
+        onclick: () => {
+          if (selectedTemplateId !== tpl.id) {
+            selectedTemplateId = tpl.id;
+            renderTemplatesTab();
+            haptic("light");
+          }
+        }
+      });
 
-        const itemsPreview = h("div", { class: "builder-tpl-items" },
-          ...tpl.items.map(it => h("div", { class: "builder-tpl-item-row" },
-            h("span", { class: "builder-tpl-item-name" }, isEn() ? it.nameEn || it.name : it.name),
-            h("span", { class: "builder-tpl-item-meta" }, `${it.sets} × ${it.targetReps}`)
-          ))
-        );
+      const radioInner = h("div", { class: "builder-tpl-radio-inner" });
+      const radio = h("div", { class: "builder-tpl-radio" }, radioInner);
 
+      const titleEl = h("div", { class: "builder-tpl-title" }, isEn() ? tpl.nameEn : tpl.nameRu);
+      const tagEl = h("div", { class: "builder-tpl-tag" }, isEn() ? tpl.tagEn : tpl.tagRu);
+      const textWrap = h("div", { style: "display: flex; flex-direction: column; gap: 2px;" }, titleEl, tagEl);
+
+      const header = h("div", { class: "builder-tpl-header" }, radio, textWrap);
+
+      const previewItems = tpl.items.map((it, i) => {
+        const name = isEn() ? it.nameEn || it.name : it.name;
+        return h("div", {}, `${i + 1}. ${name} — ${it.sets} × ${it.targetReps}`);
+      });
+      const previewList = h("div", { class: "builder-tpl-preview" }, ...previewItems);
+
+      card.append(header, previewList);
+
+      if (isSelected) {
         const applyBtn = h("button", {
-          class: "btn primary builder-tpl-btn",
           type: "button",
-          onclick: async () => {
-            if (p.items.length > 0) {
-              const replace = await confirmDialog(t("builder.tplReplaceConfirm", { name: title }), {
-                ok: t("builder.tplReplace"),
-                cancel: t("builder.tplAdd"),
-                danger: false
-              });
-              if (replace) {
-                p.items = [];
-              }
-            }
-
-            // Обеспечиваем наличие упражнений в библиотеке
-            for (const it of tpl.items) {
-              const ex = ensureExerciseInStore(it);
-              p.items.push({
-                _key: uid(),
-                exerciseId: ex.id,
-                sets: it.sets || 3,
-                targetReps: it.targetReps || "8-10",
-                restSec: it.restSec ?? 180,
-                note: ""
-              });
-            }
-
-            if (!p.name.trim()) {
-              p.name = title;
-              nameInput.value = title;
-            }
-
-            dirty = true;
-            haptic("success");
-            toast(t("builder.tplAppliedToast", { name: title }));
-            switchTab("items");
-            updateLiveSubhead();
+          class: "builder-tpl-apply-btn",
+          onclick: (e) => {
+            e.stopPropagation();
+            openTemplateDiffConfirm(tpl);
           }
         }, t("builder.applyTpl"));
+        card.append(applyBtn);
+      }
 
-        return h("div", { class: "builder-tpl-card" },
-          h("div", { class: "builder-tpl-head" },
-            h("strong", { class: "builder-tpl-title" }, title),
-            h("span", { class: "builder-tpl-tag" }, tag)
-          ),
-          h("p", { class: "builder-tpl-desc" }, desc),
-          itemsPreview,
-          applyBtn
-        );
-      })
+      list.append(card);
+    });
+
+    paneContainer.append(notice, list);
+  }
+
+  function openTemplateDiffConfirm(tpl) {
+    let diffSheet;
+    diffSheet = sheet(
+      h("div", { class: "stack", style: "gap: 16px; padding: 8px 0;" },
+        h("div", { style: "display: flex; flex-direction: column; gap: 6px;" },
+          h("h3", { style: "margin: 0; font-size: 18px; font-weight: 700;" }, t("builder.tplDiffTitle")),
+          h("p", { style: "margin: 0; font-size: 14px; color: var(--ink-2); line-height: 1.45;" },
+            t("builder.tplDiffText", { from: p.items.length, to: tpl.items.length })
+          )
+        ),
+        h("div", { style: "display: flex; flex-direction: column; gap: 10px; margin-top: 8px;" },
+          h("button", {
+            type: "button",
+            class: "btn primary block",
+            style: "height: 48px; font-weight: 600;",
+            onclick: () => {
+              diffSheet.close();
+              const backup = JSON.parse(JSON.stringify(p.items));
+              p.items = tpl.items.map(it => {
+                ensureExerciseInStore(it);
+                return {
+                  _key: uid(),
+                  exerciseId: it.exerciseId,
+                  name: it.name,
+                  muscleGroup: it.muscleGroup,
+                  sets: it.sets || 3,
+                  targetReps: it.targetReps || "8-10",
+                  restSec: it.restSec || 120,
+                  note: ""
+                };
+              });
+              setDirty(true);
+              switchTab("exercises");
+              scheduleLiveMeta();
+              haptic("success");
+              showUndoSnackbar(
+                t("builder.tplAppliedToast", { name: isEn() ? tpl.nameEn : tpl.nameRu }),
+                t("common.undo"),
+                () => {
+                  p.items = backup;
+                  setDirty(true);
+                  scheduleLiveMeta();
+                  renderItemsTab();
+                  toast(t("builder.tplUndone"));
+                },
+                10000
+              );
+            }
+          }, t("builder.tplDiffOk")),
+          h("button", {
+            type: "button",
+            class: "btn block",
+            style: "height: 48px;",
+            onclick: () => diffSheet.close()
+          }, t("common.cancel"))
+        )
+      ),
+      { title: "" }
     );
-
-    paneContainer.append(head, tplGrid);
   }
 
   function paintPane() {
-    if (activeTab === "items") renderItemsTab();
+    if (activeTab === "exercises") renderItemsTab();
     else if (activeTab === "balance") renderBalanceTab();
     else if (activeTab === "templates") renderTemplatesTab();
   }
 
-  // Сохранение программы
-  const save = () => {
-    const nm = p.name.trim();
-    if (!nm) {
-      haptic("error");
-      errEl.textContent = t("common.enterName");
-      errEl.hidden = false;
-      switchTab("items");
-      nameInput.focus();
-      return;
-    }
-    const items = p.items.map(({ _key, ...rest }) => ({
+  // Rename bottom sheet
+  function openRenameSheet() {
+    let renSheet;
+    const renInput = h("input", {
+      type: "text",
+      class: "input",
+      style: "height: 44px; width: 100%; box-sizing: border-box; font-size: 15px; font-weight: 600;",
+      value: p.name,
+      placeholder: t("builder.renamePlaceholder"),
+      autocomplete: "off"
+    });
+
+    const quickPresets = [
+      { label: t("builder.chipFullbodyA"), val: isEn() ? "Full Body A" : "Фулбоди А" },
+      { label: t("builder.chipFullbodyB"), val: isEn() ? "Full Body B" : "Фулбоди Б" },
+      { label: t("builder.chipUpper"), val: isEn() ? "Upper Body" : "Верх тела" },
+      { label: t("builder.chipLower"), val: isEn() ? "Lower Body" : "Низ тела" },
+      { label: t("builder.chipPush"), val: isEn() ? "Push (Chest/Delts)" : "Push (Жим)" },
+      { label: t("builder.chipPull"), val: isEn() ? "Pull (Back/Biceps)" : "Pull (Тяга)" },
+      { label: t("builder.chipLegs"), val: isEn() ? "Leg Day" : "День ног" },
+      { label: t("builder.chipArms"), val: isEn() ? "Arms & Shoulders" : "Руки и плечи" }
+    ];
+
+    const chipsWrap = h("div", { class: "builder-rename-chips" },
+      ...quickPresets.map(preset => h("button", {
+        type: "button",
+        class: "builder-rename-chip",
+        onclick: () => {
+          renInput.value = preset.val;
+          haptic("light");
+          renInput.focus();
+        }
+      }, preset.label))
+    );
+
+    const doneBtn = h("button", {
+      type: "button",
+      class: "btn primary block",
+      style: "height: 48px; font-weight: 600; margin-top: 14px;",
+      onclick: () => {
+        const val = renInput.value.trim();
+        p.name = val;
+        titleText.textContent = val || t("builder.defaultProgName");
+        setDirty(true);
+        renSheet.close();
+      }
+    }, t("builder.renameSave"));
+
+    renSheet = sheet(
+      h("div", { class: "stack", style: "gap: 14px; padding: 8px 0;" },
+        h("div", { style: "display: flex; flex-direction: column; gap: 4px;" },
+          h("h3", { style: "margin: 0; font-size: 18px; font-weight: 700;" }, t("builder.renameTitle")),
+          h("p", { style: "margin: 0; font-size: 13px; color: var(--ink-2);" }, t("builder.renameSub"))
+        ),
+        renInput,
+        chipsWrap,
+        doneBtn
+      ),
+      { title: "" }
+    );
+    setTimeout(() => renInput.focus(), 150);
+  }
+
+  // Delete confirm bottom sheet (with exact name re-typing)
+  function openDeleteConfirmSheet() {
+    const progName = (p.name || t("builder.defaultProgName")).trim();
+    let delSheet;
+    const delInput = h("input", {
+      type: "text",
+      class: "input",
+      style: "height: 44px; width: 100%; box-sizing: border-box; font-size: 14px;",
+      placeholder: t("builder.deleteConfirmPlaceholder"),
+      autocomplete: "off"
+    });
+
+    const confirmBtn = h("button", {
+      type: "button",
+      class: "btn danger block",
+      style: "height: 48px; font-weight: 600;",
+      disabled: true,
+      onclick: () => {
+        dirty = false;
+        delSheet.close();
+        deleteProgram(p.id);
+        sh.close();
+        toast(t("programs.deletedToast"));
+      }
+    }, t("builder.deleteConfirmBtn"));
+
+    delInput.addEventListener("input", () => {
+      confirmBtn.disabled = delInput.value.trim() !== progName;
+    });
+
+    delSheet = sheet(
+      h("div", { class: "stack", style: "gap: 16px; padding: 8px 0;" },
+        h("div", { style: "display: flex; flex-direction: column; gap: 6px;" },
+          h("h3", { style: "margin: 0; font-size: 18px; font-weight: 700; color: #ef4444;" }, t("builder.deleteConfirmTitle")),
+          h("p", { style: "margin: 0; font-size: 14px; color: var(--ink-2); line-height: 1.45;" },
+            t("builder.deleteConfirmText", { name: progName })
+          )
+        ),
+        delInput,
+        confirmBtn
+      ),
+      { title: "" }
+    );
+    setTimeout(() => delInput.focus(), 150);
+  }
+
+  // Save operation
+  function save(closeAfter = true) {
+    const nm = (p.name || "").trim() || t("builder.defaultProgName");
+    p.name = nm;
+    const cleanItems = p.items.map(({ _key, ...rest }) => ({
       exerciseId: rest.exerciseId,
       sets: rest.sets || 3,
-      targetReps: rest.targetReps || "",
+      targetReps: rest.targetReps || "8-10",
       restSec: rest.restSec ?? null,
       note: rest.note || ""
     }));
-    dirty = false;
-    saveProgram({ ...p, name: nm, items });
-    haptic("success");
-    sh.close();
-    toast(t("programs.savedToast"));
-  };
 
-  // Нижняя плавающая панель
-  const stickyFoot = h("div", { class: "builder-sticky-foot" },
-    h("button", {
-      class: "btn primary block",
-      type: "button",
-      onclick: save
-    }, icon("check", 18), t("builder.saveBtn")),
-    !isNew ? h("button", {
-      class: "btn danger block",
-      type: "button",
-      onclick: async () => {
-        if (await confirmDialog(t("programs.deleteConfirm", { name: p.name }), { ok: t("common.delete"), danger: true })) {
-          dirty = false;
-          deleteProgram(p.id);
-          sh.close();
-          toast(t("programs.deletedToast"));
-        }
-      }
-    }, icon("trash", 16), t("builder.deleteBtn")) : null
+    saveProgram({ ...p, name: nm, items: cleanItems });
+    setDirty(false);
+    haptic("success");
+    toast(t("builder.savedToast"));
+
+    if (closeAfter) {
+      sh.close();
+    }
+  }
+
+  // Sticky footer
+  const saveBtn = h("button", {
+    type: "button",
+    class: "builder-btn-save",
+    onclick: () => save(true)
+  }, icon("check", 18), t("builder.saveChanges"));
+
+  const deleteBtn = !isNew ? h("button", {
+    type: "button",
+    class: "builder-btn-delete",
+    "aria-label": t("builder.deleteProg"),
+    onclick: openDeleteConfirmSheet
+  }, icon("trash", 18)) : null;
+
+  const stickyFoot = h("div", { class: "builder-sticky-footer" },
+    saveBtn,
+    deleteBtn
   );
 
   const studioContainer = h("div", { class: "builder-studio" },
-    liveSubhead,
-    tabsWrap,
+    liveMetaEl,
+    tabsStickyWrap,
     paneContainer,
     stickyFoot
   );
 
   const sh = sheet(studioContainer, {
-    title: isNew ? t("builder.titleNew") : t("builder.titleEdit"),
+    title: "",
     full: true,
-    beforeClose: () => (!dirty ? true : confirmDialog(t("common.unsavedConfirm"), { ok: t("common.close"), cancel: t("common.stay"), danger: true }))
+    beforeClose: async () => {
+      if (!dirty) return true;
+      return new Promise((resolve) => {
+        let confirmSheet;
+        confirmSheet = sheet(
+          h("div", { class: "stack", style: "gap: 16px; padding: 8px 0;" },
+            h("div", { style: "display: flex; flex-direction: column; gap: 6px;" },
+              h("h3", { style: "margin: 0; font-size: 18px; font-weight: 700;" }, t("builder.unsavedTitle")),
+              h("p", { style: "margin: 0; font-size: 14px; color: var(--ink-2); line-height: 1.45;" }, t("builder.unsavedText"))
+            ),
+            h("div", { style: "display: flex; flex-direction: column; gap: 10px; margin-top: 8px;" },
+              h("button", {
+                type: "button",
+                class: "btn primary block",
+                style: "height: 48px; font-weight: 600;",
+                onclick: () => {
+                  confirmSheet.close();
+                  save(true);
+                  resolve(true);
+                }
+              }, t("builder.unsavedSave")),
+              h("button", {
+                type: "button",
+                class: "btn block",
+                style: "height: 48px; color: #ef4444; border-color: rgba(239, 68, 68, 0.2); background: rgba(239, 68, 68, 0.08);",
+                onclick: () => {
+                  dirty = false;
+                  confirmSheet.close();
+                  resolve(true);
+                }
+              }, t("builder.unsavedDiscard")),
+              h("button", {
+                type: "button",
+                class: "btn block",
+                style: "height: 48px;",
+                onclick: () => {
+                  confirmSheet.close();
+                  resolve(false);
+                }
+              }, t("builder.unsavedStay"))
+            )
+          ),
+          { title: "" }
+        );
+      });
+    }
   });
 
-  updateLiveSubhead();
+  // Mount custom clean header on sheet
+  const head = sh.el.querySelector(".sheet-head");
+  if (head) {
+    clear(head);
+    head.className = "sheet-head builder-sheet-header";
+    const grabber = h("div", { class: "sheet-grab", "aria-hidden": "true" });
+    const headerLeft = h("div", { class: "builder-header-left" }, titleBtn, statusChip);
+    head.append(grabber, headerLeft, closeBtn);
+  }
+
+  // Initial render
+  const stats = calcProgramStats(p.items);
+  liveMetaEl.textContent = t("builder.liveMeta", {
+    time: stats.estMinutes,
+    ex: stats.exerciseCount,
+    sets: stats.totalSets
+  });
   paintPane();
-  if (isNew && !p.name) nameInput.focus();
 }
 
 export function mount(root) {

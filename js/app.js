@@ -7,12 +7,12 @@ import { initTimerBar, refreshTimerI18n, stopRest } from "./timer.js";
 import { t, getLang } from "./i18n.js";
 import { applyTheme, openSettings } from "./views/settings.js";
 import { openAuthScreen } from "./views/auth.js";
-import { initPwa } from "./pwa.js?v=49";
-import * as workout from "./views/workout.js?v=49";
-import * as programs from "./views/programs.js?v=49";
-import * as exercises from "./views/exercises.js?v=49";
-import * as progress from "./views/progress.js?v=49";
-import * as history from "./views/history.js?v=49";
+import { initPwa } from "./pwa.js?v=50";
+import * as workout from "./views/workout.js?v=50";
+import * as programs from "./views/programs.js?v=50";
+import * as exercises from "./views/exercises.js?v=50";
+import * as progress from "./views/progress.js?v=50";
+import * as history from "./views/history.js?v=50";
 
 initPwa();
 
