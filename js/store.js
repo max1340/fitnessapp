@@ -10,6 +10,8 @@ import {
 } from "./auth.js";
 import { t, detectDefaultLang, setLang, isEn, localizeExercise, localizeProgram, localizeSession, localizeState, tMuscle } from "./i18n.js";
 
+export { saveDoc } from "./db.js";
+
 const COLLECTIONS = ["exercises", "programs", "sessions", "meta"];
 /** Нечувствительные настройки внешнего вида на устройстве (язык/тема) — для экрана входа до авторизации. */
 const LS_DEVICE_PREFS = "fitness:device:prefs";

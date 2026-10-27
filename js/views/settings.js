@@ -1,5 +1,5 @@
 import { h, clear, sheet, toast, confirmDialog, parseNum, fmtNum, fmtRest, icon, haptic } from "../ui.js";
-import { state, updateSettings, exportData, importData, downloadCsv, unitLabel, logoutProfile, doneSessions, pendingCount, waitForSync, flushOfflineQueue, logBodyweight, saveDoc } from "../store.js";
+import { state, updateSettings, exportData, importData, downloadCsv, unitLabel, logoutProfile, doneSessions, pendingCount, waitForSync, flushOfflineQueue, logBodyweight, deleteAccount, saveDoc } from "../store.js";
 import { authErrorMessage, sendReset } from "../auth.js";
 import { t, getLang } from "../i18n.js";
 import { isStandalone, promptPwaInstall } from "../pwa.js";
