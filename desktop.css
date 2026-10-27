@@ -116,10 +116,11 @@
   /* ── PROGRESS ── */
   .dash{display:grid;grid-template-columns:repeat(12,1fr);gap:16px;padding:24px 28px}
   .sp3{grid-column:span 3}.sp4{grid-column:span 4}.sp6{grid-column:span 6}.sp8{grid-column:span 8}.sp12{grid-column:span 12}
-  .kpi .lab{font-size:12.5px;color:var(--ink2);margin-bottom:6px}
-  .kpi .val{font-size:27px;font-weight:800;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+  .kpi{display:flex;flex-direction:column;justify-content:space-between;min-height:114px}
+  .kpi .lab{font-size:12.5px;color:var(--ink2);margin-bottom:4px}
+  .kpi .val{font-size:28px;line-height:1.2;font-weight:800;letter-spacing:-.01em;font-variant-numeric:tabular-nums;margin:2px 0 6px}
   .kpi .val i{font-style:normal;font-size:14px;color:var(--ink2);font-weight:600;margin-left:4px}
-  .kpi .foot{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:12px;color:var(--ink3)}
+  .kpi .foot{display:flex;justify-content:space-between;align-items:center;margin-top:auto;font-size:12px;color:var(--ink3)}
   .tblRow{display:grid;grid-template-columns:1fr auto auto;gap:14px;padding:9px 0;border-top:1px solid var(--line2);font-size:13.5px;color:var(--ink2);align-items:center}
   .tblRow:first-of-type{border-top:0}
   .tblRow b{color:var(--ink);font-variant-numeric:tabular-nums}
@@ -152,13 +153,14 @@
 
   /* ── EXERCISES ── */
   .colsEx{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:24px;padding:24px 28px;align-items:start}
-  .gGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .gCard{aspect-ratio:1;border:1px solid var(--line);border-radius:16px;background:var(--sheet);padding:14px;
-         display:flex;flex-direction:column;justify-content:space-between;text-align:left}
+  .gGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+  .gCard{border:1px solid var(--line);border-radius:12px;background:var(--sheet);padding:10px 12px;
+         display:flex;justify-content:space-between;align-items:center;text-align:left;min-height:44px;cursor:pointer;
+         transition:background .12s, box-shadow .12s}
   .gCard:hover{background:var(--tile)}
-  .gCard.sel{box-shadow:0 0 0 1.5px var(--ink)}
-  .gCard b{font-size:15px;line-height:1.25}
-  .gCard span{font-size:12.5px;color:var(--ink3);font-variant-numeric:tabular-nums}
+  .gCard.sel{box-shadow:0 0 0 1.5px var(--ink);background:var(--tile)}
+  .gCard b{font-size:13.5px;line-height:1.2}
+  .gCard span{font-size:12px;color:var(--ink3);font-variant-numeric:tabular-nums;margin-left:6px;white-space:nowrap}
   .searchIn{border:1px solid var(--line);border-radius:12px;padding:9px 14px;font-size:14px;background:var(--field);width:260px}
 
   /* ── SETTINGS ─ */

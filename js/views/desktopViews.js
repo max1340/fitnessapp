@@ -2,15 +2,16 @@
 // Токены, плотности, компоненты и раскладки 1:1 по референс-концепту
 import {
   state, saveProgram, deleteProgram, saveExercise, getExercise, getProgram,
+  deleteSession,
   activeSession, updateSettings, logBodyweight, deleteAccount, logoutProfile, uid,
   COMMON_LIBRARY_EXERCISES
 } from "../store.js";
 import { h, clear, icon, toast, showUndoSnackbar, sheet, confirmDialog, fmtRest, haptic } from "../ui.js";
 import { entryVolume, entryE1rm, epley, toKg, fromKg, effectiveWeightKg } from "../metrics.js";
-import { t, isEn, MONTHS, tMuscle } from "../i18n.js";
-import { sharedState, setInterfaceMode, getInterfaceMode } from "../shell.js";
+import { t, getLang, isEn, MONTHS, tMuscle } from "../i18n.js";
+import { sharedState } from "../shell.js";
 import { PROGRAM_TEMPLATES } from "./programs.js";
-import { pickExercise } from "./exercises.js";
+import { pickExercise, openExerciseForm } from "./exercises.js";
 import { applyTheme } from "./settings.js";
 
 /* ==========================================================================
@@ -124,7 +125,7 @@ export function renderDesktopPrograms() {
         }
       },
         h("b", {}, p.name),
-        h("span", {}, `${exCount} упр. · ${totalSets} сетов · ~${estMin} мин`),
+        h("span", {}, `${exCount} упр. · ${totalSets} сетов · ≈ ${estMin} мин`),
         h("span", {}, lastDoneStr)
       );
 
@@ -208,7 +209,7 @@ export function renderDesktopPrograms() {
 
     // Live meta string
     const edMeta = h("div", { class: "edMeta" },
-      `~${estMin} мин · ${exCount} упр. · ${totalSets} сетов · пересчитывается автоматически`
+      `≈ ${estMin} мин · ${exCount} упр. · ${totalSets} сетов · пересчитывается автоматически`
     );
 
     // Segmented tabs: Упражнения N | Баланс | Шаблоны
@@ -252,7 +253,7 @@ export function renderDesktopPrograms() {
         panelContainer.append(buildExercisesPanel(p, () => {
           isDirty = true;
           updateStatus();
-          edMeta.textContent = `~${estMin} мин · ${p.items.length} упр. · ${p.items.reduce((acc, it) => acc + (it.sets || 3), 0)} сетов · пересчитывается автоматически`;
+          edMeta.textContent = `≈ ${estMin} мин · ${p.items.length} упр. · ${p.items.reduce((acc, it) => acc + (it.sets || 3), 0)} сетов · пересчитывается автоматически`;
           tabExercises.textContent = isEn() ? `Exercises ${p.items.length}` : `Упражнения ${p.items.length}`;
         }));
       } else if (sharedState.programEditorTab === "balance") {
@@ -285,14 +286,7 @@ export function renderDesktopPrograms() {
       }
     }, isEn() ? "Save changes" : "Сохранить изменения");
 
-    const footDeleteBtn = h("button", {
-      type: "button",
-      class: "icBtn danger",
-      style: "border:1px solid var(--line);border-radius:12px;width:46px;height:44px",
-      onclick: () => deleteBtn.click()
-    }, icon("trash", 17));
-
-    const edFoot = h("div", { class: "edFoot" }, savePrimaryBtn, footDeleteBtn);
+    const edFoot = h("div", { class: "edFoot" }, savePrimaryBtn);
 
     editorBox.append(edHead, edMeta, edTabs, panelContainer, edFoot);
   }
@@ -915,16 +909,21 @@ export function renderDesktopProgress() {
   return container;
 }
 
+function getMonthName(idx) {
+  const list = MONTHS[getLang()] || MONTHS.ru;
+  return list[idx] || "";
+}
+
 function getPeriodDateString(period) {
   const d = new Date();
   const nowStr = isEn() ? "present" : "наст. время";
   if (period === "7") {
     const past = new Date(d.getTime() - 7 * 86400000);
-    return `${past.getDate()} ${MONTHS[past.getMonth()]} — ${nowStr}`;
+    return `${past.getDate()} ${getMonthName(past.getMonth())} — ${nowStr}`;
   }
   if (period === "30") {
     const past = new Date(d.getTime() - 30 * 86400000);
-    return `${past.getDate()} ${MONTHS[past.getMonth()]} — ${nowStr}`;
+    return `${past.getDate()} ${getMonthName(past.getMonth())} — ${nowStr}`;
   }
   return isEn() ? "All time" : "Всё время";
 }
@@ -996,14 +995,15 @@ export function renderDesktopHistory() {
   doneSessions.forEach(s => {
     if (s.startedAt) {
       const dt = new Date(s.startedAt);
-      monthsSet.add(MONTHS[dt.getMonth()]);
+      const m = getMonthName(dt.getMonth());
+      if (m) monthsSet.add(m);
     }
   });
 
-  const monthChips = h("div", { class: "chips", style: "margin-bottom:12px" });
+  const monthChips = h("div", { class: "chips", style: "margin-bottom:12px;flex-wrap:wrap" });
   const monthsArr = Array.from(monthsSet);
 
-  const curMonthFilter = sharedState.historyMonthFilter || (monthsArr[0] || "all");
+  const curMonthFilter = sharedState.historyMonthFilter || "all";
 
   const allChip = h("button", {
     type: "button",
@@ -1033,7 +1033,7 @@ export function renderDesktopHistory() {
   const filteredSessions = doneSessions.filter(s => {
     if (curMonthFilter === "all") return true;
     const dt = new Date(s.startedAt || 0);
-    return MONTHS[dt.getMonth()] === curMonthFilter;
+    return getMonthName(dt.getMonth()) === curMonthFilter;
   });
 
   const hList = h("div", {});
@@ -1045,7 +1045,11 @@ export function renderDesktopHistory() {
       const prog = getProgram(s.programId);
       const progName = s.name || prog?.name || (isEn() ? "Workout" : "Тренировка");
       const dt = new Date(s.startedAt || 0);
-      const dateStr = `${dt.getDate()} ${MONTHS[dt.getMonth()]}, ${fmtTime(dt)}`;
+      const dateStr = `${dt.getDate()} ${getMonthName(dt.getMonth())}, ${fmtTime(dt)}`;
+      const exCount = (s.entries || []).length;
+      const exCountStr = isEn()
+        ? `${exCount} ${exCount === 1 ? "exercise" : "exercises"}`
+        : `${exCount} ${pluralize(exCount, "упражнение", "упражнения", "упражнений")}`;
 
       let sessionVol = 0;
       (s.entries || []).forEach(e => {
@@ -1066,7 +1070,7 @@ export function renderDesktopHistory() {
       },
         h("span", { class: "d" },
           h("b", {}, dateStr),
-          h("span", {}, `${progName} · ${(s.entries || []).length} упражнений`)
+          h("span", {}, `${progName} · ${exCountStr}`)
         ),
         h("span", { class: "m" },
           `${formatNumber(Math.round(sessionVol))} кг`,
@@ -1091,7 +1095,7 @@ export function renderDesktopHistory() {
     const prog = getProgram(session.programId);
     const progName = session.name || prog?.name || (isEn() ? "Workout" : "Тренировка");
     const dt = new Date(session.startedAt || 0);
-    const dateFull = `${dt.getDate()} ${MONTHS[dt.getMonth()]} ${dt.getFullYear()}, ${fmtTime(dt)}`;
+    const dateFull = `${dt.getDate()} ${getMonthName(dt.getMonth())} ${dt.getFullYear()}, ${fmtTime(dt)}`;
 
     // Top row
     const headRow = h("div", { style: "display:flex;gap:10px;align-items:center" },
@@ -1117,7 +1121,23 @@ export function renderDesktopHistory() {
         onclick: () => openEditWorkoutDrawer(session, () => {
           container.replaceWith(renderDesktopHistory());
         })
-      }, icon("pencil", 16))
+      }, icon("pencil", 16)),
+      h("button", {
+        type: "button",
+        class: "icBtn danger",
+        title: isEn() ? "Delete workout" : "Удалить тренировку",
+        onclick: () => {
+          confirmDialog(
+            isEn() ? "Delete this workout log?" : "Удалить эту запись тренировки?",
+            () => {
+              deleteSession(session.id);
+              toast(isEn() ? "Workout deleted" : "Тренировка удалена");
+              sharedState.selectedHistoryId = null;
+              container.replaceWith(renderDesktopHistory());
+            }
+          );
+        }
+      }, icon("trash", 16))
     );
 
     // miniKpi 4 tiles
@@ -1286,23 +1306,25 @@ export function renderDesktopExercises() {
 
   // Muscle groups
   const groups = [
-    { id: "Спина", nameRu: "Спина", nameEn: "Back" },
-    { id: "Грудь", nameRu: "Грудь", nameEn: "Chest" },
-    { id: "Бицепс", nameRu: "Бицепс", nameEn: "Biceps" },
-    { id: "Ноги", nameRu: "Ноги", nameEn: "Legs" },
-    { id: "Трицепс", nameRu: "Трицепс", nameEn: "Triceps" },
-    { id: "Дельты", nameRu: "Дельты", nameEn: "Shoulders" },
-    { id: "Пресс", nameRu: "Пресс", nameEn: "Abs" },
-    { id: "Задняя дельта", nameRu: "Задняя дельта", nameEn: "Rear Delt" }
+    { id: "all", nameRu: "Все", nameEn: "All", match: () => true },
+    { id: "Грудь", nameRu: "Грудь", nameEn: "Chest", match: m => (m || "").includes("Грудь") },
+    { id: "Спина", nameRu: "Спина", nameEn: "Back", match: m => (m || "").includes("Спина") },
+    { id: "Ноги", nameRu: "Ноги", nameEn: "Legs", match: m => (m || "").includes("Ноги") || (m || "").includes("бедра") || (m || "").includes("Икры") || (m || "").includes("Ягодицы") },
+    { id: "Дельты", nameRu: "Плечи", nameEn: "Shoulders", match: m => (m || "").includes("дельт") || (m || "").includes("Дельт") || (m || "").includes("Плеч") },
+    { id: "Бицепс", nameRu: "Бицепс", nameEn: "Biceps", match: m => (m || "").includes("Бицепс") },
+    { id: "Трицепс", nameRu: "Трицепс", nameEn: "Triceps", match: m => (m || "").includes("Трицепс") },
+    { id: "Пресс", nameRu: "Пресс", nameEn: "Abs", match: m => (m || "").includes("Пресс") }
   ];
 
   if (!sharedState.selectedMuscleGroup) {
-    sharedState.selectedMuscleGroup = groups[1].id; // "Грудь" default
+    sharedState.selectedMuscleGroup = "Грудь";
   }
 
   // Topbar
   const title = h("h1", {}, t("nav.exercises") || "Упражнения");
-  const countSub = h("span", { class: "sub" }, isEn() ? `${exercises.length} in base` : `${exercises.length} в базе`);
+  const countSub = h("span", { class: "sub" }, isEn()
+    ? `${exercises.length} in base`
+    : `${exercises.length} ${pluralize(exercises.length, "упражнение", "упражнения", "упражнений")}`);
   const spacer = h("span", { class: "spacer" });
 
   const searchInput = h("input", {
@@ -1316,7 +1338,18 @@ export function renderDesktopExercises() {
     }
   });
 
-  const topbar = h("header", { class: "topbar" }, title, countSub, spacer, searchInput);
+  const newExBtn = h("button", {
+    type: "button",
+    class: "btnP",
+    onclick: () => {
+      openExerciseForm(null, (saved) => {
+        if (saved) sharedState.selectedExerciseId = saved.id;
+        container.replaceWith(renderDesktopExercises());
+      });
+    }
+  }, "+ " + (isEn() ? "Exercise" : "Упражнение"));
+
+  const topbar = h("header", { class: "topbar" }, title, countSub, spacer, searchInput, newExBtn);
 
   // Layout: colsEx
   const cols = h("div", { class: "colsEx" });
@@ -1328,8 +1361,10 @@ export function renderDesktopExercises() {
     const query = sharedState.exerciseSearchQuery;
 
     if (query) {
-      // Показ списка найденных упражнений
+      // Показ списка найденных упражнений по поиску
       const matched = exercises.filter(e => e.name.toLowerCase().includes(query));
+      const resHeader = h("div", { class: "secLabel", style: "margin-bottom:10px" },
+        isEn() ? `SEARCH RESULTS · ${matched.length}` : `РЕЗУЛЬТАТЫ ПОИСКА · ${matched.length}`);
       const resList = h("div", { class: "pList" });
       if (!matched.length) {
         resList.append(h("div", { class: "sub" }, isEn() ? "No exercises found" : "Ничего не найдено"));
@@ -1341,51 +1376,85 @@ export function renderDesktopExercises() {
             class: "pCard" + (isSel ? " sel" : ""),
             onclick: () => {
               sharedState.selectedExerciseId = ex.id;
-              renderLeftCol();
+              leftCol.querySelectorAll(".pCard").forEach(el => el.classList.toggle("sel", el === c));
               renderDetail(ex);
             }
           },
             h("b", {}, ex.name),
-            h("span", {}, ex.muscleGroup)
+            h("span", {}, ex.muscleGroup || "")
           );
           resList.append(c);
         });
       }
-      leftCol.append(resList);
+      leftCol.append(resHeader, resList);
       return;
     }
 
-    // 2xN grid of square cards
+    // Сетка групп мышц 2xN
     const gGrid = h("div", { class: "gGrid" });
 
     groups.forEach(g => {
-      const count = exercises.filter(e => (e.muscleGroup || "").includes(g.id)).length;
+      const count = exercises.filter(e => g.match(e.muscleGroup)).length;
       const isSel = g.id === sharedState.selectedMuscleGroup;
       const gName = isEn() ? g.nameEn : g.nameRu;
+      const countLabel = isEn()
+        ? `${count} ${count === 1 ? "exercise" : "exercises"}`
+        : `${count} ${pluralize(count, "упражнение", "упражнения", "упражнений")}`;
 
       const card = h("button", {
         type: "button",
         class: "gCard" + (isSel ? " sel" : ""),
         onclick: () => {
           sharedState.selectedMuscleGroup = g.id;
-          cols.querySelectorAll(".gCard").forEach(c => c.classList.toggle("sel", c === card));
+          leftCol.querySelectorAll(".gCard").forEach(c => c.classList.toggle("sel", c === card));
 
-          // Выбираем первое упражнение из этой группы
-          const firstEx = exercises.find(e => (e.muscleGroup || "").includes(g.id));
-          if (firstEx) {
-            sharedState.selectedExerciseId = firstEx.id;
-            renderDetail(firstEx);
+          const curGroupExercises = exercises.filter(e => g.match(e.muscleGroup));
+          if (curGroupExercises.length > 0) {
+            sharedState.selectedExerciseId = curGroupExercises[0].id;
+            renderDetail(curGroupExercises[0]);
           }
+          renderLeftCol();
         }
       },
         h("b", {}, gName),
-        h("span", {}, isEn() ? `${count} exercises` : `${count} упражнений`)
+        h("span", {}, countLabel)
       );
 
       gGrid.append(card);
     });
 
-    leftCol.append(gGrid);
+    // Список упражнений выбранной группы
+    const curGroupObj = groups.find(g => g.id === sharedState.selectedMuscleGroup) || groups[1];
+    const curGroupExercises = exercises.filter(e => curGroupObj.match(e.muscleGroup));
+    const gTitle = isEn() ? curGroupObj.nameEn : curGroupObj.nameRu;
+
+    const listHead = h("div", { class: "secLabel", style: "margin: 14px 0 8px;" },
+      `${gTitle.toUpperCase()} · ${curGroupExercises.length}`);
+
+    const exList = h("div", { class: "pList", style: "max-height: calc(100vh - 360px); overflow-y: auto; padding-right: 4px;" });
+
+    if (curGroupExercises.length === 0) {
+      exList.append(h("div", { class: "sub" }, isEn() ? "No exercises in this group" : "В этой группе пока нет упражнений"));
+    } else {
+      curGroupExercises.forEach(ex => {
+        const isSel = ex.id === sharedState.selectedExerciseId;
+        const c = h("button", {
+          type: "button",
+          class: "pCard" + (isSel ? " sel" : ""),
+          onclick: () => {
+            sharedState.selectedExerciseId = ex.id;
+            exList.querySelectorAll(".pCard").forEach(el => el.classList.toggle("sel", el === c));
+            renderDetail(ex);
+          }
+        },
+          h("b", {}, ex.name),
+          h("span", {}, `${ex.muscleGroup || ""}${ex.equipment ? " · " + ex.equipment : ""}`)
+        );
+        exList.append(c);
+      });
+    }
+
+    leftCol.append(gGrid, listHead, exList);
   }
 
   function renderDetail(exercise) {
@@ -1436,7 +1505,7 @@ export function renderDesktopExercises() {
     } else {
       historyEntries.slice(0, 4).forEach(({ session, entry }) => {
         const dt = new Date(session.startedAt || 0);
-        const dateStr = `${dt.getDate()} ${MONTHS[dt.getMonth()]}`;
+        const dateStr = `${dt.getDate()} ${getMonthName(dt.getMonth())}`;
         let bestW = 0, bestR = 0, vol = 0;
         (entry.sets || []).forEach(st => {
           if (st.done) {
@@ -1470,12 +1539,22 @@ export function renderDesktopExercises() {
       h("span", {})
     );
 
-    // Кнопки действий: Добавить в программу + В архив
+    // Кнопки действий: Добавить в программу + Редактировать + В архив
     const addProgBtn = h("button", {
       type: "button",
       class: "btnP",
       onclick: () => openAddToProgramModal(exercise)
     }, t("exercises.addToProgram") || "Добавить в программу");
+
+    const editBtn = h("button", {
+      type: "button",
+      class: "btnGhost",
+      onclick: () => {
+        openExerciseForm(exercise, () => {
+          container.replaceWith(renderDesktopExercises());
+        });
+      }
+    }, isEn() ? "Edit" : "Редактировать");
 
     const archiveBtn = h("button", {
       type: "button",
@@ -1490,7 +1569,7 @@ export function renderDesktopExercises() {
       }
     }, exercise.archived ? (isEn() ? "Unarchive" : "Из архива") : (isEn() ? "Archive" : "В архив"));
 
-    const actsRow = h("div", { style: "display:flex;gap:10px;margin-top:16px" }, addProgBtn, archiveBtn);
+    const actsRow = h("div", { style: "display:flex;gap:10px;margin-top:16px;flex-wrap:wrap" }, addProgBtn, editBtn, archiveBtn);
 
     rightCard.append(headRow, chartSvg, recentTitle, recentsBox, paramsTitle, equipRow, restRow, actsRow);
   }
@@ -1503,7 +1582,8 @@ export function renderDesktopExercises() {
     initEx = exercises.find(e => e.id === sharedState.selectedExerciseId);
   }
   if (!initEx) {
-    initEx = exercises.find(e => (e.muscleGroup || "").includes(sharedState.selectedMuscleGroup)) || exercises[0];
+    const curGroupObj = groups.find(g => g.id === sharedState.selectedMuscleGroup) || groups[1];
+    initEx = exercises.find(e => curGroupObj.match(e.muscleGroup)) || exercises[0];
   }
   if (initEx) sharedState.selectedExerciseId = initEx.id;
 
@@ -1653,35 +1733,7 @@ export function renderDesktopSettings() {
     langSeg
   );
 
-  // Режим интерфейса: Авто / Мобильный / Десктоп
-  const curMode = getInterfaceMode();
-  const ifaceSeg = h("span", { class: "seg" });
-  const ifaceOpts = [
-    { id: "auto", label: isEn() ? "Auto" : "Авто" },
-    { id: "mobile", label: isEn() ? "Mobile" : "Мобильный" },
-    { id: "desktop", label: isEn() ? "Desktop" : "Десктоп" }
-  ];
-  ifaceOpts.forEach(opt => {
-    const b = h("button", {
-      type: "button",
-      class: curMode === opt.id ? "on" : "",
-      onclick: () => {
-        setInterfaceMode(opt.id);
-        ifaceSeg.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
-      }
-    }, opt.label);
-    ifaceSeg.append(b);
-  });
-
-  const rowIface = h("div", { class: "row" },
-    h("span", { class: "lab" },
-      h("b", {}, isEn() ? "Interface mode" : "Режим интерфейса"),
-      h("span", {}, isEn() ? "Desktop on ≥1024px or forced" : "Десктоп при ≥1024px или принудительно")
-    ),
-    ifaceSeg
-  );
-
-  secAppearance.append(rowTheme, rowLang, rowIface);
+  secAppearance.append(rowTheme, rowLang);
 
   // Group 2: Тренировка (Workout)
   const secWorkout = h("div", { class: "grp", id: "sec-workout" });
