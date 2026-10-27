@@ -1,12 +1,12 @@
 // Service worker: app shell (precache) + runtime-кэш модулей Firebase с CDN gstatic.
 // Увеличивайте CACHE_VERSION при каждом релизе, чтобы клиенты обновили оболочку.
-const CACHE_VERSION = "v67";
+const CACHE_VERSION = "v68";
 const SHELL_CACHE = "fitness-shell-" + CACHE_VERSION;
 const RUNTIME_CACHE = "fitness-runtime-" + CACHE_VERSION;
 
 const SHELL = [
-  "./", "index.html", "styles.css", "manifest.webmanifest", "firebase-config.js",
-  "js/theme-init.js", "js/splash-init.js", "js/app.js", "js/shell.js", "js/palette.js", "js/i18n.js", "js/auth.js", "js/db.js", "js/store.js", "js/metrics.js", "js/chart.js", "js/bodyMap.js", "js/timer.js", "js/ui.js", "js/pwa.js",
+  "./", "index.html", "desktop.html", "styles.css", "desktop.css", "manifest.webmanifest", "firebase-config.js",
+  "js/theme-init.js", "js/splash-init.js", "js/app.js", "js/desktopApp.js", "js/shell.js", "js/palette.js", "js/i18n.js", "js/auth.js", "js/db.js", "js/store.js", "js/metrics.js", "js/chart.js", "js/bodyMap.js", "js/timer.js", "js/ui.js", "js/pwa.js",
   "js/views/auth.js", "js/views/workout.js", "js/views/programs.js", "js/views/exercises.js", "js/views/progress.js",
   "js/views/history.js", "js/views/settings.js", "js/views/entryCard.js", "js/views/desktopViews.js",
   "icons/icon.svg", "icons/icon-maskable.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "icons/apple-touch-icon.png"
@@ -70,7 +70,8 @@ self.addEventListener("fetch", event => {
       /(^|\.)firebaseio\.com$/.test(url.hostname) || url.pathname.startsWith("/__/auth/")) return;
   if (url.origin === self.location.origin) {
     if (req.mode === "navigate") {
-      event.respondWith(networkFirst(req, SHELL_CACHE, "index.html"));
+      const fallback = url.pathname.includes("desktop") ? "desktop.html" : "index.html";
+      event.respondWith(networkFirst(req, SHELL_CACHE, fallback));
       return;
     }
     event.respondWith(networkFirst(req, SHELL_CACHE));

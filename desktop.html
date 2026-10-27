@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Тренировки · Десктоп</title>
+  <meta name="description" content="Учёт силовых тренировок — десктоп-версия: программы, прогресс, история, база упражнений.">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&family=Unbounded:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="desktop.css?v=68">
+  <script>
+    (function() {
+      try {
+        var p = JSON.parse(localStorage.getItem("fitness:device:prefs") || "{}");
+        if (p.interface === "mobile" || (p.interface !== "desktop" && window.matchMedia && window.matchMedia("(max-width: 959px)").matches)) {
+          location.replace("./" + location.hash);
+        }
+        var dark = p.theme === "dark" || (p.theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.dataset.theme = dark ? "dark" : "light";
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <aside class="rail">
+    <div class="railLogo">
+      <span class="logo">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6.5 6.5 11 11M21 21l-1-1M3 3l1 1M18 22l4-4M2 6l4-4M3 10l7-7M14 21l7-7"/></svg>
+      </span>
+      <span class="wordmark">ТРЕНИРОВКИ</span>
+    </div>
+    <nav class="railNav" aria-label="Основная навигация">
+      <button type="button" class="navBtn on" data-v="programs">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+        <span class="nav-label">Программы</span>
+      </button>
+      <button type="button" class="navBtn" data-v="exercises">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="4" width="14" height="16" rx="2"/></svg>
+        <span class="nav-label">Упражнения</span>
+      </button>
+      <button type="button" class="navBtn" data-v="progress">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m4 17 5-6 4 4 7-8"/></svg>
+        <span class="nav-label">Прогресс</span>
+      </button>
+      <button type="button" class="navBtn" data-v="history">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        <span class="nav-label">История</span>
+      </button>
+      <button type="button" class="navBtn" data-v="settings">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.2"/><circle cx="8" cy="17" r="2.2"/></svg>
+        <span class="nav-label">Настройки</span>
+      </button>
+    </nav>
+    <div class="railFoot">
+      <button type="button" id="rail-sync" class="syncPill">
+        <i></i>
+        <span>Синхронизировано</span>
+      </button>
+      <button type="button" id="rail-mode-btn" class="interfaceSwitchBtn quiet">
+        Интерфейс: Десктоп
+      </button>
+      <button type="button" id="rail-user" class="userChip">
+        <span class="ava">U</span>
+        <b id="rail-user-name">User</b>
+      </button>
+    </div>
+  </aside>
+  <div class="main desktop-main">
+    <div id="live-strip" class="liveStrip" style="display:none;"></div>
+    <div id="desktop-view-container" class="desktop-view-container"></div>
+  </div>
+  <div id="sheets"></div>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script type="module" src="js/desktopApp.js?v=68"></script>
+</body>
+</html>

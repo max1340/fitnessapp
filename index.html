@@ -1,6 +1,16 @@
 <!doctype html>
 <html lang="ru" data-theme="dark">
 <head>
+  <script>
+    (function() {
+      try {
+        var p = JSON.parse(localStorage.getItem("fitness:device:prefs") || "{}");
+        if (p.interface === "desktop" || (p.interface !== "mobile" && window.matchMedia && window.matchMedia("(min-width: 960px)").matches)) {
+          location.replace("desktop.html" + location.hash);
+        }
+      } catch (e) {}
+    })();
+  </script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Тренировки</title>
@@ -21,7 +31,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&family=Unbounded:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=67">
+  <link rel="stylesheet" href="styles.css?v=68">
   <style>
     .card-start-btn { display: inline-flex !important; flex-direction: row !important; align-items: center !important; justify-content: center !important; gap: 6px !important; height: 36px !important; min-height: 36px !important; max-height: 36px !important; width: auto !important; padding: 0 16px !important; border-radius: 10px !important; -webkit-border-radius: 10px !important; font-size: 13px !important; font-weight: 700 !important; background: var(--fg) !important; color: var(--bg) !important; border: 1px solid var(--fg) !important; box-shadow: none !important; flex: 0 0 auto !important; aspect-ratio: auto !important; }
     .card-start-btn svg { width: 14px !important; height: 14px !important; margin: 0 !important; fill: currentColor !important; stroke: currentColor !important; }
@@ -57,6 +67,6 @@
   <div id="sheets"></div>
   <div id="toast" class="toast" role="status" hidden></div>
   <noscript>Для работы приложения нужен JavaScript. / JavaScript is required to run this app.</noscript>
-  <script type="module" src="js/app.js?v=67"></script>
+  <script type="module" src="js/app.js?v=68"></script>
 </body>
 </html>

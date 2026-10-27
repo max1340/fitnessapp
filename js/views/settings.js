@@ -366,6 +366,21 @@ export function openSettings() {
           updateSettings({ lang: v });
           renderContent();
         })
+      ),
+      row(
+        t("settings.interface") || "Интерфейс",
+        null,
+        segControl([
+          ["auto", t("settings.interfaceAuto") || "Авто"],
+          ["mobile", t("settings.interfaceMobile") || "Моб."],
+          ["desktop", t("settings.interfaceDesktop") || "Десктоп"]
+        ], st.interface || "auto", v => {
+          updateSettings({ interface: v });
+          renderContent();
+          if (v === "desktop") {
+            location.replace("desktop.html" + location.hash);
+          }
+        })
       )
     );
 
