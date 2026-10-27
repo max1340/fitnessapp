@@ -7,7 +7,7 @@ import {
   COMMON_LIBRARY_EXERCISES
 } from "../store.js";
 import { h, clear, icon, toast, showUndoSnackbar, sheet, confirmDialog, fmtRest, haptic } from "../ui.js";
-import { entryVolume, entryE1rm, epley, toKg, fromKg, effectiveWeightKg } from "../metrics.js";
+import { entryVolume, entryE1rm, epley, toKg, fromKg, effectiveWeightKg, sessionStats } from "../metrics.js";
 import { t, getLang, isEn, MONTHS, tMuscle } from "../i18n.js";
 import { sharedState } from "../shell.js";
 import { PROGRAM_TEMPLATES } from "./programs.js";
@@ -748,6 +748,29 @@ export function renderDesktopProgress() {
   // PRs (Личные рекорды)
   const prList = calcPersonalRecords(doneSessions);
 
+  // Расчёт реальных недельных трендов для sparklines (последние 6 недель)
+  const nowTs = Date.now();
+  const weekMs = 7 * 86400000;
+  const weeklyWorkouts = [0, 0, 0, 0, 0, 0];
+  const weeklyTonnage = [0, 0, 0, 0, 0, 0];
+  const weeklySets = [0, 0, 0, 0, 0, 0];
+  doneSessions.forEach(s => {
+    const t = s.endedAt || s.startedAt || 0;
+    const diffWeeks = Math.floor((nowTs - t) / weekMs);
+    if (diffWeeks >= 0 && diffWeeks < 6) {
+      const idx = 5 - diffWeeks;
+      weeklyWorkouts[idx]++;
+      (s.entries || []).forEach(e => {
+        (e.sets || []).forEach(st => {
+          if (st.done) {
+            weeklySets[idx]++;
+            weeklyTonnage[idx] += (st.weight || 0) * (st.reps || 0);
+          }
+        });
+      });
+    }
+  });
+
   // Сетка 12 колонок
   const dash = h("div", { class: "dash" });
 
@@ -757,7 +780,7 @@ export function renderDesktopProgress() {
     h("div", { class: "val" }, String(workoutsCount)),
     h("div", { class: "foot" },
       h("span", {}, isEn() ? `in ${period} d.: ${workoutsCount}` : `за ${period} дн.: ${workoutsCount}`),
-      createSparklineSvg([2, 3, 5, 4, 6, workoutsCount])
+      createSparklineSvg(weeklyWorkouts.some(v => v > 0) ? weeklyWorkouts : [0, 0, 0, 0, 0, workoutsCount])
     )
   );
 
@@ -767,7 +790,7 @@ export function renderDesktopProgress() {
     h("div", { class: "val" }, `${formatNumber(Math.round(totalTonnage))}`, h("i", {}, isEn() ? "kg" : "кг")),
     h("div", { class: "foot" },
       h("span", {}, isEn() ? `avg: ${formatNumber(avgTonnage)} / wkt` : `средний: ${formatNumber(avgTonnage)} / трен.`),
-      createSparklineSvg([avgTonnage * 0.8, avgTonnage * 0.9, avgTonnage])
+      createSparklineSvg(weeklyTonnage.some(v => v > 0) ? weeklyTonnage : [0, 0, 0, 0, 0, Math.round(totalTonnage)])
     )
   );
 
@@ -777,7 +800,7 @@ export function renderDesktopProgress() {
     h("div", { class: "val" }, String(totalWorkingSets)),
     h("div", { class: "foot" },
       h("span", {}, isEn() ? `reps: ${totalReps}` : `повторов: ${totalReps}`),
-      createSparklineSvg([10, 14, 12, 16, totalWorkingSets])
+      createSparklineSvg(weeklySets.some(v => v > 0) ? weeklySets : [0, 0, 0, 0, 0, totalWorkingSets])
     )
   );
 
@@ -787,19 +810,14 @@ export function renderDesktopProgress() {
     h("div", { class: "val" }, String(prList.length)),
     h("div", { class: "foot" },
       h("span", {}, isEn() ? `avg time: ${avgTimeMin} min` : `ср. время: ${avgTimeMin} мин`),
-      createSparklineSvg([1, 2, 4, 5, prList.length])
+      createSparklineSvg([0, 0, Math.min(1, prList.length), Math.min(2, prList.length), Math.min(4, prList.length), prList.length])
     )
   );
 
   // Load Index Card (span 8)
   const cardLoad = h("div", { class: "card sp8" },
     h("h4", {}, t("progress.loadIndex") || "Индекс нагрузки · база = 100"),
-    createLoadIndexSvg(doneSessions),
-    h("div", { style: "display:flex;justify-content:space-between;font-size:12px;color:var(--ink3);margin-top:6px" },
-      h("span", {}, isEn() ? "Sep" : "сен"),
-      h("span", {}, isEn() ? "Oct" : "окт"),
-      h("span", { style: "color:var(--ink);font-weight:700" }, isEn() ? "current: 112" : "сейчас: 112")
-    )
+    createLoadIndexSvg(doneSessions)
   );
 
   // Muscle Balance Card (span 4)
@@ -2012,116 +2030,560 @@ function createSparklineSvg(values) {
   return svg;
 }
 
+const NS_SVG = "http://www.w3.org/2000/svg";
+function createSvgEl(tag, attrs = {}) {
+  const el = document.createElementNS(NS_SVG, tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
+  return el;
+}
+
 function createLoadIndexSvg(sessions) {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("width", "100%");
-  svg.setAttribute("height", "190");
-  svg.setAttribute("viewBox", "0 0 640 190");
-  svg.setAttribute("preserveAspectRatio", "none");
+  const wrap = h("div", { class: "load-index-chart-wrap", style: "display:flex;flex-direction:column;gap:6px;width:100%;position:relative;" });
+  const W = 640, H = 180, pl = 36, pr = 16, pt = 16, pb = 26;
 
-  // Dotted baseline 100
-  const baseline = document.createElementNS("http://www.w3.org/2000/svg", "line");
-  baseline.setAttribute("x1", "0"); baseline.setAttribute("y1", "95");
-  baseline.setAttribute("x2", "640"); baseline.setAttribute("y2", "95");
-  baseline.setAttribute("stroke", "var(--line)");
-  baseline.setAttribute("stroke-dasharray", "4 5");
+  // 1. Расчёт объёмов по 8 последним неделям
+  const now = new Date();
+  const dow = (now.getDay() + 6) % 7;
+  const currMon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dow);
 
-  // Area polygon
-  const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-  polygon.setAttribute("points", "0,150 80,132 160,138 240,110 320,102 400,84 480,76 560,58 640,44 640,190 0,190");
-  polygon.setAttribute("fill", "currentColor");
-  polygon.setAttribute("opacity", ".06");
+  const weeks = [];
+  for (let w = 7; w >= 0; w--) {
+    const wStart = new Date(currMon);
+    wStart.setDate(currMon.getDate() - w * 7);
+    const wEnd = new Date(wStart);
+    wEnd.setDate(wStart.getDate() + 7);
+    weeks.push({
+      wStart,
+      wEnd,
+      label: `${wStart.getDate()} ${getMonthName(wStart.getMonth())}`,
+      volume: 0,
+      count: 0
+    });
+  }
 
-  // Polyline
-  const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
-  polyline.setAttribute("points", "0,150 80,132 160,138 240,110 320,102 400,84 480,76 560,58 640,44");
-  polyline.setAttribute("fill", "none");
-  polyline.setAttribute("stroke", "currentColor");
-  polyline.setAttribute("stroke-width", "2.5");
+  (sessions || []).forEach(s => {
+    const t = s.endedAt || s.startedAt;
+    if (!t) return;
+    const st = sessionStats(s);
+    for (const w of weeks) {
+      if (t >= w.wStart.getTime() && t < w.wEnd.getTime()) {
+        w.volume += (st.volume || 0);
+        w.count++;
+        break;
+      }
+    }
+  });
 
-  // Crosshair vertical line
-  const crosshair = document.createElementNS("http://www.w3.org/2000/svg", "line");
-  crosshair.setAttribute("x1", "480"); crosshair.setAttribute("y1", "0");
-  crosshair.setAttribute("x2", "480"); crosshair.setAttribute("y2", "190");
-  crosshair.setAttribute("stroke", "var(--ink3)");
-  crosshair.setAttribute("stroke-dasharray", "3 4");
+  const activeWeeks = weeks.filter(w => w.volume > 0);
+  const avgWeeklyVol = activeWeeks.length > 0
+    ? activeWeeks.reduce((acc, w) => acc + w.volume, 0) / activeWeeks.length
+    : 1000;
 
-  // Circle point
-  const ptCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-  ptCircle.setAttribute("cx", "480"); ptCircle.setAttribute("cy", "76"); ptCircle.setAttribute("r", "4.5");
-  ptCircle.setAttribute("fill", "var(--ink)");
+  const points = weeks.map((w, idx) => {
+    let li = 100;
+    if (w.volume > 0 && avgWeeklyVol > 0) {
+      li = Math.round((w.volume / avgWeeklyVol) * 100);
+    } else if (w.volume === 0) {
+      li = activeWeeks.length > 0 ? 40 : 100;
+    }
+    li = Math.max(30, Math.min(200, li));
+    return {
+      idx,
+      label: w.label,
+      fullLabel: `${w.label} – ${w.wEnd.getDate()} ${getMonthName(w.wEnd.getMonth())}`,
+      volume: Math.round(w.volume),
+      count: w.count,
+      li
+    };
+  });
 
-  svg.append(baseline, polygon, polyline, crosshair, ptCircle);
-  return svg;
+  const minLi = 20;
+  const maxLi = 200;
+  const getX = i => pl + (i * (W - pl - pr)) / (points.length - 1);
+  const getY = val => pt + (1 - (val - minLi) / (maxLi - minLi)) * (H - pt - pb);
+
+  const svg = createSvgEl("svg", {
+    viewBox: `0 0 ${W} ${H}`,
+    preserveAspectRatio: "none",
+    style: "width:100%;height:180px;overflow:visible;cursor:crosshair;"
+  });
+
+  // Пунктирная линия 100 (база)
+  const y100 = getY(100);
+  const baselineLine = createSvgEl("line", {
+    x1: pl, y1: y100, x2: W - pr, y2: y100,
+    stroke: "var(--line)", "stroke-dasharray": "4 4", "stroke-width": "1"
+  });
+  const baselineText = createSvgEl("text", {
+    x: pl - 6, y: y100 + 4, "text-anchor": "end", fill: "var(--ink3)",
+    "font-size": "10", "font-weight": "700"
+  });
+  baselineText.textContent = "100";
+  svg.append(baselineLine, baselineText);
+
+  // Градиентная область под кривой
+  const gradId = "load-grad-" + Math.random().toString(36).slice(2, 7);
+  const defs = createSvgEl("defs");
+  const grad = createSvgEl("linearGradient", { id: gradId, x1: "0", y1: "0", x2: "0", y2: "1" });
+  const stop1 = createSvgEl("stop", { offset: "0%", "stop-color": "currentColor", "stop-opacity": "0.15" });
+  const stop2 = createSvgEl("stop", { offset: "100%", "stop-color": "currentColor", "stop-opacity": "0.01" });
+  grad.append(stop1, stop2);
+  defs.append(grad);
+  svg.append(defs);
+
+  const ptsStr = points.map(p => `${getX(p.idx)},${getY(p.li)}`).join(" ");
+  const areaD = `M ${getX(0)},${H - pb} L ` + points.map(p => `${getX(p.idx)},${getY(p.li)}`).join(" L ") + ` L ${getX(points.length - 1)},${H - pb} Z`;
+  const areaPath = createSvgEl("path", { d: areaD, fill: `url(#${gradId})` });
+  const polyline = createSvgEl("polyline", {
+    points: ptsStr, fill: "none", stroke: "currentColor", "stroke-width": "2.5", "stroke-linejoin": "round", "stroke-linecap": "round"
+  });
+  svg.append(areaPath, polyline);
+
+  // Интерактивное перекрестие и точка
+  const lastPt = points[points.length - 1];
+  const crosshair = createSvgEl("line", {
+    x1: getX(lastPt.idx), y1: pt, x2: getX(lastPt.idx), y2: H - pb,
+    stroke: "var(--ink3)", "stroke-dasharray": "3 4", "stroke-width": "1.5"
+  });
+  const activeDot = createSvgEl("circle", {
+    cx: getX(lastPt.idx), cy: getY(lastPt.li), r: "5.5", fill: "var(--ink)", stroke: "var(--sheet)", "stroke-width": "2"
+  });
+  svg.append(crosshair, activeDot);
+
+  // Точки на линии
+  points.forEach(p => {
+    const c = createSvgEl("circle", {
+      cx: getX(p.idx), cy: getY(p.li), r: "3", fill: "currentColor", opacity: "0.4"
+    });
+    svg.append(c);
+  });
+
+  // Строка статуса под графиком
+  const statusBar = h("div", {
+    style: "display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--ink3);margin-top:6px;font-variant-numeric:tabular-nums;transition:color .12s;"
+  });
+  const leftLabel = h("span", {}, points[0].label);
+  const midLabel = h("span", { style: "font-weight:600;color:var(--ink);" }, "");
+  const rightLabel = h("span", { style: "color:var(--ink);font-weight:700;" }, "");
+  statusBar.append(leftLabel, midLabel, rightLabel);
+
+  const updateSelection = (p) => {
+    crosshair.setAttribute("x1", String(getX(p.idx)));
+    crosshair.setAttribute("x2", String(getX(p.idx)));
+    activeDot.setAttribute("cx", String(getX(p.idx)));
+    activeDot.setAttribute("cy", String(getY(p.li)));
+
+    const statusNote = p.li >= 130
+      ? (isEn() ? "High Load" : "Высокая нагрузка")
+      : p.li >= 80
+      ? (isEn() ? "Optimal" : "Оптимально")
+      : (isEn() ? "Recovery" : "Восстановление");
+
+    midLabel.textContent = `${p.fullLabel} · ${p.volume.toLocaleString(isEn() ? "en-US" : "ru-RU")} кг (${p.count} ${isEn() ? "wkts" : "трен."})`;
+    rightLabel.textContent = `${isEn() ? "Index" : "Индекс"}: ${p.li} · ${statusNote}`;
+  };
+
+  updateSelection(lastPt);
+
+  const onPointer = ev => {
+    const r = svg.getBoundingClientRect();
+    const relX = ((ev.clientX - r.left) / r.width) * W;
+    let closest = points[0];
+    let bestDist = Infinity;
+    points.forEach(p => {
+      const d = Math.abs(getX(p.idx) - relX);
+      if (d < bestDist) {
+        bestDist = d;
+        closest = p;
+      }
+    });
+    updateSelection(closest);
+  };
+
+  svg.addEventListener("pointermove", onPointer);
+  svg.addEventListener("pointerdown", onPointer);
+  svg.addEventListener("mouseleave", () => updateSelection(lastPt));
+
+  wrap.append(svg, statusBar);
+  return wrap;
 }
 
 function createExerciseProgressSvg(sessions, exerciseId) {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("width", "100%");
-  svg.setAttribute("height", "140");
-  svg.setAttribute("viewBox", "0 0 480 140");
-  svg.setAttribute("preserveAspectRatio", "none");
+  const wrap = h("div", { class: "ex-progress-chart-wrap", style: "display:flex;flex-direction:column;gap:6px;width:100%;position:relative;" });
+  const W = 480, H = 140, pl = 36, pr = 16, pt = 14, pb = 24;
 
-  // e1RM line
-  const line1 = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
-  line1.setAttribute("points", "0,110 96,96 192,99 288,72 384,60 480,38");
-  line1.setAttribute("fill", "none");
-  line1.setAttribute("stroke", "currentColor");
-  line1.setAttribute("stroke-width", "2.5");
+  const points = [];
+  (sessions || []).forEach(s => {
+    (s.entries || []).forEach(e => {
+      if (e.exerciseId === exerciseId) {
+        const bw = s.bodyweightKg || 0;
+        const e1 = entryE1rm(e, bw);
+        const vol = entryVolume(e, bw);
+        let bestW = 0, bestR = 0;
+        (e.sets || []).forEach(st => {
+          if (st.done && (st.weight || 0) > bestW) {
+            bestW = st.weight || 0;
+            bestR = st.reps || 0;
+          }
+        });
+        if (e1 && e1 > 0) {
+          const t = s.endedAt || s.startedAt || 0;
+          points.push({
+            t,
+            e1rm: Math.round(e1 * 10) / 10,
+            volume: Math.round(vol),
+            bestW,
+            bestR,
+            unit: e.unit || "kg"
+          });
+        }
+      }
+    });
+  });
 
-  // Volume line (dashed)
-  const line2 = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
-  line2.setAttribute("points", "0,120 96,112 192,114 288,96 384,88 480,70");
-  line2.setAttribute("fill", "none");
-  line2.setAttribute("stroke", "var(--ink3)");
-  line2.setAttribute("stroke-width", "2");
-  line2.setAttribute("stroke-dasharray", "4 4");
+  points.sort((a, b) => a.t - b.t);
 
-  svg.append(line1, line2);
-  return svg;
+  const caption = h("div", {
+    style: "display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--ink3);font-variant-numeric:tabular-nums;min-height:20px;"
+  });
+
+  if (points.length === 0) {
+    wrap.append(
+      h("div", {
+        style: "height:120px;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:13px;border:1px dashed var(--line);border-radius:10px;"
+      }, isEn() ? "No workout history for this exercise" : "Нет данных по этому упражнению"),
+      caption
+    );
+    return wrap;
+  }
+
+  const minE1 = Math.min(...points.map(p => p.e1rm)) * 0.9;
+  const maxE1 = Math.max(...points.map(p => p.e1rm)) * 1.08 || 10;
+  const minVol = Math.min(...points.map(p => p.volume)) * 0.9;
+  const maxVol = Math.max(...points.map(p => p.volume)) * 1.08 || 100;
+
+  const getX = i => points.length === 1 ? W / 2 : pl + (i * (W - pl - pr)) / (points.length - 1);
+  const getYE1 = v => pt + (1 - (v - minE1) / (maxE1 - minE1 || 1)) * (H - pt - pb);
+  const getYVol = v => pt + (1 - (v - minVol) / (maxVol - minVol || 1)) * (H - pt - pb);
+
+  const svg = createSvgEl("svg", {
+    viewBox: `0 0 ${W} ${H}`,
+    preserveAspectRatio: "none",
+    style: "width:100%;height:140px;overflow:visible;cursor:crosshair;"
+  });
+
+  // e1RM линия (сплошная)
+  const ptsE1 = points.map((p, i) => `${getX(i)},${getYE1(p.e1rm)}`).join(" ");
+  const lineE1 = createSvgEl("polyline", {
+    points: ptsE1, fill: "none", stroke: "currentColor", "stroke-width": "2.5", "stroke-linejoin": "round", "stroke-linecap": "round"
+  });
+
+  // Volume линия (пунктир)
+  const ptsVol = points.map((p, i) => `${getX(i)},${getYVol(p.volume)}`).join(" ");
+  const lineVol = createSvgEl("polyline", {
+    points: ptsVol, fill: "none", stroke: "var(--ink3)", "stroke-width": "1.8", "stroke-dasharray": "4 4", "stroke-linejoin": "round", "stroke-linecap": "round"
+  });
+
+  svg.append(lineVol, lineE1);
+
+  // Перекрестие и точки
+  const lastP = points[points.length - 1];
+  const crosshair = createSvgEl("line", {
+    x1: getX(points.length - 1), y1: pt, x2: getX(points.length - 1), y2: H - pb,
+    stroke: "var(--ink3)", "stroke-dasharray": "3 4", "stroke-width": "1.5"
+  });
+  const dotE1 = createSvgEl("circle", {
+    cx: getX(points.length - 1), cy: getYE1(lastP.e1rm), r: "5", fill: "var(--ink)", stroke: "var(--sheet)", "stroke-width": "2"
+  });
+  const dotVol = createSvgEl("circle", {
+    cx: getX(points.length - 1), cy: getYVol(lastP.volume), r: "4", fill: "var(--ink3)", stroke: "var(--sheet)", "stroke-width": "1.5"
+  });
+  svg.append(crosshair, dotVol, dotE1);
+
+  const updateSelection = (p, idx) => {
+    const cx = getX(idx);
+    crosshair.setAttribute("x1", String(cx));
+    crosshair.setAttribute("x2", String(cx));
+    dotE1.setAttribute("cx", String(cx));
+    dotE1.setAttribute("cy", String(getYE1(p.e1rm)));
+    dotVol.setAttribute("cx", String(cx));
+    dotVol.setAttribute("cy", String(getYVol(p.volume)));
+
+    const d = new Date(p.t);
+    const dateStr = `${d.getDate()} ${getMonthName(d.getMonth())}`;
+    const bestSet = p.bestW > 0 ? `лучший: ${p.bestW} кг × ${p.bestR}` : "";
+    caption.innerHTML = `<span style="font-weight:600;color:var(--ink);">${dateStr} · e1RM: ${p.e1rm} кг ${bestSet ? "· " + bestSet : ""}</span><span>объём: ${p.volume.toLocaleString(isEn() ? "en-US" : "ru-RU")} кг</span>`;
+  };
+
+  updateSelection(lastP, points.length - 1);
+
+  const onPointer = ev => {
+    const r = svg.getBoundingClientRect();
+    const relX = ((ev.clientX - r.left) / r.width) * W;
+    let closestIdx = 0;
+    let bestDist = Infinity;
+    points.forEach((p, i) => {
+      const d = Math.abs(getX(i) - relX);
+      if (d < bestDist) {
+        bestDist = d;
+        closestIdx = i;
+      }
+    });
+    updateSelection(points[closestIdx], closestIdx);
+  };
+
+  svg.addEventListener("pointermove", onPointer);
+  svg.addEventListener("pointerdown", onPointer);
+  svg.addEventListener("mouseleave", () => updateSelection(lastP, points.length - 1));
+
+  wrap.append(svg, caption);
+  return wrap;
 }
 
 function createExerciseDetailSvg(historyEntries) {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("width", "100%");
-  svg.setAttribute("height", "150");
-  svg.setAttribute("viewBox", "0 0 560 150");
-  svg.setAttribute("preserveAspectRatio", "none");
-  svg.style.marginTop = "12px";
+  const wrap = h("div", { class: "ex-detail-chart-wrap", style: "display:flex;flex-direction:column;gap:6px;width:100%;margin-top:12px;position:relative;" });
+  const W = 560, H = 150, pl = 36, pr = 16, pt = 14, pb = 24;
 
-  const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
-  polyline.setAttribute("points", "0,120 112,104 224,108 336,80 448,66 560,42");
-  polyline.setAttribute("fill", "none");
-  polyline.setAttribute("stroke", "currentColor");
-  polyline.setAttribute("stroke-width", "2.5");
+  const points = [];
+  (historyEntries || []).forEach(({ session, entry }) => {
+    const bw = session.bodyweightKg || 0;
+    const e1 = entryE1rm(entry, bw);
+    const vol = entryVolume(entry, bw);
+    let bestW = 0, bestR = 0;
+    (entry.sets || []).forEach(st => {
+      if (st.done && (st.weight || 0) > bestW) {
+        bestW = st.weight || 0;
+        bestR = st.reps || 0;
+      }
+    });
+    if (e1 && e1 > 0) {
+      const t = session.endedAt || session.startedAt || 0;
+      points.push({
+        t,
+        e1rm: Math.round(e1 * 10) / 10,
+        volume: Math.round(vol),
+        bestW,
+        bestR,
+        unit: entry.unit || "kg"
+      });
+    }
+  });
 
-  const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-  circle.setAttribute("cx", "560"); circle.setAttribute("cy", "42"); circle.setAttribute("r", "4.5");
-  circle.setAttribute("fill", "var(--ink)");
+  points.sort((a, b) => a.t - b.t);
 
-  svg.append(polyline, circle);
-  return svg;
+  const caption = h("div", {
+    style: "display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--ink3);font-variant-numeric:tabular-nums;min-height:20px;"
+  });
+
+  if (points.length === 0) {
+    wrap.append(
+      h("div", {
+        style: "height:120px;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:13px;border:1px dashed var(--line);border-radius:10px;"
+      }, isEn() ? "No performance history yet" : "История выполнений отсутствует"),
+      caption
+    );
+    return wrap;
+  }
+
+  const minE1 = Math.min(...points.map(p => p.e1rm)) * 0.9;
+  const maxE1 = Math.max(...points.map(p => p.e1rm)) * 1.08 || 10;
+
+  const getX = i => points.length === 1 ? W / 2 : pl + (i * (W - pl - pr)) / (points.length - 1);
+  const getY = v => pt + (1 - (v - minE1) / (maxE1 - minE1 || 1)) * (H - pt - pb);
+
+  const svg = createSvgEl("svg", {
+    viewBox: `0 0 ${W} ${H}`,
+    preserveAspectRatio: "none",
+    style: "width:100%;height:150px;overflow:visible;cursor:crosshair;"
+  });
+
+  // Градиентная подложка
+  const gradId = "ex-det-grad-" + Math.random().toString(36).slice(2, 7);
+  const defs = createSvgEl("defs");
+  const grad = createSvgEl("linearGradient", { id: gradId, x1: "0", y1: "0", x2: "0", y2: "1" });
+  const stop1 = createSvgEl("stop", { offset: "0%", "stop-color": "currentColor", "stop-opacity": "0.15" });
+  const stop2 = createSvgEl("stop", { offset: "100%", "stop-color": "currentColor", "stop-opacity": "0.01" });
+  grad.append(stop1, stop2);
+  defs.append(grad);
+  svg.append(defs);
+
+  const ptsStr = points.map((p, i) => `${getX(i)},${getY(p.e1rm)}`).join(" ");
+  const areaD = `M ${getX(0)},${H - pb} L ` + points.map((p, i) => `${getX(i)},${getY(p.e1rm)}`).join(" L ") + ` L ${getX(points.length - 1)},${H - pb} Z`;
+  const areaPath = createSvgEl("path", { d: areaD, fill: `url(#${gradId})` });
+  const polyline = createSvgEl("polyline", {
+    points: ptsStr, fill: "none", stroke: "currentColor", "stroke-width": "2.5", "stroke-linejoin": "round", "stroke-linecap": "round"
+  });
+  svg.append(areaPath, polyline);
+
+  // Перекрестие и точка
+  const lastP = points[points.length - 1];
+  const crosshair = createSvgEl("line", {
+    x1: getX(points.length - 1), y1: pt, x2: getX(points.length - 1), y2: H - pb,
+    stroke: "var(--ink3)", "stroke-dasharray": "3 4", "stroke-width": "1.5"
+  });
+  const dot = createSvgEl("circle", {
+    cx: getX(points.length - 1), cy: getY(lastP.e1rm), r: "5.5", fill: "var(--ink)", stroke: "var(--sheet)", "stroke-width": "2"
+  });
+  svg.append(crosshair, dot);
+
+  // Статичные точки
+  points.forEach((p, i) => {
+    const c = createSvgEl("circle", {
+      cx: getX(i), cy: getY(p.e1rm), r: "3", fill: "currentColor", opacity: "0.4"
+    });
+    svg.append(c);
+  });
+
+  const updateSelection = (p, idx) => {
+    const cx = getX(idx);
+    crosshair.setAttribute("x1", String(cx));
+    crosshair.setAttribute("x2", String(cx));
+    dot.setAttribute("cx", String(cx));
+    dot.setAttribute("cy", String(getY(p.e1rm)));
+
+    const d = new Date(p.t);
+    const dateStr = `${d.getDate()} ${getMonthName(d.getMonth())}`;
+    const bestSet = p.bestW > 0 ? `подход: ${p.bestW} кг × ${p.bestR}` : "";
+    caption.innerHTML = `<span style="font-weight:600;color:var(--ink);">${dateStr} · e1RM: ${p.e1rm} кг ${bestSet ? "· " + bestSet : ""}</span><span>объём: ${p.volume.toLocaleString(isEn() ? "en-US" : "ru-RU")} кг</span>`;
+  };
+
+  updateSelection(lastP, points.length - 1);
+
+  const onPointer = ev => {
+    const r = svg.getBoundingClientRect();
+    const relX = ((ev.clientX - r.left) / r.width) * W;
+    let closestIdx = 0;
+    let bestDist = Infinity;
+    points.forEach((p, i) => {
+      const d = Math.abs(getX(i) - relX);
+      if (d < bestDist) {
+        bestDist = d;
+        closestIdx = i;
+      }
+    });
+    updateSelection(points[closestIdx], closestIdx);
+  };
+
+  svg.addEventListener("pointermove", onPointer);
+  svg.addEventListener("pointerdown", onPointer);
+  svg.addEventListener("mouseleave", () => updateSelection(lastP, points.length - 1));
+
+  wrap.append(svg, caption);
+  return wrap;
 }
 
 function createHeatmapGrid(sessions) {
+  const wrap = h("div", { class: "heat-wrap-block", style: "display:flex;flex-direction:column;gap:4px;" });
   const heat = h("div", { class: "heat" });
+  const tip = h("div", {
+    class: "heat-tip muted",
+    style: "font-size:12.5px;min-height:22px;display:flex;align-items:center;color:var(--ink3);margin-top:6px;font-variant-numeric:tabular-nums;transition:color .12s;"
+  });
 
-  // 12 недель = 84 дня (7 x 12)
+  const now = new Date();
+  const dow = (now.getDay() + 6) % 7; // 0=Пн, 6=Вс
+  const currMon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dow);
+  const startMon = new Date(currMon);
+  startMon.setDate(currMon.getDate() - 11 * 7);
+
+  const dayKey = ts => {
+    const d = new Date(ts);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  const todayKey = dayKey(now.getTime());
+
+  const byDay = new Map();
+  let total12wWorkouts = 0;
+  let total12wTonnage = 0;
+
+  (sessions || []).forEach(s => {
+    const t = s.endedAt || s.startedAt;
+    if (!t) return;
+    const k = dayKey(t);
+    if (!byDay.has(k)) byDay.set(k, []);
+    byDay.get(k).push(s);
+  });
+
+  const defaultTip = () => {
+    tip.textContent = isEn()
+      ? `${total12wWorkouts} workouts in 12 weeks · Hover over a day for details`
+      : `${total12wWorkouts} ${pluralize(total12wWorkouts, "тренировка", "тренировки", "тренировок")} за 12 недель · Наведите на день для деталей`;
+  };
+
+  // 12 недель = 84 дня (7 x 12), grid-auto-flow: column
   for (let col = 0; col < 12; col++) {
     for (let row = 0; row < 7; row++) {
-      const i = document.createElement("i");
-      // Примерная активность для визуального эталона
-      if ((col === 3 && row === 3) || (col === 6 && row === 4) || (col === 9 && row === 3)) {
-        i.className = "l1";
-      } else if ((col === 7 && row === 3) || (col === 6 && row === 4)) {
-        i.className = "l2";
-      } else if (col === 11 && row === 4) {
-        i.className = "l3";
+      const cellDate = new Date(startMon);
+      cellDate.setDate(startMon.getDate() + col * 7 + row);
+      const ts = cellDate.getTime();
+      const k = dayKey(ts);
+      const isFuture = cellDate.getTime() > now.getTime() && k !== todayKey;
+      const isToday = k === todayKey;
+      const daySessions = byDay.get(k) || [];
+
+      let cellVol = 0;
+      daySessions.forEach(s => {
+        const st = sessionStats(s);
+        cellVol += (st.volume || 0);
+      });
+
+      if (!isFuture && daySessions.length > 0) {
+        total12wWorkouts += daySessions.length;
+        total12wTonnage += cellVol;
       }
+
+      const i = document.createElement("i");
+      if (daySessions.length > 0) {
+        if (cellVol >= 8000) i.className = "l3";
+        else if (cellVol >= 3000) i.className = "l2";
+        else i.className = "l1";
+      }
+      if (isToday) i.classList.add("today");
+      if (isFuture) i.classList.add("future");
+
+      const dateStr = `${cellDate.getDate()} ${getMonthName(cellDate.getMonth())}`;
+      const dayName = [
+        isEn() ? "Mon" : "Пн",
+        isEn() ? "Tue" : "Вт",
+        isEn() ? "Wed" : "Ср",
+        isEn() ? "Thu" : "Чт",
+        isEn() ? "Fri" : "Пт",
+        isEn() ? "Sat" : "Сб",
+        isEn() ? "Sun" : "Вс"
+      ][row];
+
+      const fullLabel = `${dayName}, ${dateStr}`;
+
+      const onEnter = () => {
+        haptic("light");
+        if (isFuture) {
+          tip.textContent = `${fullLabel} · ${isEn() ? "Future" : "Будущее"}`;
+        } else if (daySessions.length === 0) {
+          tip.textContent = `${fullLabel} · ${isEn() ? "Rest day" : "День отдыха"}`;
+        } else {
+          const names = daySessions.map(s => s.programName || (isEn() ? "Workout" : "Тренировка")).join(", ");
+          const vStr = Math.round(cellVol).toLocaleString(isEn() ? "en-US" : "ru-RU");
+          tip.textContent = `${fullLabel} · ${daySessions.length} ${pluralize(daySessions.length, "трен.", "трен.", "трен.")} · ${vStr} кг (${names})`;
+        }
+        tip.style.color = "var(--ink)";
+      };
+
+      const onLeave = () => {
+        tip.style.color = "var(--ink3)";
+        defaultTip();
+      };
+
+      i.addEventListener("mouseenter", onEnter);
+      i.addEventListener("mouseleave", onLeave);
+      i.addEventListener("click", onEnter);
+
       heat.append(i);
     }
   }
-  return heat;
+
+  defaultTip();
+  wrap.append(heat, tip);
+  return wrap;
 }
 
 function createBodySvgFront(muscleSets) {

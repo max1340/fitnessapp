@@ -5069,18 +5069,22 @@ body[data-shell="desktop"] * {
 
 /* Рельса (Sidebar 232px) */
 body[data-shell="desktop"] .rail {
-  width: 232px !important;
-  min-width: 232px !important;
-  max-width: 232px !important;
+  width: 240px !important;
+  min-width: 240px !important;
+  max-width: 240px !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
   border-right: 1px solid var(--line) !important;
   display: flex !important;
   flex-direction: column !important;
-  padding: 18px 14px !important;
-  gap: 2px !important;
+  padding: 20px 16px !important;
+  gap: 4px !important;
   background: var(--sheet) !important;
-  height: 100vh !important;
   box-sizing: border-box !important;
-  overflow-y: auto !important;
+  position: sticky !important;
+  top: 0 !important;
+  overflow-y: hidden !important;
+  flex-shrink: 0 !important;
 }
 
 body[data-shell="desktop"] .railLogo {
@@ -5148,10 +5152,13 @@ body[data-shell="desktop"] .navBtn:focus-visible {
 }
 
 body[data-shell="desktop"] .railFoot {
-  margin-top: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  margin-top: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  padding-top: 16px !important;
+  border-top: 1px solid var(--line2) !important;
+  flex-shrink: 0 !important;
 }
 
 body[data-shell="desktop"] .syncPill {
@@ -6131,19 +6138,20 @@ body[data-shell="desktop"] .colsEx {
 body[data-shell="desktop"] .gGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 8px;
+  margin-bottom: 14px;
 }
 
 body[data-shell="desktop"] .gCard {
-  aspect-ratio: 1;
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--sheet);
-  padding: 14px;
+  padding: 10px 12px;
   display: flex;
-  flex-direction: column;
   justify-content: space-between;
+  align-items: center;
   text-align: left;
+  min-height: 44px;
   cursor: pointer;
   color: inherit;
   transition: box-shadow 0.15s, background 0.15s;

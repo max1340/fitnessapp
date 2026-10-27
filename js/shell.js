@@ -207,25 +207,7 @@ function buildDesktopShellDom() {
     }
   }, h("i"), h("span", {}, t("app.synced") || "Синхронизировано"));
 
-  // Quick interface mode switcher
-  const modeBtn = h("button", {
-    type: "button",
-    class: "interfaceSwitchBtn quiet",
-    title: t("settings.interface") || "Интерфейс",
-    onclick: () => {
-      const cur = getInterfaceMode();
-      const next = cur === "auto" ? "desktop" : (cur === "desktop" ? "mobile" : "auto");
-      setInterfaceMode(next);
-      updateInterfaceSwitchBtn();
-      toast(t("settings.interface") + ": " + getInterfaceModeLabel(next));
-    }
-  });
 
-  function updateInterfaceSwitchBtn() {
-    const cur = getInterfaceMode();
-    modeBtn.textContent = (t("settings.interface") || "Интерфейс") + ": " + getInterfaceModeLabel(cur);
-  }
-  updateInterfaceSwitchBtn();
 
   // User Chip
   const userAva = h("span", { class: "ava" }, "М");
@@ -244,7 +226,7 @@ function buildDesktopShellDom() {
 
   updateRailUserInfo();
 
-  railFoot.append(railSyncPillEl, modeBtn, railUserChipEl);
+  railFoot.append(railSyncPillEl, railUserChipEl);
   rail.append(railLogo, navList, railFoot);
 
   // 2. Main content area
@@ -260,11 +242,7 @@ function buildDesktopShellDom() {
   return shell;
 }
 
-function getInterfaceModeLabel(mode) {
-  if (mode === "auto") return t("settings.interfaceAuto") || "Авто";
-  if (mode === "mobile") return t("settings.interfaceMobile") || "Моб.";
-  return t("settings.interfaceDesktop") || "Десктоп";
-}
+
 
 export function updateRailUserInfo() {
   if (!railUserChipEl) return;

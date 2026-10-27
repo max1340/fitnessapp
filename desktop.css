@@ -4,21 +4,23 @@
         --danger:#C6282C;--ok:#1E8E3E;--warn:#9A6200}
   *{box-sizing:border-box}
   body{margin:0;font-family:'Golos Text',system-ui,sans-serif;color:var(--ink);background:var(--sheet);
-       display:grid;grid-template-columns:232px minmax(0,1fr);height:100vh;overflow:hidden}
+       display:grid;grid-template-columns:240px minmax(0,1fr);height:100vh;overflow:hidden}
   button{font:inherit;border:0;background:none;cursor:pointer;color:inherit}
   input{font:inherit;color:inherit}
   svg{flex:none}
   .secLabel{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);font-weight:600}
 
   /* рельса */
-  .rail{border-right:1px solid var(--line);display:flex;flex-direction:column;padding:18px 14px;gap:2px}
-  .railLogo{display:flex;gap:10px;align-items:center;padding:4px 10px 20px}
+  .rail{width:240px;min-width:240px;max-width:240px;height:100vh;max-height:100vh;border-right:1px solid var(--line);
+        display:flex;flex-direction:column;padding:20px 16px;gap:4px;box-sizing:border-box;position:sticky;top:0;overflow:hidden;flex-shrink:0}
+  .railLogo{display:flex;gap:10px;align-items:center;padding:4px 10px 20px;flex-shrink:0}
   .logo{width:38px;height:38px;border-radius:12px;background:var(--ink);color:#fff;display:grid;place-items:center}
   .wordmark{font-size:15px;font-weight:800;letter-spacing:.12em}
-  .navBtn{display:flex;gap:12px;align-items:center;padding:10px 12px;border-radius:12px;font-size:14.5px;font-weight:600;color:var(--ink2)}
-  .navBtn:hover{background:var(--tile)}
+  .railNav{display:flex;flex-direction:column;gap:3px;flex:1;overflow-y:auto}
+  .navBtn{display:flex;gap:12px;align-items:center;padding:10px 12px;border-radius:12px;font-size:14.5px;font-weight:600;color:var(--ink2);width:100%;text-align:left;transition:background .12s,color .12s}
+  .navBtn:hover{background:var(--tile);color:var(--ink)}
   .navBtn.on{background:var(--tile);color:var(--ink);font-weight:700}
-  .railFoot{margin-top:auto;display:flex;flex-direction:column;gap:10px}
+  .railFoot{margin-top:auto;display:flex;flex-direction:column;gap:10px;padding-top:16px;border-top:1px solid var(--line2);flex-shrink:0}
   .syncPill{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--ink2);border:1px solid var(--line);border-radius:999px;padding:8px 12px}
   .syncPill i{width:7px;height:7px;border-radius:50%;background:var(--ok)}
   .userChip{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:12px;width:100%;text-align:left}
@@ -79,7 +81,7 @@
   .exSum{font-size:13.5px;font-weight:700;color:var(--ink2);font-variant-numeric:tabular-nums}
   .chev{color:var(--ink3);transition:transform .25s}
   .exRow.open .chev{transform:rotate(180deg)}
-  .exBody{display:none;border-top:1px solid var(--line2);padding:14px;background:#FAFAFC}
+  .exBody{display:none;border-top:1px solid var(--line2);padding:14px;background:var(--tile)}
   .exRow.open .exBody{display:grid;grid-template-columns:1fr 1fr;gap:14px 20px}
   .fLab{font-size:12.5px;font-weight:600;color:var(--ink2);margin-bottom:7px;display:block}
   .stepD{display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--field);max-width:200px}
@@ -125,7 +127,10 @@
   .tblRow:first-of-type{border-top:0}
   .tblRow b{color:var(--ink);font-variant-numeric:tabular-nums}
   .heat{display:grid;grid-template-rows:repeat(7,1fr);grid-auto-flow:column;gap:4px;height:118px;margin-top:6px}
-  .heat i{border-radius:3px;background:var(--base)}
+  .heat i{border-radius:3px;background:var(--base);cursor:pointer;transition:transform .1s ease, outline .1s ease}
+  .heat i:hover{transform:scale(1.22);outline:2px solid var(--ink);z-index:2;position:relative}
+  .heat i.today{box-shadow:0 0 0 1.5px var(--ink)}
+  .heat i.future{opacity:.35;cursor:default}
   .heat i.l1{background:#C9C9CE}.heat i.l2{background:#8A8A90}.heat i.l3{background:var(--ink)}
   .heatLeg{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--ink3);margin-top:8px}
   .heatLeg i{width:10px;height:10px;border-radius:3px}
@@ -218,33 +223,46 @@ html[data-theme="dark"],
   scrollbar-color: var(--line) transparent;
 }
 
-/* 480px Right Drawer Sheet */
+/* 520px Right Drawer Sheet */
+.sheet-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: auto;
+}
 .sheet-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(4px);
-  z-index: 50;
-  display: flex;
-  justify-content: flex-end;
+  z-index: 1;
 }
 .sheet {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: auto;
-  width: 480px;
+  position: relative;
+  z-index: 2;
+  width: 520px;
   max-width: 90vw;
   height: 100vh;
   max-height: 100vh;
   border-radius: 16px 0 0 16px;
-  transform: translateX(0);
   box-shadow: -8px 0 32px rgba(0, 0, 0, 0.28);
   background: var(--sheet);
-  z-index: 50;
   display: flex;
   flex-direction: column;
+  animation: drawerSlideIn .22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes drawerSlideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.sheet-wrap.closing .sheet {
+  animation: drawerSlideOut .18s ease-in both;
+}
+@keyframes drawerSlideOut {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
 }
 .sheet-grab { display: none; }
 .sheet-head {
@@ -561,6 +579,62 @@ input[type="search"] {
   background: var(--ink);
   color: #fff;
   border-color: var(--ink);
+}
+
+
+.ex-form-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ex-form-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.ex-form-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+.ex-form-toggle-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.3;
+}
+.ex-form-toggle-sub {
+  font-size: 12px;
+  color: var(--ink3);
+  line-height: 1.35;
+}
+.row.gap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  width: 100%;
+}
+.btn.primary.block {
+  width: 100%;
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 15px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn.primary.block:hover {
+  opacity: 0.92;
 }
 
 /* ── EXERCISE FORM DRAWER (openExerciseForm) ── */
