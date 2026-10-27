@@ -1050,7 +1050,7 @@ export function mount(root) {
       previewBody);
 
     // 3. Центральная круглая кнопка-шайба с гало-эффектом
-    const orbSubEl = h("small", { class: "home-orb-sub start-btn-sub" });
+    const orbSubEl = h("small", { class: "home-orb-sub home-orb-btn-sub" });
     let orbBtnEl, orbRingEl;
     const heroBox = h("div", { class: "home-hero" });
 
@@ -1093,12 +1093,12 @@ export function mount(root) {
       }
       orbSubEl.textContent = t("workout.activeOrbSub", { done: actDone, total: actTotal, date: fmtDate(act.startedAt) });
       orbBtnEl = h("button", {
-        class: "home-orb start-btn", type: "button",
+        class: "home-orb home-orb-btn", type: "button",
         onclick: () => launchWorkout(() => open(act))
       },
         icon("play", 28),
-        h("span", { class: "home-orb-label start-btn-label" }, t("workout.resumeCaps")),
-        h("small", { class: "home-orb-sub start-btn-sub" }, shortProgTitle(act.programName)),
+        h("span", { class: "home-orb-label home-orb-btn-label" }, t("workout.resumeCaps")),
+        h("small", { class: "home-orb-sub home-orb-btn-sub" }, shortProgTitle(act.programName)),
         orbSubEl);
       const haloEl = h("div", { class: "halo" });
       const ring1El = h("div", { class: "ring ring-1" });
@@ -1118,11 +1118,11 @@ export function mount(root) {
       );
     } else {
       orbBtnEl = h("button", {
-        class: "home-orb start-btn", type: "button",
+        class: "home-orb home-orb-btn", type: "button",
         onclick: () => launchWorkout(() => open(startSession(getSelectedProg())))
       },
         icon("play", 30),
-        h("span", { class: "home-orb-label start-btn-label" }, t("workout.startCaps")),
+        h("span", { class: "home-orb-label home-orb-btn-label" }, t("workout.startCaps")),
         orbSubEl);
       const haloEl = h("div", { class: "halo" });
       const ring1El = h("div", { class: "ring ring-1" });

@@ -7,11 +7,11 @@ import { initTimerBar, refreshTimerI18n, stopRest } from "./timer.js";
 import { t, getLang } from "./i18n.js";
 import { applyTheme, openSettings } from "./views/settings.js";
 import { openAuthScreen } from "./views/auth.js";
-import * as workout from "./views/workout.js";
-import * as programs from "./views/programs.js";
-import * as exercises from "./views/exercises.js";
-import * as progress from "./views/progress.js";
-import * as history from "./views/history.js";
+import * as workout from "./views/workout.js?v=48";
+import * as programs from "./views/programs.js?v=48";
+import * as exercises from "./views/exercises.js?v=48";
+import * as progress from "./views/progress.js?v=48";
+import * as history from "./views/history.js?v=48";
 
 const ROUTES = [
   { id: "workout", titleKey: "nav.workout", icon: "dumbbell", view: workout },

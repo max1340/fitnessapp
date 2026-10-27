@@ -881,14 +881,16 @@ export function mount(root) {
           h("small", { class: "muted" }, t("programs.cardSub", { count: p.items.length, names: names.join(", ") || "—" }))),
         h("div", { class: "row card-actions" },
           !p.archived && (!act || isCurrentActive) ? h("button", {
-            class: "btn small primary", type: "button",
+            class: "btn small primary card-start-btn",
+            style: "border-radius:10px !important; -webkit-border-radius:10px !important; width:auto !important; min-height:36px !important; height:36px !important; max-height:36px !important; display:inline-flex !important; flex-direction:row !important; align-items:center !important; justify-content:center !important; gap:6px !important; padding:0 16px !important; aspect-ratio:auto !important; font-size:13px !important; font-weight:700 !important; background:var(--fg) !important; color:var(--bg) !important; border:1px solid var(--fg) !important; box-shadow:none !important; flex:0 0 auto !important;",
+            type: "button",
             onclick: () => {
               haptic("medium");
               if (!act) startSession(p);
               sessionStorage.setItem("fitness.openActive", "1");
               location.hash = "#/workout";
             }
-          }, icon("play", 15), isCurrentActive ? t("programs.resume") : t("programs.start")) : h("span", { class: "grow" }),
+          }, icon("play", 14), isCurrentActive ? t("programs.resume") : t("programs.start")) : h("span", { class: "grow" }),
           h("div", { class: "card-icons" },
             iconBtn("edit", t("common.edit"), () => openProgramEditor(p)),
             iconBtn("more", t("programs.menuTitle"), () => openProgramMenu(p))))));

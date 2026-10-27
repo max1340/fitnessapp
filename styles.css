@@ -356,7 +356,51 @@ input[type="checkbox"]:not(.ios-switch):checked::after { transform: rotate(-45de
   animation: ripple .5s cubic-bezier(.16, 1, .3, 1) forwards;
   will-change: transform, opacity;
 }
-.start-wrap .start-btn, .home-orb {
+/* Кнопка запуска тренировки в карточке программы */
+.card-start-btn {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  width: auto !important;
+  padding: 0 16px !important;
+  border-radius: 10px !important;
+  -webkit-border-radius: 10px !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+  background: var(--fg) !important;
+  color: var(--bg) !important;
+  border: 1px solid var(--fg) !important;
+  box-shadow: none !important;
+  flex: 0 0 auto !important;
+  aspect-ratio: auto !important;
+  cursor: pointer !important;
+  touch-action: manipulation !important;
+  user-select: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+  transition: transform 0.12s ease, opacity 0.12s ease !important;
+}
+.card-start-btn:active {
+  opacity: 0.82 !important;
+  transform: scale(0.97) !important;
+}
+.card-start-btn svg {
+  width: 14px !important;
+  height: 14px !important;
+  margin: 0 !important;
+  margin-bottom: 0 !important;
+  fill: currentColor !important;
+  stroke: currentColor !important;
+  flex-shrink: 0 !important;
+}
+
+.home-orb, .home-orb-btn {
   position: relative;
   z-index: 2;
   width: 100%;
@@ -387,19 +431,19 @@ input[type="checkbox"]:not(.ios-switch):checked::after { transform: rotate(-45de
   transition: transform 120ms ease;
   overflow: hidden;
 }
-.start-wrap .start-btn.is-pressed, .home-orb.is-pressed {
+.home-orb.is-pressed, .home-orb-btn.is-pressed {
   transform: scale(.96) translateZ(0);
 }
-.home-orb.orb-switch, .start-wrap .start-btn.orb-switch { animation: orb-switch-pop .32s cubic-bezier(.2, .9, .3, 1); }
-.home-orb svg, .start-wrap .start-btn svg { fill: #ffffff; stroke: #ffffff; margin-bottom: 2px; transition: transform .2s ease; }
-.home-orb.is-pressed svg, .start-wrap .start-btn.is-pressed svg { transform: scale(1.08); }
-.home-orb-label, .start-wrap .start-btn-label { font-size: 17px; font-weight: 800; letter-spacing: .08em; line-height: 1.15; color: #ffffff; }
-.home-orb-sub, .start-wrap .start-btn-sub { font-size: 11px; opacity: .88; line-height: 14px; height: 14px; max-width: 134px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ffffff; }
-.home-orb:focus-visible, .start-wrap .start-btn:focus-visible { outline: 3px solid var(--fg); outline-offset: 4px; }
+.home-orb.orb-switch, .home-orb-btn.orb-switch { animation: orb-switch-pop .32s cubic-bezier(.2, .9, .3, 1); }
+.home-orb svg, .home-orb-btn svg { fill: #ffffff; stroke: #ffffff; margin-bottom: 2px; transition: transform .2s ease; }
+.home-orb.is-pressed svg, .home-orb-btn.is-pressed svg { transform: scale(1.08); }
+.home-orb-label, .home-orb-btn-label { font-size: 17px; font-weight: 800; letter-spacing: .08em; line-height: 1.15; color: #ffffff; }
+.home-orb-sub, .home-orb-btn-sub { font-size: 11px; opacity: .88; line-height: 14px; height: 14px; max-width: 134px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ffffff; }
+.home-orb:focus-visible, .home-orb-btn:focus-visible { outline: 3px solid var(--fg); outline-offset: 4px; }
 
 /* Состояние красивого запуска (Launch animation) */
 .home-hero.is-launching { pointer-events: none; }
-.home-hero.is-launching .start-btn,
+.home-hero.is-launching .home-orb-btn,
 .home-hero.is-launching .home-orb {
   animation: orb-launch-press 340ms cubic-bezier(.2, .9, .2, 1) forwards !important;
 }
@@ -2914,7 +2958,7 @@ input[type="checkbox"].ios-switch:checked::after { transform: translateX(20px); 
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-  .halo, .ring, .ripple, .start-btn, .home-orb {
+  .halo, .ring, .ripple, .home-orb, .home-orb-btn {
     animation: none !important;
     transition: none !important;
   }
