@@ -1041,9 +1041,9 @@ export function mount(root) {
           const rec = byMuscle.get(mg);
           rec.sets += setsCnt;
           rec.exercises.push(ex.name);
-          exChips.push(h("div", { class: "home-ex-chip", style: `--i:${idx}` },
+          exChips.push(h("div", { class: "home-ex-chip", style: `--i:${idx}`, title: ex.name },
             h("span", { class: "home-ex-num" }, String(idx + 1)),
-            h("span", { class: "grow home-ex-name" }, ex.name),
+            h("span", { class: "grow home-ex-name", title: ex.name }, ex.name),
             h("small", { class: "muted home-ex-sets" }, `${setsCnt}×${it.targetReps || "8-10"}`)));
         });
       }
