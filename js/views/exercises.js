@@ -168,39 +168,6 @@ export function openExerciseForm(ex, onSaved) {
     h("button", { class: "step", type: "button", onclick: () => bumpRest(15) }, icon("plus", 14))
   );
 
-  // 4. Отдых: пресеты + степпер
-  const restPresetBtns = new Map();
-  const syncRestUI = () => {
-    const v = Math.max(0, Math.round(parseNum(rest.value) ?? 210));
-    restBadge.textContent = fmtRest(v);
-    for (const [sec, b] of restPresetBtns) {
-      b.classList.toggle("on", sec === v);
-    }
-  };
-  rest.addEventListener("input", syncRestUI);
-  const restPresetsWrap = h("div", { class: "stg-presets" });
-  for (const sec of [60, 90, 120, 180, 210]) {
-    const b = h("button", {
-      type: "button",
-      class: "btn small tag stg-preset",
-      onclick: () => { rest.value = String(sec); dirty = true; syncRestUI(); }
-    }, fmtRest(sec));
-    restPresetBtns.set(sec, b);
-    restPresetsWrap.append(b);
-  }
-  const bumpRest = d => {
-    const cur = Math.max(0, Math.round(parseNum(rest.value) ?? 210));
-    rest.value = String(Math.max(0, cur + d));
-    dirty = true;
-    syncRestUI();
-  };
-  const restStepper = h("div", { class: "stepper stg-stepper" },
-    h("button", { class: "btn step", type: "button", onclick: () => bumpRest(-15) }, icon("minus", 14)),
-    rest,
-    h("button", { class: "btn step", type: "button", onclick: () => bumpRest(15) }, icon("plus", 14))
-  );
-  syncRestUI();
-
   const save = () => {
     const nm = name.value.trim();
     if (!nm) { haptic("error"); err.textContent = t("common.enterName"); err.hidden = false; name.focus(); return; }
