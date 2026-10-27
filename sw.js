@@ -1,12 +1,12 @@
 // Service worker: app shell (precache) + runtime-кэш модулей Firebase с CDN gstatic.
 // Увеличивайте CACHE_VERSION при каждом релизе, чтобы клиенты обновили оболочку.
-const CACHE_VERSION = "v40";
+const CACHE_VERSION = "v45";
 const SHELL_CACHE = "fitness-shell-" + CACHE_VERSION;
 const RUNTIME_CACHE = "fitness-runtime-" + CACHE_VERSION;
 
 const SHELL = [
-  "./", "index.html", "styles.css", "styles.css?v=40", "manifest.webmanifest", "firebase-config.js",
-  "js/theme-init.js", "js/splash-init.js", "js/app.js", "js/app.js?v=40", "js/i18n.js", "js/auth.js", "js/db.js", "js/store.js", "js/metrics.js", "js/chart.js", "js/bodyMap.js", "js/timer.js", "js/ui.js",
+  "./", "index.html", "styles.css", "styles.css?v=45", "manifest.webmanifest", "firebase-config.js",
+  "js/theme-init.js", "js/splash-init.js", "js/app.js", "js/app.js?v=45", "js/i18n.js", "js/auth.js", "js/db.js", "js/store.js", "js/metrics.js", "js/chart.js", "js/bodyMap.js", "js/timer.js", "js/ui.js",
   "js/views/auth.js", "js/views/workout.js", "js/views/programs.js", "js/views/exercises.js", "js/views/progress.js",
   "js/views/history.js", "js/views/settings.js", "js/views/entryCard.js",
   "icons/icon.svg", "icons/icon-maskable.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "icons/apple-touch-icon.png"
@@ -91,8 +91,54 @@ self.addEventListener("notificationclick", event => {
   })());
 });
 
+let restTimerTimeout = null;
+
 self.addEventListener("message", event => {
   if (event.data && event.data.type === "SKIP_WAITING") {
     self.skipWaiting();
+  } else if (event.data && event.data.type === "SCHEDULE_REST_NOTIFICATION") {
+    if (restTimerTimeout) {
+      clearTimeout(restTimerTimeout);
+      restTimerTimeout = null;
+    }
+    const { endAt, title, body, sound, vibration } = event.data;
+    const delay = Math.max(0, (Number(endAt) || 0) - Date.now());
+
+    const triggerNotification = async () => {
+      try {
+        const opts = {
+          body: body || "",
+          icon: "icons/icon-192.png",
+          badge: "icons/icon-192.png",
+          tag: "fitness-rest-timer",
+          renotify: true,
+          silent: sound === false
+        };
+        if (vibration !== false) {
+          opts.vibrate = [250, 120, 250, 120, 400];
+        }
+        await self.registration.showNotification(title || "Отдых окончен", opts);
+      } catch (err) {
+        console.warn("SW showNotification error:", err);
+      }
+    };
+
+    if (delay <= 0) {
+      triggerNotification();
+    } else {
+      const promise = new Promise(resolve => {
+        restTimerTimeout = setTimeout(async () => {
+          await triggerNotification();
+          restTimerTimeout = null;
+          resolve();
+        }, delay);
+      });
+      if (event.waitUntil) event.waitUntil(promise);
+    }
+  } else if (event.data && event.data.type === "CANCEL_REST_NOTIFICATION") {
+    if (restTimerTimeout) {
+      clearTimeout(restTimerTimeout);
+      restTimerTimeout = null;
+    }
   }
 });

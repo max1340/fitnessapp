@@ -120,9 +120,9 @@ function buildOverviewDashboard(periodDays = 30) {
       workoutsSub = count30 > 0 ? t("progress.ovLast30d", { n: count30 }) : "—";
     } else if (prevSessions.length > 0) {
       const diff = currentSessions.length - prevSessions.length;
-      workoutsSub = `${diff > 0 ? "+" : ""}${diff} vs прошл.`;
+      workoutsSub = t("progress.ovVsPrev", { diff: `${diff > 0 ? "+" : ""}${diff}` });
     } else {
-      workoutsSub = `${currentSessions.length} за период`;
+      workoutsSub = t("progress.ovInPeriod", { n: currentSessions.length });
     }
   }
 

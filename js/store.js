@@ -52,7 +52,7 @@ function normalizeDoc(coll, d) {
       entries: toArray(d.entries).map(e => ({
         note: "",
         ...e,
-        sets: toArray(e.sets).map(s => ({ reps: null, weight: null, rpe: null, done: false, isWarmup: false, ...s }))
+        sets: toArray(e.sets).map(s => ({ reps: null, weight: null, done: false, isWarmup: false, ...s }))
       }))
     });
   }
@@ -437,7 +437,7 @@ export function lastValues(programId, ex) {
 /* ---------- Стартовые данные и общая библиотека упражнений ---------- */
 const REST_DEFAULT = 210;
 const mkEx = (id, name, muscleGroup, startWeight = null, startReps = [], extra = {}) => ({
-  id, name, muscleGroup, unit: "kg", defaultSets: 3, defaultRestSec: REST_DEFAULT, trackRpe: false, note: "",
+  id, name, muscleGroup, unit: "kg", defaultSets: 3, defaultRestSec: REST_DEFAULT, note: "",
   startWeight, startReps, isBodyweight: false, archived: false, ...extra
 });
 
@@ -586,7 +586,6 @@ export function exportCsv() {
           esc(numStr(set.weight ?? 0)),
           esc(unitLabel(e.unit)),
           esc(set.reps ?? ""),
-          esc(numStr(set.rpe ?? "")),
           esc(e.note || "")
         ].join(";"));
       });

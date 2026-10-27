@@ -17,11 +17,10 @@ const num = v => (typeof v === "number" && isFinite(v) ? v : null);
 /** Сет учитывается: выполнен, не разминочный, есть повторы. */
 export const isCounted = s => !!s && s.done === true && !s.isWarmup && num(s.reps) > 0;
 
-/** Формула Эпли с поправкой на RPE (запас повторов = 10 − RPE). */
-export function epley(weightKg, reps, rpe) {
-  const rpeN = num(rpe);
-  const eff = rpeN !== null ? reps + (10 - rpeN) : reps;
-  return weightKg * (1 + eff / 30);
+/** Формула Эпли для расчёта 1ПМ (e1RM). */
+export function epley(weightKg, reps) {
+  if (!weightKg || !reps || reps <= 0) return 0;
+  return reps <= 1 ? weightKg : weightKg * (1 + reps / 30);
 }
 
 /** Эффективный рабочий вес подхода в кг (для упражнений со своим весом прибавляется вес тела, если он задан). */
@@ -48,7 +47,7 @@ export function entryE1rm(entry, bodyweightKg = 0) {
     if (!isCounted(s) || s.reps > MAX_E1RM_REPS) continue;
     const w = effectiveWeightKg(s, entry, bodyweightKg);
     if (w <= 0) continue;
-    const e = epley(w, s.reps, s.rpe);
+    const e = epley(w, s.reps);
     if (best === null || e > best) best = e;
   }
   return best;

@@ -51,7 +51,7 @@ export function buildEntry(ex, programId, order, item = {}) {
       else if (lv.source === "other") { hint = t("workout.hintOther", { prog: lv.fromProgram, txt }); } // только вес — повторы по тапу на подсказку или вручную
       else { reps = src.reps ?? null; hint = t("workout.hintStart", { txt }); }
     }
-    return { reps, weight, rpe: null, done: false, isWarmup: false, completedAt: null, hint, hintWeight, hintReps };
+    return { reps, weight, done: false, isWarmup: false, completedAt: null, hint, hintWeight, hintReps };
   });
 
   // Двойная прогрессия: если в прошлой тренировке этой программы все рабочие сеты закрыты по верхней границе
@@ -71,7 +71,7 @@ export function buildEntry(ex, programId, order, item = {}) {
   return {
     _key: uid(),
     exerciseId: ex.id, exerciseName: ex.name, unit: ex.unit, isBodyweight: !!ex.isBodyweight,
-    order, note: "", trackRpe: !!ex.trackRpe,
+    order, note: "",
     restSec: item.restSec ?? ex.defaultRestSec ?? state.settings.restSec,
     targetReps: item.targetReps || "", programNote: item.note || "",
     progression, skipped: false, sets
@@ -139,7 +139,7 @@ function fitText(ctx, text, maxW) {
   return s + "…";
 }
 
-function renderShareCanvas(canvas, session, meta, theme = "dark") {
+function renderShareCanvas(canvas, session, meta, theme = "dark", ratio = "9:16") {
   const { stats, li, cmp, prItems = [], mapItems = [] } = meta;
   const pal = theme === "light"
     ? {
@@ -177,6 +177,12 @@ function renderShareCanvas(canvas, session, meta, theme = "dark") {
         bodyActive: "#F4F4F6"
       };
 
+  const authorBwKg = Number(
+    session.bodyweightKg ??
+    state.settings.bodyweightKg ??
+    (state.bodyweightLog && state.bodyweightLog.length ? state.bodyweightLog[state.bodyweightLog.length - 1].weight : null)
+  ) || null;
+
   const prNames = new Set(prItems.map(p => p.name));
   const exRows = [];
   let totalWorkSets = 0;
@@ -192,15 +198,24 @@ function renderShareCanvas(canvas, session, meta, theme = "dark") {
         bestSet = s;
       }
     }
+    const exObj = getExercise(e.exerciseId);
+    const isBw = Boolean(e.isBodyweight || exObj?.isBodyweight);
     const u = unitLabel(e.unit);
-    const hasPr = prNames.has(e.exerciseName) || prNames.has(getExercise(e.exerciseId)?.name);
+    let bwDisplay = null;
+    if (authorBwKg && authorBwKg > 0) {
+      const conv = fromKg(authorBwKg, e.unit);
+      bwDisplay = formatNum(conv, conv % 1 === 0 ? 0 : 1);
+    }
+    const hasPr = prNames.has(e.exerciseName) || prNames.has(exObj?.name);
     if (hasPr) totalPrCount++;
     exRows.push({
-      name: getExercise(e.exerciseId)?.name || e.exerciseName,
+      name: exObj?.name || e.exerciseName,
       setsCount: work.length,
       weight: bestSet.weight,
       reps: bestSet.reps,
       unit: u,
+      isBw,
+      bwDisplay,
       hasPr
     });
   }
@@ -215,19 +230,42 @@ function renderShareCanvas(canvas, session, meta, theme = "dark") {
   const maxMuscleSets = sortedMuscles[0]?.sets || 1;
   const mapH = 44 + Math.max(160, sortedMuscles.length * 36) + 16;
 
-  // Рассчитываем высоту секции упражнений
-  const rowH = 48;
+  // Базовые параметры по пропорциям
+  const isStories = ratio === "9:16";
+  const statH = isStories ? 104 : 96;
+  const rowH = isStories ? (shownEx.length <= 6 ? 54 : 48) : 48;
   const exHeaderH = 34;
   const exTotalH = shownEx.length ? (exHeaderH + shownEx.length * rowH + 8) : 0;
 
-  // Полная высота canvas
-  const statY = 104;
-  const statH = 96;
-  const mapY = statY + statH + 20;
-  const exY = mapY + mapH + 26;
-  const H = exY + exTotalH + 34;
-  const scale = 2;
+  // Отступы: для Stories (9:16) выделяем безопасную зону от интерфейса соцсетей сверху и снизу
+  const padTop = isStories ? 76 : 36;
+  const gapStats = isStories ? 22 : 18;
+  const gapMap = isStories ? 24 : 20;
+  const gapEx = isStories ? 28 : 24;
+  const padBottom = isStories ? 84 : 34;
 
+  const naturalH = padTop + 44 + gapStats + statH + gapMap + mapH + (shownEx.length ? (gapEx + exTotalH) : 0) + padBottom;
+
+  let H = naturalH;
+  if (ratio === "9:16") {
+    H = Math.max(Math.round(W * (16 / 9)), naturalH);
+  } else if (ratio === "4:5") {
+    H = Math.max(Math.round(W * (5 / 4)), naturalH);
+  } else if (ratio === "1:1") {
+    H = Math.max(W, naturalH);
+  }
+
+  // Распределение свободного пространства при необходимости
+  const extraH = H - naturalH;
+  const extraTop = extraH > 0 ? Math.min(36, Math.round(extraH * 0.15)) : 0;
+  const extraGap = extraH > 0 ? Math.min(14, Math.round(extraH * 0.08)) : 0;
+
+  const headY = padTop + extraTop;
+  const statY = headY + 44 + gapStats + extraGap;
+  const mapY = statY + statH + gapMap + extraGap;
+  const exY = mapY + mapH + gapEx + extraGap;
+
+  const scale = 2;
   canvas.width = W * scale;
   canvas.height = H * scale;
   const ctx = canvas.getContext("2d");
@@ -235,21 +273,25 @@ function renderShareCanvas(canvas, session, meta, theme = "dark") {
 
   const font = (weight, size) => `${weight} ${size}px "Golos Text", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
 
-  // 1. Фон карточки (закругленный холст)
+  // 1. Фон карточки
   ctx.fillStyle = pal.bg;
-  rrect(ctx, 0, 0, W, H, 28);
-  ctx.fill();
+  if (ratio === "auto") {
+    rrect(ctx, 0, 0, W, H, 28);
+    ctx.fill();
+  } else {
+    ctx.fillRect(0, 0, W, H);
+  }
 
   // 2. Шапка: эмблема, название, никнейм и дата
   ctx.fillStyle = pal.fg;
-  rrect(ctx, pad, 36, 44, 44, 12);
+  rrect(ctx, pad, headY, 44, 44, 12);
   ctx.fill();
 
   ctx.strokeStyle = pal.bg;
   ctx.lineWidth = 2.4;
   ctx.lineCap = "round";
   ctx.save();
-  ctx.translate(pad + 10, 45);
+  ctx.translate(pad + 10, headY + 10);
   ctx.stroke(new Path2D("M6 8v8M3 10v4M18 8v8M21 10v4M6 12h12"));
   ctx.restore();
 
@@ -257,18 +299,18 @@ function renderShareCanvas(canvas, session, meta, theme = "dark") {
   ctx.fillStyle = pal.fg;
   ctx.font = font(800, 13);
   ctx.textBaseline = "alphabetic";
-  ctx.fillText(t("app.splashTitle").toUpperCase(), pad + 56, 52);
+  ctx.fillText(t("app.splashTitle").toUpperCase(), pad + 56, headY + 17);
 
   const authorName = state.user?.displayName || "max_134";
   ctx.fillStyle = pal.mut;
   ctx.font = font(500, 12);
-  ctx.fillText(authorName, pad + 56, 70);
+  ctx.fillText(authorName, pad + 56, headY + 35);
 
   // Дата и время (справа вверху)
   ctx.fillStyle = pal.mut;
   ctx.font = font(500, 13);
   ctx.textAlign = "right";
-  ctx.fillText(fmtDate(session.startedAt, true), pad + innerW, 58);
+  ctx.fillText(fmtDate(session.startedAt, true), pad + innerW, headY + 23);
   ctx.textAlign = "left";
 
   // 3. Сетка из 4 карточек ключевых метрик
@@ -480,98 +522,156 @@ function renderShareCanvas(canvas, session, meta, theme = "dark") {
       ctx.textAlign = "left";
     }
 
-    const startY = exY + 30;
+    const startY = exY + 28;
 
     shownEx.forEach((row, idx) => {
       const ry = startY + idx * rowH;
+      const textY = ry + Math.round(rowH / 2) + 5;
 
       // 1. Номер
       ctx.fillStyle = pal.mut;
       ctx.font = font(700, 13);
-      ctx.fillText(String(idx + 1), pad + 4, ry + 24);
+      ctx.fillText(String(idx + 1), pad + 4, textY);
 
-      // 2. PR бейдж (если есть)
-      let rightOffset = 0;
+      // 2. PR бейдж (если есть в этой строке)
       if (row.hasPr) {
-        rightOffset = 36;
         const bx = pad + innerW - 30;
         ctx.fillStyle = pal.badgeBg;
-        rrect(ctx, bx, ry + 12, 30, 18, 9);
+        rrect(ctx, bx, ry + Math.round(rowH / 2) - 9, 30, 18, 9);
         ctx.fill();
         ctx.fillStyle = pal.badgeFg;
         ctx.font = font(800, 10);
         ctx.textAlign = "center";
-        ctx.fillText("PR", bx + 15, ry + 24);
+        ctx.fillText("PR", bx + 15, textY);
         ctx.textAlign = "left";
       }
 
-      // 3. Вес и повторы
+      // 3. Форматирование веса и повторов (свой вес + дополнительный для упражнений с собственным весом)
+      let valText = "";
+      if (row.isBw) {
+        const bwStr = row.bwDisplay ? `${row.bwDisplay}` : (isEn() ? "BW" : "СВ");
+        if ((row.weight ?? 0) > 0) {
+          valText = `${bwStr} + ${fmtNum(row.weight)} ${row.unit} × ${row.reps}`;
+        } else if (row.bwDisplay) {
+          valText = `${row.bwDisplay} ${row.unit} × ${row.reps}`;
+        } else {
+          valText = `${bwStr} × ${row.reps}`;
+        }
+      } else {
+        valText = (row.weight ?? 0) > 0
+          ? `${fmtNum(row.weight)} ${row.unit} × ${row.reps}`
+          : `${row.reps}`;
+      }
+
+      // Столбец Вес и повторы (фиксированный правый край для всех строк)
       ctx.fillStyle = pal.fg;
       ctx.font = font(800, 14);
       ctx.textAlign = "right";
-      const valText = (row.weight ?? 0) > 0
-        ? `${fmtNum(row.weight)} ${row.unit} × ${row.reps}`
-        : `${row.reps}`;
-      const valX = pad + innerW - rightOffset;
-      ctx.fillText(valText, valX, ry + 24);
-      const valW = ctx.measureText(valText).width;
+      const valX = totalPrCount > 0 ? (pad + innerW - 40) : (pad + innerW);
+      ctx.fillText(valText, valX, textY);
       ctx.textAlign = "left";
 
-      // 4. Количество сетов
+      // 4. Столбец подходов (отдельный фиксированный столбец, чтобы количество не прыгало туда-сюда)
       ctx.fillStyle = pal.mut;
       ctx.font = font(500, 12);
       ctx.textAlign = "right";
       const setsText = isEn()
         ? `${row.setsCount} ${row.setsCount === 1 ? "set" : "sets"}`
         : `${row.setsCount} ${row.setsCount >= 2 && row.setsCount <= 4 ? "сета" : "сетов"}`;
-      const setsX = valX - valW - 14;
-      ctx.fillText(setsText, setsX, ry + 24);
-      const setsW = ctx.measureText(setsText).width;
+      const setsColRightX = valX - 146;
+      ctx.fillText(setsText, setsColRightX, textY);
       ctx.textAlign = "left";
 
-      // 5. Название упражнения
+      // 5. Название упражнения (от pad + 32 до границы столбца подходов)
       ctx.fillStyle = pal.fg;
       ctx.font = font(800, 14);
-      const maxNameW = setsX - (pad + 32) - setsW - 14;
-      ctx.fillText(fitText(ctx, row.name, maxNameW), pad + 32, ry + 24);
+      const maxNameW = setsColRightX - 60 - (pad + 32);
+      ctx.fillText(fitText(ctx, row.name, maxNameW), pad + 32, textY);
 
       // Разделитель между строками упражнений
       if (idx < shownEx.length - 1) {
         ctx.strokeStyle = pal.rowLine;
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(pad, ry + rowH - 2);
-        ctx.lineTo(pad + innerW, ry + rowH - 2);
+        ctx.moveTo(pad, ry + rowH - 1);
+        ctx.lineTo(pad + innerW, ry + rowH - 1);
         ctx.stroke();
       }
     });
+  }
+
+  // 6. Подвал (аккуратный брендинг для формата Stories)
+  if (isStories) {
+    ctx.save();
+    ctx.fillStyle = pal.mut;
+    ctx.font = font(700, 11);
+    ctx.textAlign = "center";
+    const brandFooter = isEn() ? "WORKOUTS · PROGRESS TRACKER" : "ТРЕНИРОВКИ · ТВОЙ ПРОГРЕСС";
+    ctx.fillText(brandFooter, W / 2, H - 36);
+    ctx.restore();
   }
 }
 
 export function openShareCard(session, meta) {
   let cardTheme = document.documentElement.dataset.theme === "light" ? "light" : "dark";
+  let cardRatio = "9:16";
+  try {
+    const saved = localStorage.getItem("fitness.shareRatio");
+    if (saved && ["9:16", "4:5", "1:1", "auto"].includes(saved)) cardRatio = saved;
+  } catch { /* ignore */ }
+
   const canvas = h("canvas", { class: "share-canvas" });
 
   const darkBtn = h("button", {
     type: "button",
     class: "btn small tag" + (cardTheme === "dark" ? " on" : ""),
-    onclick: () => { cardTheme = "dark"; syncThemeBtns(); renderShareCanvas(canvas, session, meta, cardTheme); }
+    onclick: () => { cardTheme = "dark"; syncControls(); redraw(); }
   }, t("workout.shareThemeDark"));
   const lightBtn = h("button", {
     type: "button",
     class: "btn small tag" + (cardTheme === "light" ? " on" : ""),
-    onclick: () => { cardTheme = "light"; syncThemeBtns(); renderShareCanvas(canvas, session, meta, cardTheme); }
+    onclick: () => { cardTheme = "light"; syncControls(); redraw(); }
   }, t("workout.shareThemeLight"));
 
-  const syncThemeBtns = () => {
+  const RATIOS = [
+    { id: "9:16", labelKey: "workout.shareRatioStories" },
+    { id: "4:5", labelKey: "workout.shareRatioPost" },
+    { id: "1:1", labelKey: "workout.shareRatioSquare" },
+    { id: "auto", labelKey: "workout.shareRatioAuto" }
+  ];
+
+  const ratioBtns = RATIOS.map(r => {
+    const btn = h("button", {
+      type: "button",
+      class: "btn small tag" + (cardRatio === r.id ? " on" : ""),
+      onclick: () => {
+        cardRatio = r.id;
+        try { localStorage.setItem("fitness.shareRatio", cardRatio); } catch {}
+        syncControls();
+        redraw();
+      }
+    }, t(r.labelKey));
+    return { id: r.id, btn };
+  });
+
+  const syncControls = () => {
     darkBtn.classList.toggle("on", cardTheme === "dark");
     lightBtn.classList.toggle("on", cardTheme === "light");
+    ratioBtns.forEach(({ id, btn }) => btn.classList.toggle("on", cardRatio === id));
   };
 
-  renderShareCanvas(canvas, session, meta, cardTheme);
+  const redraw = () => {
+    renderShareCanvas(canvas, session, meta, cardTheme, cardRatio);
+  };
+
+  redraw();
 
   const toBlob = () => new Promise(res => canvas.toBlob(res, "image/png"));
-  const fileName = () => `workout-${new Date(session.startedAt).toISOString().slice(0, 10)}.png`;
+  const fileName = () => {
+    const d = new Date(session.startedAt).toISOString().slice(0, 10);
+    const r = cardRatio.replace(":", "x");
+    return `workout-${d}-${r}.png`;
+  };
 
   const downloadPng = async () => {
     const blob = await toBlob();
@@ -608,8 +708,12 @@ export function openShareCard(session, meta) {
     await downloadPng();
   };
 
-  sheet(h("div", { class: "stack" },
-    h("div", { class: "row gap", style: "justify-content:center" }, darkBtn, lightBtn),
+  sheet(h("div", { class: "stack", style: "gap:12px" },
+    h("div", { class: "share-controls" },
+      darkBtn, lightBtn,
+      h("span", { class: "share-divider" }),
+      ...ratioBtns.map(x => x.btn)
+    ),
     h("div", { class: "share-canvas-wrap" }, canvas),
     h("div", { class: "row gap" },
       h("button", { class: "btn grow", type: "button", onclick: downloadPng }, icon("download", 18), t("workout.shareDownload")),
@@ -837,9 +941,17 @@ export function mount(root) {
 
   const persist = debounce(() => { if (session) { saveSession(session, { silent: true }); updateProgress(); } }, 350);
   const persistNow = () => { persist.flush(); if (session) { saveSession(session, { silent: true }); updateProgress(); } };
-  const onHide = () => { if (mode === "active") persistNow(); };
-  document.addEventListener("visibilitychange", onHide);
-  window.addEventListener("pagehide", onHide);
+  const onVisibility = () => {
+    if (document.visibilityState === "hidden") {
+      if (mode === "active") persistNow();
+    } else if (document.visibilityState === "visible") {
+      if (mode === "active" && clockEl && session) {
+        clockEl.textContent = fmtRest(elapsedSec(session));
+      }
+    }
+  };
+  document.addEventListener("visibilitychange", onVisibility);
+  window.addEventListener("pagehide", persistNow);
 
   const LS_HOME_PROG = "fitness.home.programId";
   const FREE_ID = "__free__";
@@ -1340,10 +1452,9 @@ export function mount(root) {
     });
   }
 
-  // Если перешли с вкладки «Программы» по кнопке «Начать» (или переключили язык во время активной тренировки)
+  // Если есть активная тренировка — всегда открываем её напрямую, без пауз и экрана «Продолжить»
   const actOnMount = activeSession();
-  if (actOnMount && sessionStorage.getItem("fitness.openActive") === "1") {
-    sessionStorage.removeItem("fitness.openActive");
+  if (actOnMount) {
     open(actOnMount);
   } else {
     home();
@@ -1355,9 +1466,9 @@ export function mount(root) {
       clearInterval(clockTimer); releaseLock();
       if (mode === "active") {
         persistNow();
-        if (opts && opts.preserveMode) sessionStorage.setItem("fitness.openActive", "1");
       }
-      document.removeEventListener("visibilitychange", onHide); window.removeEventListener("pagehide", onHide);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", persistNow);
     }
   };
 }

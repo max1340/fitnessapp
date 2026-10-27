@@ -20,7 +20,7 @@ export function openExerciseHistory(exerciseId, fallbackName = t("exercises.defa
     const entries = (s.entries || []).filter(e => e.exerciseId === exerciseId && (e.sets || []).some(x => x.done));
     if (!entries.length) continue;
     const setsText = entries.flatMap(e => (e.sets || []).filter(x => x.done).map(x =>
-      `${x.isWarmup ? `${wSym}: ` : ""}${fmtNum(x.weight ?? 0)} ${unitLabel(e.unit)} × ${x.reps}${x.rpe ? ` @${fmtNum(x.rpe)}` : ""}`
+      `${x.isWarmup ? `${wSym}: ` : ""}${fmtNum(x.weight ?? 0)} ${unitLabel(e.unit)} × ${x.reps}`
     )).join("  ·  ");
     const notes = entries.map(e => e.note).filter(Boolean).join("; ");
     historyRows.push({ date: s.startedAt, programName: s.programName, setsText, notes });
@@ -67,7 +67,6 @@ export function openExerciseForm(ex, onSaved) {
     unit: state.settings.defaultUnit || "kg",
     defaultSets: 3,
     defaultRestSec: state.settings.restSec || 210,
-    trackRpe: false,
     isBodyweight: false,
     note: ""
   };
@@ -78,14 +77,13 @@ export function openExerciseForm(ex, onSaved) {
   const sets = h("input", { type: "text", inputmode: "numeric", value: String(e.defaultSets || 3) });
   const rest = h("input", { type: "text", inputmode: "numeric", value: String(e.defaultRestSec ?? 210) });
   const restBadge = h("strong", { class: "stg-val-badge" }, fmtRest(e.defaultRestSec ?? 210));
-  const rpe = h("input", { type: "checkbox", class: "ios-switch", checked: !!e.trackRpe });
   const isBw = h("input", { type: "checkbox", class: "ios-switch", checked: !!e.isBodyweight });
   const note = h("textarea", { rows: 2, placeholder: t("exercises.notePlaceholder") }, e.note || "");
   const err = h("p", { class: "error", hidden: true });
 
   let dirty = false;
-  [name, muscle, sets, rest, rpe, isBw, note].forEach(el => el.addEventListener("input", () => (dirty = true)));
-  [rpe, isBw].forEach(el => el.addEventListener("change", () => (dirty = true)));
+  [name, muscle, sets, rest, isBw, note].forEach(el => el.addEventListener("input", () => (dirty = true)));
+  isBw.addEventListener("change", () => (dirty = true));
 
   // 1. Чипы быстрого выбора мышечной группы
   const chipBtns = new Map();
@@ -181,7 +179,6 @@ export function openExerciseForm(ex, onSaved) {
       unit: curUnit,
       defaultSets: Math.max(1, Math.round(parseNum(sets.value) || 3)),
       defaultRestSec: Math.max(0, Math.round(parseNum(rest.value) ?? 210)),
-      trackRpe: rpe.checked,
       isBodyweight: isBw.checked,
       note: note.value.trim()
     });
@@ -245,16 +242,11 @@ export function openExerciseForm(ex, onSaved) {
     h("div", { class: "stg-section" },
       h("span", { class: "stg-sec-title" }, t("exercises.optionsGroup")),
       h("div", { class: "stg-card stg-list-card" },
-        h("label", { class: "stg-toggle-row" },
+        h("label", { class: "stg-toggle-row last" },
           h("span", { class: "stg-toggle-text" },
             h("span", { class: "stg-toggle-title" }, t("exercises.isBwLabel")),
             h("small", { class: "muted stg-toggle-sub" }, t("exercises.isBwSub"))),
-          isBw),
-        h("label", { class: "stg-toggle-row last" },
-          h("span", { class: "stg-toggle-text" },
-            h("span", { class: "stg-toggle-title" }, t("exercises.trackRpeLabel")),
-            h("small", { class: "muted stg-toggle-sub" }, t("exercises.trackRpeSub"))),
-          rpe))
+          isBw))
     ),
 
     h("div", { class: "stg-section" },
@@ -439,7 +431,6 @@ export function mount(root) {
               rest: fmtRest(e.defaultRestSec),
               unit: unitLabel(e.unit),
               bw: "",
-              rpe: e.trackRpe ? " · RPE" : "",
               arch: e.archived ? t("exercises.cardArch") : ""
             }))),
           h("div", { class: "ex-item-actions" },

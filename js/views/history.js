@@ -4,7 +4,7 @@ import { sessionStats, formatNum } from "../metrics.js";
 import { entryCard } from "./entryCard.js";
 import { pickExercise } from "./exercises.js";
 import { buildEntry, showSummary, openSessionShare } from "./workout.js";
-import { t } from "../i18n.js";
+import { t, isEn } from "../i18n.js";
 
 function dayKey(ts) {
   const d = new Date(ts);
@@ -41,7 +41,7 @@ function buildHeatmap(doneItems, onOpenSession) {
   let lastMonth = -1;
   const monthNamesRu = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
   const monthNamesEn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const monthNames = (typeof getLang === "function" && getLang() === "en") ? monthNamesEn : monthNamesRu;
+  const monthNames = isEn() ? monthNamesEn : monthNamesRu;
 
   let count12w = 0;
   let selectedCell = null;
@@ -78,7 +78,7 @@ function buildHeatmap(doneItems, onOpenSession) {
         type: "button",
         class: "heat-cell" + (sessions.length ? ` active${lvlCls}` : "") + (k === todayKey ? " today" : "") + (isFuture ? " future" : ""),
         disabled: isFuture,
-        title: `${fmtDate(ts)}: ${sessions.length} трен.`,
+        title: `${fmtDate(ts)}: ${sessions.length} ${isEn() ? (sessions.length === 1 ? "workout" : "workouts") : "трен."}`,
         "aria-label": t("history.cellAria", { date: fmtDate(ts), count: sessions.length }),
         onclick: () => {
           if (selectedCell) selectedCell.classList.remove("sel");
@@ -116,11 +116,11 @@ function buildHeatmap(doneItems, onOpenSession) {
   }
 
   const legend = h("div", { class: "heat-legend" },
-    h("small", { class: "muted" }, "Меньше"),
+    h("small", { class: "muted" }, t("history.less")),
     h("span", { class: "heat-cell lvl-1", style: "width:10px; height:10px; display:inline-block" }),
     h("span", { class: "heat-cell lvl-2", style: "width:10px; height:10px; display:inline-block" }),
     h("span", { class: "heat-cell lvl-3", style: "width:10px; height:10px; display:inline-block" }),
-    h("small", { class: "muted" }, "Больше")
+    h("small", { class: "muted" }, t("history.more"))
   );
 
   return h("section", { class: "panel heat-panel" },

@@ -3,7 +3,7 @@ import { h, icon, iconBtn, fmtNum, parseNum, toast, haptic, showUndoSnackbar } f
 import { state, getExercise, stepFor, unitLabel, warmupSymbol } from "../store.js";
 import { toKg, epley, MAX_E1RM_REPS } from "../metrics.js";
 import { openExerciseHistory } from "./exercises.js";
-import { t, localizeHintString } from "../i18n.js";
+import { t, isEn, localizeHintString } from "../i18n.js";
 
 const round = n => Math.round(n * 100) / 100;
 const COACH_WARMUP_KEY = "fitness.coachmark.warmup";
@@ -33,7 +33,7 @@ export function checkSetPR(set, unit, basePr) {
   if (basePr.weightKg === null && basePr.e1rmKg === null) return null;
   const wKg = toKg(set.weight, unit);
   const beatW = basePr.weightKg !== null && wKg > basePr.weightKg + 1e-6;
-  const e1 = set.reps <= MAX_E1RM_REPS ? epley(wKg, set.reps, set.rpe) : null;
+  const e1 = set.reps <= MAX_E1RM_REPS ? epley(wKg, set.reps) : null;
   const beatE1 = e1 !== null && basePr.e1rmKg !== null && e1 > basePr.e1rmKg + 1e-6;
   if (!beatW && !beatE1) return null;
   return { beatW, beatE1, wKg, e1 };
@@ -276,12 +276,6 @@ export function entryCard(entry, ctx) {
         stepper(set, "reps", 1, "0", t("entry.repsLabel")),
         doneBtn);
 
-      const rpeEl = entry.trackRpe ? (() => {
-        const inp = h("input", { type: "text", inputmode: "decimal", value: fmtNum(set.rpe), placeholder: "RPE", "aria-label": "RPE", class: "rpe" });
-        inp.addEventListener("input", () => { const v = parseNum(inp.value); set.rpe = v !== null && v >= 1 && v <= 10 ? v : null; ctx.onChange(); });
-        return inp;
-      })() : null;
-
       // Кнопка-чип подсказки
       const hintDiffers = set.hint && !set.done && (
         (set.hintWeight != null && set.weight !== set.hintWeight) ||
@@ -309,13 +303,13 @@ export function entryCard(entry, ctx) {
       if (isBarbell && set.weight && set.weight > (unit === "lb" ? 45 : 20)) {
         const pStr = calcPlates(set.weight, unit);
         if (pStr) {
-          const plateTxt = t("entry.plateSide", { plates: pStr }) || `${pStr} / ст.`;
+          const plateTxt = t("entry.plateSide", { plates: pStr }) || (isEn() ? `${pStr} / side` : `${pStr} / ст.`);
           plateEl = h("span", { class: "plate-math", title: plateTxt }, plateTxt);
         }
       }
 
-      const showSub = !!(hintEl || hasPr || rpeEl || plateEl);
-      const rowB = h("div", { class: "set-sub", hidden: !showSub }, hintEl, plateEl, prSlot, rpeEl);
+      const showSub = !!(hintEl || hasPr || plateEl);
+      const rowB = h("div", { class: "set-sub", hidden: !showSub }, hintEl, plateEl, prSlot);
 
       const delSet = () => {
         const deletedSet = entry.sets[i];
@@ -362,7 +356,7 @@ export function entryCard(entry, ctx) {
     const pr = checkSetPR(set, unit, ctx.prBaseline);
     prSlot.replaceChildren(pr ? h("span", { class: "pr-badge", title: t("entry.prTitle") }, "PR") : "");
     const sub = row.querySelector(".set-sub");
-    if (sub) sub.hidden = !pr && !entry.trackRpe && !row.querySelector(".plate-math");
+    if (sub) sub.hidden = !pr && !row.querySelector(".plate-math");
     const allCompleted = entry.sets.length > 0 && entry.sets.every(s => s.done);
     updateEntryStatus();
     if (!set.done) {
@@ -470,7 +464,6 @@ export function entryCard(entry, ctx) {
         return {
           reps: repsList[idx],
           weight: w,
-          rpe: null,
           done: false,
           isWarmup: true,
           completedAt: null,
@@ -501,7 +494,7 @@ export function entryCard(entry, ctx) {
         h("div", { class: "entry-foot-btns" },
           h("button", { class: "btn small add-set-btn", type: "button", onclick: () => {
             const prev = entry.sets[entry.sets.length - 1];
-            entry.sets.push({ reps: prev ? prev.reps : null, weight: prev ? prev.weight : null, rpe: null, done: false, isWarmup: false, completedAt: null, hint: "", hintWeight: prev ? prev.weight : null, hintReps: prev ? prev.reps : null });
+            entry.sets.push({ reps: prev ? prev.reps : null, weight: prev ? prev.weight : null, done: false, isWarmup: false, completedAt: null, hint: "", hintWeight: prev ? prev.weight : null, hintReps: prev ? prev.reps : null });
             setCollapsed(false);
             ctx.onChange(); paintSets(); updateEntryStatus();
           } }, t("entry.addSet")),
