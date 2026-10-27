@@ -253,10 +253,564 @@ html[data-theme="dark"],
   display: flex;
   align-items: center;
 }
+.sheet-head h2 {
+  font-size: 18px;
+  font-weight: 800;
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  color: var(--ink);
+}
+.sheet-head .icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  color: var(--ink3);
+  cursor: pointer;
+  background: none;
+  border: 0;
+  margin-left: auto;
+  transition: background .12s, color .12s;
+}
+.sheet-head .icon-btn:hover {
+  background: var(--tile);
+  color: var(--ink);
+}
 .sheet-body {
   flex: 1;
   overflow-y: auto;
   padding: 20px;
+}
+
+/* ── DRAWER SHEET & PICKER STYLES ── */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Base input / select / textarea styles */
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  font-family: inherit;
+  font-size: 14.5px;
+  min-height: 42px;
+  width: 100%;
+  color: var(--ink);
+  background: var(--tile);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0 14px;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+input:not([type="checkbox"]):not([type="radio"]):focus,
+select:focus,
+textarea:focus {
+  border-color: var(--ink);
+  background: var(--sheet);
+  box-shadow: 0 0 0 3px rgba(10, 10, 11, 0.08);
+}
+html[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):focus,
+html[data-theme="dark"] select:focus,
+html[data-theme="dark"] textarea:focus {
+  box-shadow: 0 0 0 3px rgba(244, 244, 246, 0.12);
+}
+input[type="search"] {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+/* Button utility classes used in sheets and modals */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: var(--tile);
+  color: var(--ink);
+  transition: background .15s, border-color .15s;
+  box-sizing: border-box;
+}
+.btn:hover {
+  background: var(--base);
+}
+.btn.primary {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+.btn.block {
+  width: 100%;
+}
+.btn.small {
+  padding: 5px 12px;
+  font-size: 12.5px;
+  border-radius: 999px;
+  min-height: 30px;
+}
+.btn.tag {
+  background: var(--tile);
+  border-color: var(--line);
+  color: var(--ink2);
+}
+.btn.tag.on {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+  font-weight: 700;
+}
+.btn.grow {
+  flex: 1;
+}
+
+/* ── EXERCISE PICKER MODAL (pickExercise) ── */
+.ex-filter-pills {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: none;
+  flex-wrap: wrap;
+  margin: 4px 0;
+}
+.ex-filter-pills::-webkit-scrollbar {
+  display: none;
+}
+.ex-filter-pill {
+  border-radius: 999px;
+  min-height: 32px;
+  padding: 0 13px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--tile);
+  border: 1px solid var(--line);
+  color: var(--ink2);
+  cursor: pointer;
+  transition: all .15s ease;
+  white-space: nowrap;
+}
+.ex-filter-pill:hover {
+  background: var(--base);
+  color: var(--ink);
+}
+.ex-filter-pill.on {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+  font-weight: 700;
+}
+
+.ex-create-custom-btn {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px dashed var(--line);
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink2);
+  background: var(--tile);
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  margin: 2px 0 10px;
+  cursor: pointer;
+  transition: all .15s ease;
+  box-sizing: border-box;
+}
+.ex-create-custom-btn:hover {
+  background: var(--base);
+  border-color: var(--ink3);
+  color: var(--ink);
+}
+
+.ex-pick-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.ex-pick-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ex-pick-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 2px;
+}
+.stg-sec-title {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--ink3);
+}
+.ex-group-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--tile);
+  border: 1px solid var(--line);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink2);
+}
+.ex-pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ex-pick-item {
+  width: 100%;
+  background: var(--tile);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, transform .1s ease;
+  box-sizing: border-box;
+}
+.ex-pick-item:hover {
+  background: var(--base);
+  border-color: var(--ink3);
+}
+.ex-pick-item:active {
+  transform: scale(0.995);
+}
+.ex-pick-item.in-workout {
+  opacity: .68;
+  border-style: dashed;
+}
+.ex-item-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ex-item-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ex-item-name {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.25;
+}
+.ex-item-sub {
+  font-size: 12.5px;
+  color: var(--ink3);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+.muscle-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--sheet);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink2);
+}
+.ex-pick-plus {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  display: grid;
+  place-items: center;
+  color: var(--ink2);
+  flex: none;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+.ex-pick-item:hover .ex-pick-plus {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+
+/* ── EXERCISE FORM DRAWER (openExerciseForm) ── */
+.ex-form-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 0 24px;
+}
+.ex-form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ex-form-sec-title {
+  font-size: 11.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--ink3);
+  padding: 0 2px;
+}
+.ex-form-card {
+  background: var(--tile);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+}
+.ex-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+.ex-form-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink2);
+}
+.ex-form-input {
+  width: 100%;
+  height: 42px;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--field);
+  color: var(--ink);
+  font-size: 14.5px;
+  font-family: inherit;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 150ms ease;
+}
+.ex-form-input:focus {
+  border-color: var(--ink);
+}
+.ex-form-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 6px;
+}
+.ex-form-chip {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--field);
+  border: 1px solid var(--line);
+  color: var(--ink2);
+  cursor: pointer;
+  transition: all 120ms ease;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.ex-form-chip:hover {
+  background: var(--base);
+  color: var(--ink);
+}
+.ex-form-chip.on {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+  font-weight: 700;
+}
+.ex-form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.ex-form-seg {
+  height: 40px;
+  border-radius: 10px;
+  background: var(--tile);
+  border: 1px solid var(--line);
+  display: flex;
+  padding: 2px;
+  box-sizing: border-box;
+}
+.seg-control {
+  display: flex;
+  border-radius: 10px;
+  background: var(--tile);
+  border: 1px solid var(--line);
+  padding: 2px;
+  box-sizing: border-box;
+}
+.seg-btn {
+  flex: 1;
+  height: 100%;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  background: transparent;
+  border: none;
+  color: var(--ink2);
+  cursor: pointer;
+  transition: all 120ms ease;
+  font-family: inherit;
+  padding: 6px 12px;
+}
+.seg-btn.on {
+  background: var(--ink);
+  color: #fff;
+}
+.stepper, .ex-form-stepper {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--field);
+  height: 40px;
+}
+.stepper .step, .ex-form-stepper .step {
+  width: 38px;
+  height: 100%;
+  font-size: 16px;
+  color: var(--ink2);
+  background: var(--tile);
+  border: 0;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background .12s, color .12s;
+}
+.stepper .step:hover, .ex-form-stepper .step:hover {
+  background: var(--base);
+  color: var(--ink);
+}
+.stepper input, .ex-form-stepper input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  text-align: center;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--ink);
+  outline: none;
+}
+.ex-form-rest-presets {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.ex-form-rest-preset {
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  background: var(--field);
+  color: var(--ink2);
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+.ex-form-rest-preset.on {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+  font-weight: 700;
+}
+.ex-form-val-badge {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-left: auto;
+}
+.ex-form-textarea {
+  width: 100%;
+  min-height: 70px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--field);
+  color: var(--ink);
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+  outline: none;
+}
+.ios-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 44px;
+  height: 26px;
+  border-radius: 999px;
+  background: #D9D9DE;
+  position: relative;
+  cursor: pointer;
+  transition: background .18s;
+  outline: none;
+  margin: 0;
+}
+.ios-switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.25);
+  transition: transform .18s;
+}
+.ios-switch:checked {
+  background: var(--ink);
+}
+.ios-switch:checked::after {
+  transform: translateX(18px);
+}
+.empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--ink3);
+  font-size: 14px;
 }
 
 /* Toast */
