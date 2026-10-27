@@ -1,4 +1,4 @@
-﻿import { h, clear, icon, closeTopSheet, showUndoSnackbar, sheet, toast } from "./ui.js";
+import { h, clear, icon, closeTopSheet, showUndoSnackbar, sheet, toast } from "./ui.js";
 import { init, subscribe, state, activateUserSession, clearSession, pendingCount, activeSession, flushOfflineQueue, onQueueChange } from "./store.js";
 import { startRest } from "./timer.js";
 import { waitForInitialAuth, onAuthChange } from "./auth.js";
@@ -13,7 +13,7 @@ import * as programs from "./views/programs.js";
 import * as exercises from "./views/exercises.js";
 import * as progress from "./views/progress.js";
 import * as history from "./views/history.js";
-import { initShell, isDesktop, checkShellSwitch, getDesktopViewContainer, updateRailActiveRoute, updateLiveStrip, updateRailUserInfo, updateRailSyncStatus, sharedState } from "./shell.js";
+import { initShell, isDesktop, getDesktopViewContainer, updateRailActiveRoute, updateLiveStrip, updateRailUserInfo, updateRailSyncStatus } from "./shell.js";
 import { openPalette, initHotkeys } from "./palette.js";
 import {
   renderDesktopPrograms,
@@ -63,41 +63,51 @@ function route({ force = false } = {}) {
   const rawId = (location.hash.replace(/^#\/?/, "") || "workout");
 
   if (isDesktop()) {
-    if (rawId === "workout") {
-      location.hash = "#/programs";
-      return;
+    if (rawId === "workout" || !rawId) {
+      history.replaceState(null, "", "#/programs");
     }
-    const desktopId = ["programs", "exercises", "progress", "history", "settings"].includes(rawId) ? rawId : "programs";
-    if (!force && desktopId === currentId) {
-      updateLiveStrip();
-      return;
+    const deskId = (rawId === "workout" || !rawId) ? "programs" : rawId;
+    const validIds = ["programs", "exercises", "progress", "history", "settings"];
+    const targetId = validIds.includes(deskId) ? deskId : "programs";
+
+    if (current && current.destroy) {
+      current.destroy({ preserveMode: true });
+      current = null;
     }
-    currentId = desktopId;
-    const desktopContainer = getDesktopViewContainer();
-    if (desktopContainer) {
-      clear(desktopContainer);
-      let viewNode = null;
-      if (desktopId === "programs") viewNode = renderDesktopPrograms();
-      else if (desktopId === "exercises") viewNode = renderDesktopExercises();
-      else if (desktopId === "progress") viewNode = renderDesktopProgress();
-      else if (desktopId === "history") viewNode = renderDesktopHistory();
-      else if (desktopId === "settings") viewNode = renderDesktopSettings();
-      if (viewNode) desktopContainer.append(viewNode);
-    }
-    updateRailActiveRoute(desktopId);
+    currentId = targetId;
+
+    const titleMap = {
+      programs: "nav.programs",
+      exercises: "nav.exercises",
+      progress: "nav.progress",
+      history: "nav.history",
+      settings: "settings.title"
+    };
+    const rTitle = t(titleMap[targetId] || "nav.programs");
+    document.title = rTitle + " · " + t("app.name");
+
+    updateRailActiveRoute(targetId);
     updateLiveStrip();
     updateRailUserInfo();
     updateRailSyncStatus();
+
+    const deskContainer = getDesktopViewContainer();
+    if (deskContainer) {
+      if (targetId === "programs") renderDesktopPrograms(deskContainer);
+      else if (targetId === "exercises") renderDesktopExercises(deskContainer);
+      else if (targetId === "progress") renderDesktopProgress(deskContainer);
+      else if (targetId === "history") renderDesktopHistory(deskContainer);
+      else if (targetId === "settings") renderDesktopSettings(deskContainer);
+    }
     return;
   }
 
-  // Mobile mode
   if (rawId === "settings") {
-    openSettings();
-    location.hash = "#/programs";
-    return;
+    history.replaceState(null, "", "#/workout");
+    setTimeout(() => openSettings(), 50);
   }
-  const r = ROUTES.find(x => x.id === rawId) || ROUTES[0];
+  const id = (rawId === "settings" ? "workout" : rawId);
+  const r = ROUTES.find(x => x.id === id) || ROUTES[0];
   if (!force && r.id === currentId) return;
   const preserveScroll = force && r.id === currentId;
   const prevWinY = preserveScroll ? window.scrollY : 0;
@@ -125,6 +135,186 @@ function route({ force = false } = {}) {
     a.classList.toggle("active", on);
     if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
   });
+}
+
+let prevQueueCount = 0;
+let syncedFlashTimer = null;
+let pendingDebounceTimer = null;
+let isPendingVisible = false;
+let wasOffline = !navigator.onLine;
+
+function openSyncDetailsModal() {
+  paintSync();
+  const getInfo = () => {
+    const isOnline = navigator.onLine;
+    const qCount = typeof pendingCount === "function" ? pendingCount() : 0;
+    const s = state.sync;
+
+    const statusTitle = s.error
+      ? t("app.syncStatusError")
+      : (!isOnline ? t("app.syncStatusOffline") : (qCount > 0 ? t("app.syncStatusPending") : t("app.syncStatusOk")));
+
+    const statusDesc = s.error
+      ? t("app.syncErrorTitle", { err: s.error })
+      : (!isOnline
+          ? t("app.syncOfflineDesc")
+          : (qCount > 0
+              ? t("app.syncPendingDesc", { n: qCount })
+              : t("app.syncOkDesc")));
+    return { isOnline, qCount, s, statusTitle, statusDesc };
+  };
+
+  let info = getInfo();
+  const statusIndicator = h("span", { class: "sync-status-indicator " + (info.s.error ? "err" : (info.qCount > 0 ? "warn" : (info.isOnline ? "ok" : "warn"))) });
+  const statusH3 = h("h3", { style: "margin:0" }, info.statusTitle);
+  const statusNetSmall = h("small", { class: "muted" }, info.isOnline ? t("app.networkOnline") : t("app.networkOffline"));
+  const statusDescP = h("p", { class: "small", style: "margin:0 0 10px; line-height:1.4" }, info.statusDesc);
+  const queueCountStrong = h("strong", { style: "font-variant-numeric:tabular-nums" }, `${info.qCount} ` + t("app.recordsUnit"));
+
+  let sh;
+  const syncNowBtn = h("button", {
+    class: "btn primary block",
+    type: "button",
+    style: info.isOnline && info.qCount > 0 ? "" : "display:none",
+    onclick: async () => {
+      if (typeof flushOfflineQueue === "function") flushOfflineQueue();
+      toast(t("app.syncTriggeredToast"));
+      updateModal();
+    }
+  }, t("app.syncNowBtn"));
+
+  function updateModal() {
+    info = getInfo();
+    statusIndicator.className = "sync-status-indicator " + (info.s.error ? "err" : (info.qCount > 0 ? "warn" : (info.isOnline ? "ok" : "warn")));
+    statusH3.textContent = info.statusTitle;
+    statusNetSmall.textContent = info.isOnline ? t("app.networkOnline") : t("app.networkOffline");
+    statusDescP.textContent = info.statusDesc;
+    queueCountStrong.textContent = `${info.qCount} ` + t("app.recordsUnit");
+    syncNowBtn.style.display = (info.isOnline && info.qCount > 0) ? "" : "none";
+    paintSync();
+  }
+
+  const unsub = typeof onQueueChange === "function" ? onQueueChange(updateModal) : null;
+
+  const sheetContent = h("div", { class: "stack", style: "gap:16px" },
+    h("div", { class: "row gap", style: "align-items:center" },
+      statusIndicator,
+      h("div", { class: "grow" },
+        statusH3,
+        statusNetSmall
+      )
+    ),
+    h("div", { class: "panel", style: "padding:14px; margin:0; background:var(--card); border:1px solid var(--line); border-radius:var(--r-card)" },
+      statusDescP,
+      h("div", { class: "row gap", style: "justify-content:space-between; align-items:center" },
+        h("small", { class: "muted" }, t("app.syncQueueLabel")),
+        queueCountStrong
+      )
+    ),
+    h("div", { class: "stack", style: "gap:8px" },
+      syncNowBtn,
+      h("button", { class: "btn block", type: "button", onclick: () => sh.close() }, t("common.close"))
+    )
+  );
+
+  sh = sheet(sheetContent, {
+    title: t("app.syncTitle"),
+    onClose: () => {
+      if (unsub) unsub();
+    }
+  });
+}
+
+function paintSync() {
+  const s = state.sync;
+  const qCount = typeof pendingCount === "function" ? pendingCount() : 0;
+  const isOnline = navigator.onLine;
+  let text = "", label = "", cls = "sync-pill";
+
+  syncEl.setAttribute("role", "status");
+  syncEl.onclick = openSyncDetailsModal;
+
+  if (s.error) {
+    if (pendingDebounceTimer) { clearTimeout(pendingDebounceTimer); pendingDebounceTimer = null; }
+    if (syncedFlashTimer) { clearTimeout(syncedFlashTimer); syncedFlashTimer = null; }
+    isPendingVisible = false;
+    text = t("app.syncError");
+    label = t("app.syncErrorTitle", { err: s.error });
+    cls += " sync-error";
+  } else if (!isOnline) {
+    if (pendingDebounceTimer) { clearTimeout(pendingDebounceTimer); pendingDebounceTimer = null; }
+    if (syncedFlashTimer) { clearTimeout(syncedFlashTimer); syncedFlashTimer = null; }
+    wasOffline = true;
+    isPendingVisible = false;
+    text = qCount > 0 ? t("app.offlineQueued", { n: qCount }) : t("app.offline");
+    label = t("app.offlineTitle");
+    cls += " sync-offline";
+  } else if (qCount > 0) {
+    if (syncedFlashTimer) { clearTimeout(syncedFlashTimer); syncedFlashTimer = null; }
+    if (!isPendingVisible) {
+      if (!pendingDebounceTimer) {
+        pendingDebounceTimer = setTimeout(() => {
+          pendingDebounceTimer = null;
+          isPendingVisible = true;
+          paintSync();
+        }, 350);
+      }
+      text = "";
+    } else {
+      text = t("app.syncQueueBadge", { n: qCount });
+      label = t("app.syncPendingDesc", { n: qCount });
+      cls += " sync-pending";
+    }
+  } else {
+    // qCount === 0 and online and no error
+    if (pendingDebounceTimer) { clearTimeout(pendingDebounceTimer); pendingDebounceTimer = null; }
+    if (isPendingVisible || wasOffline) {
+      isPendingVisible = false;
+      wasOffline = false;
+      text = t("app.synced");
+      label = t("app.syncedTitle");
+      cls += " sync-synced";
+      clearTimeout(syncedFlashTimer);
+      syncedFlashTimer = setTimeout(() => {
+        syncedFlashTimer = null;
+        paintSync();
+      }, 2500);
+    } else if (syncedFlashTimer) {
+      text = t("app.synced");
+      label = t("app.syncedTitle");
+      cls += " sync-synced";
+    }
+  }
+
+  prevQueueCount = qCount;
+  syncEl.className = cls;
+  syncEl.textContent = text;
+  syncEl.title = label;
+  syncEl.hidden = !text;
+}
+
+function buildNav() {
+  const nav = document.getElementById("nav");
+  clear(nav);
+  nav.setAttribute("aria-label", t("app.navAria"));
+  const curRouteId = currentId || (location.hash.replace(/^#\/?/, "") || "workout");
+  const activeIdx = Math.max(0, ROUTES.findIndex(x => x.id === curRouteId));
+  nav.style.setProperty("--active-idx", String(activeIdx));
+
+  const navPill = h("span", { class: "nav-pill", "aria-hidden": "true" });
+  nav.append(navPill);
+
+  ROUTES.forEach((r, i) => {
+    const on = i === activeIdx;
+    const a = h("a", { href: "#/" + r.id, class: on ? "active" : "", dataset: { route: r.id } }, icon(r.icon, 24), h("span", {}, t(r.titleKey)));
+    if (on) a.setAttribute("aria-current", "page");
+    nav.append(a);
+  });
+  const settingsBtn = document.getElementById("settings-btn");
+  if (settingsBtn) {
+    settingsBtn.setAttribute("aria-label", t("app.settingsAria"));
+    settingsBtn.setAttribute("title", t("app.settingsAria"));
+  }
 }
 
 export function openCommandPalette() {
@@ -225,6 +415,11 @@ async function boot() {
   let first = true;
   subscribe(() => {
     applyTheme(); paintSync();
+    if (isDesktop()) {
+      updateLiveStrip();
+      updateRailUserInfo();
+      updateRailSyncStatus();
+    }
     if (!first && !state.user && !authOpen) {
       showAuthFlow();
       return;
@@ -237,7 +432,7 @@ async function boot() {
       if (!first && state.user) route({ force: true });
       return;
     }
-    if (!first && state.user && current && current.update) {
+    if (!first && state.user && !isDesktop() && current && current.update) {
       // не перерисовываем под руками, пока пользователь вводит текст в поле этого экрана
       current.update();
     }
