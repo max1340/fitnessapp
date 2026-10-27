@@ -374,77 +374,149 @@ export function debounce(fn, ms) {
 
 /** Drag-and-drop сортировка pointer events (touch + мышь). Элементы — прямые дети list с data-key. */
 export function enableDragSort(list, onReorder) {
+  function updateIndices() {
+    let i = 1;
+    for (const c of list.children) {
+      if (c.hasAttribute("data-key")) {
+        const idxEl = c.querySelector(".builder-ex-idx");
+        if (idxEl) idxEl.textContent = String(i);
+        i++;
+      }
+    }
+  }
+
   list.addEventListener("pointerdown", e => {
+    if (e.button && e.button !== 0) return;
     const handle = e.target.closest(".drag-handle");
     if (!handle || !list.contains(handle)) return;
     const item = handle.closest("[data-key]");
     if (!item || item.parentNode !== list) return;
 
+    const pointerId = e.pointerId;
+    try {
+      handle.setPointerCapture(pointerId);
+    } catch (_) {}
+
     e.preventDefault();
     e.stopPropagation();
-    haptic("medium");
 
-    const pointerId = e.pointerId;
-    const grabOffset = e.clientY - item.getBoundingClientRect().top;
-    item.classList.add("dragging");
-    const prevBodyUserSelect = document.body.style.userSelect;
-    document.body.style.userSelect = "none";
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let isDragging = false;
+    let ghost = null;
+    const scroller = list.closest(".sheet-body") || list.closest(".workout-scroll") || document.scrollingElement;
 
-    const scroller = list.closest(".sheet-body") || document.scrollingElement;
-
-    const place = clientY => {
-      item.style.transform = "none";
-      const natural = item.getBoundingClientRect().top;
-      item.style.transform = `translateY(${clientY - grabOffset - natural}px)`;
-    };
+    const prevUserSelect = document.body.style.userSelect;
+    const prevTouchAction = document.body.style.touchAction;
 
     const move = ev => {
       if (ev.pointerId !== pointerId) return;
       ev.preventDefault();
-      place(ev.clientY);
 
-      const sr = scroller.getBoundingClientRect ? scroller.getBoundingClientRect() : { top: 0, bottom: innerHeight };
-      if (ev.clientY < sr.top + 60) scroller.scrollTop -= 10;
-      else if (ev.clientY > sr.bottom - 60) scroller.scrollTop += 10;
+      const dist = Math.hypot(ev.clientX - startX, ev.clientY - startY);
+      if (!isDragging) {
+        if (dist < 4) return;
+        isDragging = true;
+        haptic("medium");
 
-      for (let guard = 0; guard < 3; guard++) {
-        const r = item.getBoundingClientRect();
-        const cy = r.top + r.height / 2;
+        document.body.style.userSelect = "none";
+        document.body.style.touchAction = "none";
+
+        const rect = item.getBoundingClientRect();
+        ghost = item.cloneNode(true);
+        ghost.classList.remove("drag-placeholder");
+        ghost.classList.add("drag-ghost");
+        ghost.style.position = "fixed";
+        ghost.style.top = rect.top + "px";
+        ghost.style.left = rect.left + "px";
+        ghost.style.width = rect.width + "px";
+        ghost.style.height = rect.height + "px";
+        ghost.style.margin = "0";
+        ghost.style.zIndex = "99999";
+        ghost.style.pointerEvents = "none";
+        ghost.style.boxSizing = "border-box";
+        ghost.style.transform = "scale(1.02)";
+        ghost.style.boxShadow = "0 14px 34px rgba(0, 0, 0, 0.32)";
+        document.body.appendChild(ghost);
+
+        item.classList.add("drag-placeholder");
+      }
+
+      // Move ghost
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (ghost) {
+        ghost.style.transform = `translate(${dx}px, ${dy}px) scale(1.02)`;
+      }
+
+      // Auto-scrolling
+      if (scroller && scroller.getBoundingClientRect) {
+        const sr = scroller.getBoundingClientRect();
+        if (ev.clientY < sr.top + 60) {
+          scroller.scrollTop -= Math.min(14, Math.max(2, (sr.top + 60 - ev.clientY) * 0.35));
+        } else if (ev.clientY > sr.bottom - 60) {
+          scroller.scrollTop += Math.min(14, Math.max(2, (ev.clientY - (sr.bottom - 60)) * 0.35));
+        }
+      }
+
+      // Check swaps with siblings
+      let swapped = true;
+      let safety = 0;
+      while (swapped && safety < 8) {
+        safety++;
+        swapped = false;
         const prev = item.previousElementSibling;
         const next = item.nextElementSibling;
+
         if (prev && prev.hasAttribute("data-key")) {
           const pr = prev.getBoundingClientRect();
-          if (cy < pr.top + pr.height / 2) {
+          if (ev.clientY < pr.top + pr.height / 2) {
             list.insertBefore(item, prev);
-            place(ev.clientY);
+            swapped = true;
             haptic("light");
+            updateIndices();
             continue;
           }
         }
         if (next && next.hasAttribute("data-key")) {
           const nr = next.getBoundingClientRect();
-          if (cy > nr.top + nr.height / 2) {
-            list.insertBefore(next, item);
-            place(ev.clientY);
+          if (ev.clientY > nr.top + nr.height / 2) {
+            list.insertBefore(item, next.nextElementSibling);
+            swapped = true;
             haptic("light");
+            updateIndices();
             continue;
           }
         }
-        break;
       }
     };
 
     const end = ev => {
       if (ev && ev.pointerId !== pointerId) return;
+
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", end);
       window.removeEventListener("pointercancel", end);
 
-      document.body.style.userSelect = prevBodyUserSelect;
-      item.classList.remove("dragging");
-      item.style.transform = "";
-      haptic("light");
-      onReorder([...list.children].filter(c => c.hasAttribute("data-key")).map(c => c.dataset.key));
+      if (handle.hasPointerCapture && handle.hasPointerCapture(pointerId)) {
+        try { handle.releasePointerCapture(pointerId); } catch (_) {}
+      }
+
+      document.body.style.userSelect = prevUserSelect;
+      document.body.style.touchAction = prevTouchAction;
+
+      if (ghost) {
+        ghost.remove();
+        ghost = null;
+      }
+      item.classList.remove("drag-placeholder");
+
+      if (isDragging) {
+        haptic("light");
+        updateIndices();
+        const newKeys = [...list.children].filter(c => c.hasAttribute("data-key")).map(c => c.dataset.key);
+        if (onReorder) onReorder(newKeys);
+      }
     };
 
     window.addEventListener("pointermove", move, { passive: false });

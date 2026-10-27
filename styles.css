@@ -1113,12 +1113,48 @@ input[type="checkbox"]:not(.ios-switch):checked::after { transform: rotate(-45de
   transition: box-shadow 200ms ease, border-color 200ms ease, transform 150ms ease;
   position: relative;
 }
-.builder-ex-item.dragging {
-  transform: scale(1.01);
-  box-shadow: var(--sh-2);
-  border-color: var(--ink-2);
-  opacity: 0.95;
-  z-index: 20;
+.builder-ex-item.dragging,
+.builder-ex-item.drag-placeholder,
+.entry.drag-placeholder {
+  opacity: 0.3 !important;
+  box-shadow: none !important;
+  border-style: dashed !important;
+  border-color: var(--ink-2) !important;
+  background: var(--row) !important;
+  pointer-events: none !important;
+}
+
+/* Global Drag and Drop Reordering */
+.drag-ghost {
+  position: fixed !important;
+  z-index: 99999 !important;
+  pointer-events: none !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35) !important;
+  opacity: 0.96 !important;
+  transition: none !important;
+  will-change: transform !important;
+}
+
+.drag-placeholder {
+  opacity: 0.3 !important;
+  box-shadow: none !important;
+  border-style: dashed !important;
+  border-color: var(--ink-2) !important;
+  background: var(--row) !important;
+  pointer-events: none !important;
+}
+
+.drag-handle {
+  touch-action: none !important;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.drag-handle svg {
+  pointer-events: none;
 }
 .builder-drop-indicator {
   height: 2px;
@@ -1148,7 +1184,7 @@ input[type="checkbox"]:not(.ios-switch):checked::after { transform: rotate(-45de
   flex: 1;
 }
 .builder-drag-handle {
-  touch-action: none;
+  touch-action: none !important;
   cursor: grab;
   color: var(--ink-3);
   padding: 4px;
@@ -1158,6 +1194,12 @@ input[type="checkbox"]:not(.ios-switch):checked::after { transform: rotate(-45de
   border-radius: 4px;
   position: relative;
   flex-shrink: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.builder-drag-handle svg {
+  pointer-events: none;
 }
 .builder-drag-handle::after {
   content: '';
