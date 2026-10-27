@@ -938,9 +938,25 @@ export function mount(root) {
       previewBody);
 
     // 3. Центральная круглая кнопка-шайба с гало-эффектом
-    const orbSubEl = h("small", { class: "home-orb-sub" });
+    const orbSubEl = h("small", { class: "home-orb-sub start-btn-sub" });
     let orbBtnEl, orbRingEl;
     const heroBox = h("div", { class: "home-hero" });
+
+    function attachPressEffects(btn, wrap) {
+      function spawnRipple() {
+        const rip = h("span", { class: "ripple" });
+        rip.addEventListener("animationend", () => rip.remove(), { once: true });
+        wrap.append(rip);
+      }
+      btn.addEventListener("pointerdown", () => {
+        btn.classList.add("is-pressed");
+        spawnRipple();
+      });
+      const unpress = () => btn.classList.remove("is-pressed");
+      btn.addEventListener("pointerup", unpress);
+      btn.addEventListener("pointerleave", unpress);
+      btn.addEventListener("pointercancel", unpress);
+    }
 
     let isLaunching = false;
     function launchWorkout(fn) {
@@ -965,14 +981,18 @@ export function mount(root) {
       }
       orbSubEl.textContent = t("workout.activeOrbSub", { done: actDone, total: actTotal, date: fmtDate(act.startedAt) });
       orbBtnEl = h("button", {
-        class: "home-orb", type: "button",
+        class: "home-orb start-btn", type: "button",
         onclick: () => launchWorkout(() => open(act))
       },
         icon("play", 28),
-        h("span", { class: "home-orb-label" }, t("workout.resumeCaps")),
-        h("small", { class: "home-orb-sub" }, shortProgTitle(act.programName)),
+        h("span", { class: "home-orb-label start-btn-label" }, t("workout.resumeCaps")),
+        h("small", { class: "home-orb-sub start-btn-sub" }, shortProgTitle(act.programName)),
         orbSubEl);
-      orbRingEl = h("div", { class: "home-orb-ring active-ring" }, orbBtnEl);
+      const haloEl = h("div", { class: "halo" });
+      const ring1El = h("div", { class: "ring ring-1" });
+      const ring2El = h("div", { class: "ring ring-2" });
+      orbRingEl = h("div", { class: "home-orb-ring start-wrap active-ring" }, haloEl, ring1El, ring2El, orbBtnEl);
+      attachPressEffects(orbBtnEl, orbRingEl);
       heroBox.append(
         orbRingEl,
         h("button", {
@@ -986,13 +1006,17 @@ export function mount(root) {
       );
     } else {
       orbBtnEl = h("button", {
-        class: "home-orb", type: "button",
+        class: "home-orb start-btn", type: "button",
         onclick: () => launchWorkout(() => open(startSession(getSelectedProg())))
       },
         icon("play", 30),
-        h("span", { class: "home-orb-label" }, t("workout.startCaps")),
+        h("span", { class: "home-orb-label start-btn-label" }, t("workout.startCaps")),
         orbSubEl);
-      orbRingEl = h("div", { class: "home-orb-ring" }, orbBtnEl);
+      const haloEl = h("div", { class: "halo" });
+      const ring1El = h("div", { class: "ring ring-1" });
+      const ring2El = h("div", { class: "ring ring-2" });
+      orbRingEl = h("div", { class: "home-orb-ring start-wrap" }, haloEl, ring1El, ring2El, orbBtnEl);
+      attachPressEffects(orbBtnEl, orbRingEl);
       heroBox.append(orbRingEl);
     }
 
