@@ -1,0 +1,2 @@
+rootProject.name = 'fitness-app-native'
+include ':app'

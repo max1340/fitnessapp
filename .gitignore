@@ -5,4 +5,10 @@ Thumbs.db
 /android-twa/app/build/
 /android-twa/.gradle/
 /android-twa/local.properties
+/android-webview/build/
+/android-webview/app/build/
+/android-webview/.gradle/
+/android-webview/local.properties
+*.apk
+
 
