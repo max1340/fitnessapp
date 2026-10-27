@@ -258,8 +258,8 @@ function renderShareCanvas(canvas, session, meta, theme = "dark", ratio = "9:16"
 
   // Распределение свободного пространства при необходимости
   const extraH = H - naturalH;
-  const extraTop = extraH > 0 ? Math.min(36, Math.round(extraH * 0.15)) : 0;
-  const extraGap = extraH > 0 ? Math.min(14, Math.round(extraH * 0.08)) : 0;
+  const extraTop = extraH > 0 ? (isStories ? Math.min(120, Math.round(extraH * 0.28)) : Math.min(36, Math.round(extraH * 0.15))) : 0;
+  const extraGap = extraH > 0 ? (isStories ? Math.min(32, Math.round(extraH * 0.10)) : Math.min(14, Math.round(extraH * 0.08))) : 0;
 
   const headY = padTop + extraTop;
   const statY = headY + 44 + gapStats + extraGap;
@@ -561,7 +561,7 @@ function renderShareCanvas(canvas, session, meta, theme = "dark", ratio = "9:16"
       } else {
         valText = (row.weight ?? 0) > 0
           ? `${fmtNum(row.weight)} ${row.unit} × ${row.reps}`
-          : `${row.reps}`;
+          : `${row.reps} ${isEn() ? "reps" : "повт."}`;
       }
 
       // Столбец Вес и повторы (фиксированный правый край для всех строк)
@@ -711,9 +711,8 @@ export function openShareCard(session, meta) {
 
   sheet(h("div", { class: "stack", style: "gap:12px" },
     h("div", { class: "share-controls" },
-      darkBtn, lightBtn,
-      h("span", { class: "share-divider" }),
-      ...ratioBtns.map(x => x.btn)
+      h("div", { class: "share-controls-row" }, darkBtn, lightBtn),
+      h("div", { class: "share-controls-row" }, ...ratioBtns.map(x => x.btn))
     ),
     h("div", { class: "share-canvas-wrap" }, canvas),
     h("div", { class: "row gap" },

@@ -1008,7 +1008,7 @@ export function openProgramEditor(program) {
 
   const sh = sheet(studioContainer, {
     title: "",
-    full: true,
+    full: true, bodyClass: "no-pad builder-sheet-body",
     beforeClose: async () => {
       if (!dirty) return true;
       return new Promise((resolve) => {

@@ -207,9 +207,9 @@ const openSheets = [];
  * Нижний лист. content — Node. opts: {title, full, onClose, beforeClose, actions}
  * Возвращает { close, requestClose, el, body }.
  */
-export function sheet(content, { title = "", full = false, onClose, beforeClose, actions, backBtn = false } = {}) {
+export function sheet(content, { title = "", full = false, onClose, beforeClose, actions, backBtn = false, bodyClass = "" } = {}) {
   const root = document.getElementById("sheets");
-  const body = h("div", { class: "sheet-body" }, content);
+  const body = h("div", { class: "sheet-body" + (bodyClass ? " " + bodyClass : "") }, content);
   const closeAction = () => api.requestClose();
   const closeBtn = backBtn ? null : iconBtn("x", t("common.close"), closeAction);
   const backBtnEl = backBtn ? iconBtn("arrowLeft", t("common.back") || "Назад", closeAction, "sheet-back-btn") : null;

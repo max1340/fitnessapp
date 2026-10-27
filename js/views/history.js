@@ -188,7 +188,7 @@ function openEditor(original) {
     ),
     h("div", { class: "row gap" },
       h("label", { class: "field grow" }, h("span", {}, t("history.startLabel")), when),
-      h("label", { class: "field" }, h("span", {}, t("history.minutesLabel")), dur)),
+      h("label", { class: "field", style: "width: 80px; flex: none;" }, h("span", {}, t("history.minutesLabel")), dur)),
     box,
     h("button", { class: "btn block", type: "button", onclick: () => pickExercise(ex => { s.entries.push({ ...buildEntry(ex, s.programId, s.entries.length), extra: true }); dirty = true; paint(); }, { multi: true }) }, t("workout.addExerciseBtn")),
     h("button", { class: "btn primary block", type: "button", onclick: save }, t("common.save")),

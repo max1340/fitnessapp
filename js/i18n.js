@@ -927,7 +927,7 @@ const DICT = {
 
     "settings.queuePending": "Очередь: {n} {w}",
     "settings.queuePendingSub": "Офлайн-изменения ждут сети",
-    "settings.queueSynced": "Все данные синхронизированы",
+    "settings.queueSynced": "Синхронизировано",
     "settings.queueSyncedSub": "Синхронизировано с облаком",
     "settings.syncBtn": "Синхронизировать",
     "settings.syncDone": "Синхронизация завершена",
@@ -1656,7 +1656,7 @@ const DICT = {
 
     "settings.queuePending": "Queue: {n} {w}",
     "settings.queuePendingSub": "Offline changes awaiting network",
-    "settings.queueSynced": "All data synced",
+    "settings.queueSynced": "Synced",
     "settings.queueSyncedSub": "Synchronized with cloud",
     "settings.syncBtn": "Sync now",
     "settings.syncDone": "Sync complete",

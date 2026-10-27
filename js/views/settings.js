@@ -477,7 +477,7 @@ export function openSettings() {
     const isPending = pCount > 0;
     const syncDot = h("span", { class: "stg-status-dot " + (isPending ? "pending" : "synced") });
     const syncRowLeft = h("div", { class: "stg-row-left" },
-      h("div", { class: "row gap", style: "gap:6px;" },
+      h("div", { class: "row gap", style: "gap:6px; min-width: 0;" },
         syncDot,
         h("span", { class: "stg-row-title" },
           isPending ? t("settings.queuePending", { n: pCount, w: "" }) : t("settings.queueSynced")

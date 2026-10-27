@@ -140,8 +140,7 @@ function buildOverviewDashboard(periodDays = 30) {
 
   return h("section", { class: "panel prog-overview-card" },
     h("div", { class: "panel-head" },
-      h("h2", { class: "section" }, t("progress.overviewTitle")),
-      h("span", { class: "ex-group-badge" }, periodLabel)),
+      h("h2", { class: "section" }, t("progress.overviewTitle"))),
     h("div", { class: "stats prog-kpi-grid" },
       kpi(t("progress.ovWorkouts"), currentSessions.length > 0 ? String(currentSessions.length) : "0", workoutsSub),
       kpi(t("progress.ovTotalVol"), volStr, avgVolSub),
@@ -246,8 +245,7 @@ function buildMuscleBalance(periodDays = 30) {
 
   return h("section", { class: "panel" },
     h("div", { class: "panel-head" },
-      h("h2", { class: "section" }, t("progress.muscleBalance")),
-      h("span", { class: "ex-group-badge" }, periodBadge)),
+      h("h2", { class: "section" }, t("progress.muscleBalance"))),
     bodyBox);
 }
 
