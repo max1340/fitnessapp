@@ -4,7 +4,7 @@ import { h, clear, icon, toast } from "./ui.js";
 import { t, isEn } from "./i18n.js";
 import { openPalette } from "./palette.js";
 
-const MQ_DESKTOP = "(min-width: 1024px)";
+const MQ_DESKTOP = "(min-width: 960px)";
 let mql = null;
 let currentShell = null; // "mobile" | "desktop"
 let resizeDebounceTimer = null;
@@ -28,12 +28,25 @@ export const sharedState = {
 
 /** Получить режим интерфейса: "auto" | "mobile" | "desktop" */
 export function getInterfaceMode() {
-  return state.settings?.interface || "auto";
+  if (state.settings?.interface && ["auto", "mobile", "desktop"].includes(state.settings.interface)) {
+    return state.settings.interface;
+  }
+  try {
+    const s = JSON.parse(localStorage.getItem("fitness:device:prefs") || "{}");
+    if (["auto", "mobile", "desktop"].includes(s.interface)) return s.interface;
+  } catch {}
+  return "auto";
 }
 
 /** Установить режим интерфейса */
 export function setInterfaceMode(mode) {
   if (!["auto", "mobile", "desktop"].includes(mode)) mode = "auto";
+  if (state.settings) state.settings.interface = mode;
+  try {
+    const s = JSON.parse(localStorage.getItem("fitness:device:prefs") || "{}");
+    s.interface = mode;
+    localStorage.setItem("fitness:device:prefs", JSON.stringify(s));
+  } catch {}
   updateSettings({ interface: mode });
   checkShellSwitch(true);
 }
@@ -90,7 +103,7 @@ function applyShellToBody(shell) {
       desktopShellEl = buildDesktopShellDom();
       document.body.append(desktopShellEl);
     } else {
-      desktopShellEl.style.display = "";
+      desktopShellEl.style.display = "grid";
     }
     updateLiveStrip();
     startLiveStripTimer();

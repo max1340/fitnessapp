@@ -13,7 +13,7 @@ import * as programs from "./views/programs.js";
 import * as exercises from "./views/exercises.js";
 import * as progress from "./views/progress.js";
 import * as history from "./views/history.js";
-import { initShell, isDesktop, getDesktopViewContainer, updateRailActiveRoute, updateLiveStrip, updateRailUserInfo, updateRailSyncStatus } from "./shell.js";
+import { initShell, isDesktop, getDesktopViewContainer, updateRailActiveRoute, updateLiveStrip, updateRailUserInfo, updateRailSyncStatus, checkShellSwitch, getInterfaceMode } from "./shell.js";
 import { openPalette, initHotkeys } from "./palette.js";
 import {
   renderDesktopPrograms,
@@ -416,8 +416,14 @@ async function boot() {
   if (typeof onQueueChange === "function") onQueueChange(() => paintSync());
 
   let first = true;
+  let prevIface = getInterfaceMode();
   subscribe(() => {
     applyTheme(); paintSync();
+    const curIface = getInterfaceMode();
+    if (curIface !== prevIface) {
+      prevIface = curIface;
+      checkShellSwitch(true);
+    }
     if (isDesktop()) {
       updateLiveStrip();
       updateRailUserInfo();

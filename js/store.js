@@ -24,6 +24,7 @@ function readDevicePrefs() {
     const out = {};
     if (p.lang === "ru" || p.lang === "en") out.lang = p.lang;
     if (["dark", "light", "system"].includes(p.theme)) out.theme = p.theme;
+    if (["auto", "mobile", "desktop"].includes(p.interface)) out.interface = p.interface;
     return out;
   } catch { return {}; }
 }
@@ -72,6 +73,7 @@ export const DEFAULT_SETTINGS = {
   vibration: true,
   notifications: true,
   theme: "dark", // dark | light | system
+  interface: "auto", // auto | mobile | desktop
   autoStartRest: true
 };
 
