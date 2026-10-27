@@ -9,23 +9,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&family=Unbounded:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="desktop.css?v=70">
+  <link rel="stylesheet" href="desktop.css?v=71">
   <script>
     (function() {
+      var isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (window.innerWidth < 960);
+      if (isMobile) {
+        location.replace("./" + location.hash);
+        return;
+      }
       try {
-        var isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (window.innerWidth < 960);
-        if (location.search.indexOf("desktop=1") !== -1) {
-          // Explicit desktop override allowed
-        } else if (isMobile) {
-          // On mobile phone: ALWAYS redirect back to mobile app
-          try {
-            var p = JSON.parse(localStorage.getItem("fitness:device:prefs") || "{}");
-            if (p.interface) { delete p.interface; localStorage.setItem("fitness:device:prefs", JSON.stringify(p)); }
-          } catch(e) {}
-          location.replace("./" + location.hash);
-          return;
-        }
-
         var p = JSON.parse(localStorage.getItem("fitness:device:prefs") || "{}");
         var dark = p.theme === "dark" || (p.theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
         document.documentElement.dataset.theme = dark ? "dark" : "light";
@@ -83,6 +75,6 @@
   </div>
   <div id="sheets"></div>
   <div id="toast" class="toast" role="status" hidden></div>
-  <script type="module" src="js/desktopApp.js?v=70"></script>
+  <script type="module" src="js/desktopApp.js?v=71"></script>
 </body>
 </html>

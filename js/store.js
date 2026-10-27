@@ -73,7 +73,6 @@ export const DEFAULT_SETTINGS = {
   vibration: true,
   notifications: true,
   theme: "dark", // dark | light | system
-  interface: "auto", // auto | mobile | desktop
   autoStartRest: true
 };
 
@@ -286,10 +285,9 @@ export function init(onProgress) {
         if (name === "meta") {
           const s = docs.find(d => d.id === "settings");
           if (s) {
-            const { id, interface: _cloudIface, ...rest } = s;
+            const { id, ...rest } = s;
             const prevLang = state.settings.lang;
-            const localPrefs = readDevicePrefs();
-            state.settings = { ...DEFAULT_SETTINGS, ...rest, interface: localPrefs.interface || DEFAULT_SETTINGS.interface };
+            state.settings = { ...DEFAULT_SETTINGS, ...rest };
             lsSetUser(curUser, "settings", JSON.stringify(state.settings));
             writeDevicePrefs(state.settings);
             if (state.settings.lang && state.settings.lang !== prevLang) {
@@ -339,10 +337,7 @@ export function updateSettings(patch) {
   const curUser = getSpaceUser();
   writeDevicePrefs(state.settings);
   if (curUser) lsSetUser(curUser, "settings", JSON.stringify(state.settings));
-  if (curUser) {
-    const { interface: _iface, ...cloudSettings } = state.settings;
-    saveDoc("meta", { id: "settings", ...cloudSettings }).catch(console.error);
-  }
+  if (curUser) saveDoc("meta", { id: "settings", ...state.settings }).catch(console.error);
   emit();
 }
 

@@ -7,7 +7,7 @@ import { waitForInitialAuth, onAuthChange } from "./auth.js";
 import { isFirebaseConfigured } from "../firebase-config.js";
 import { t, getLang, isEn } from "./i18n.js";
 import { h, clear, toast, sheet } from "./ui.js";
-import { sharedState, getInterfaceMode, setInterfaceMode } from "./shell.js";
+import { sharedState } from "./shell.js";
 import { openPalette, initHotkeys } from "./palette.js";
 import { applyTheme } from "./views/settings.js";
 import {
@@ -24,7 +24,6 @@ const viewContainer = document.getElementById("desktop-view-container");
 const liveStripEl = document.getElementById("live-strip");
 const syncPillEl = document.getElementById("rail-sync");
 const userChipEl = document.getElementById("rail-user");
-const modeBtn = document.getElementById("rail-mode-btn");
 
 let currentRoute = null;
 let liveStripTimer = null;
@@ -144,10 +143,6 @@ function updateLiveStrip() {
   liveStripEl.style.display = "flex";
 }
 
-function updateInterfaceModeBtn() {
-  if (!modeBtn) return;
-  modeBtn.textContent = isEn() ? "Interface: Desktop" : "Интерфейс: Десктоп";
-}
 
 function openSyncDetailsModal() {
   const isOnline = navigator.onLine;
@@ -219,13 +214,7 @@ async function bootDesktop() {
       sharedState.settingsSection = "account";
     });
   }
-  if (modeBtn) {
-    modeBtn.addEventListener("click", () => {
-      setInterfaceMode("mobile");
-      location.replace("./" + location.hash);
-    });
-  }
-
+  
   // Горячие клавиши и командная строка
   initHotkeys();
   document.addEventListener("keydown", e => {
@@ -266,7 +255,6 @@ async function bootDesktop() {
     updateUserInfo();
     updateSyncStatus();
     updateLiveStrip();
-    updateInterfaceModeBtn();
     renderRoute(getActiveRouteId(), true);
   } else {
     // Если пользователь не вошёл, перенаправляем на главную страницу для входа
