@@ -1,4 +1,4 @@
-﻿/* Монохромная дизайн-система с красным акцентом. Wave 2 токены */
+/* Монохромная дизайн-система с красным акцентом. Wave 2 токены */
 :root {
   --ink: #F4F4F6;
   --ink-2: #A1A1A6;
@@ -4994,14 +4994,13 @@ body[data-shell="desktop"] {
   --ok: #1E8E3E;
   --warn: #9A6200;
 
-  margin: 0;
-  font-family: 'Golos Text', system-ui, -apple-system, sans-serif;
-  color: var(--ink);
-  background: var(--sheet);
-  display: grid;
-  grid-template-columns: 232px minmax(0, 1fr);
-  height: 100vh;
-  overflow: hidden;
+  margin: 0 !important;
+  font-family: 'Golos Text', system-ui, -apple-system, sans-serif !important;
+  color: var(--ink) !important;
+  background: var(--sheet) !important;
+  height: 100vh !important;
+  overflow: hidden !important;
+  display: block !important;
 }
 
 /* Паритет тёмной темы на десктопе */
@@ -5021,16 +5020,31 @@ html[data-theme="dark"] body[data-shell="desktop"],
   --ok: #22C55E;
   --warn: #F59E0B;
 
-  color: var(--ink);
-  background: var(--sheet);
+  color: var(--ink) !important;
+  background: var(--sheet) !important;
 }
 
 body[data-shell="desktop"] #app {
   display: none !important;
 }
 
+body[data-shell="desktop"] #desktop-shell,
 body[data-shell="desktop"] .desktop-shell {
-  display: contents;
+  display: grid !important;
+  grid-template-columns: 232px minmax(0, 1fr) !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  overflow: hidden !important;
+  background: var(--sheet) !important;
+  z-index: 10 !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 /* Тонкие скроллбары */
@@ -5055,14 +5069,18 @@ body[data-shell="desktop"] * {
 
 /* Рельса (Sidebar 232px) */
 body[data-shell="desktop"] .rail {
-  border-right: 1px solid var(--line);
-  display: flex;
-  flex-direction: column;
-  padding: 18px 14px;
-  gap: 2px;
-  background: var(--sheet);
-  height: 100vh;
-  box-sizing: border-box;
+  width: 232px !important;
+  min-width: 232px !important;
+  max-width: 232px !important;
+  border-right: 1px solid var(--line) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 18px 14px !important;
+  gap: 2px !important;
+  background: var(--sheet) !important;
+  height: 100vh !important;
+  box-sizing: border-box !important;
+  overflow-y: auto !important;
 }
 
 body[data-shell="desktop"] .railLogo {
@@ -5206,17 +5224,35 @@ body[data-shell="desktop"] .ava {
 }
 
 /* Главная область */
-body[data-shell="desktop"] .main.desktop-main {
-  overflow-y: auto;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--sheet);
+body[data-shell="desktop"] .main.desktop-main,
+body[data-shell="desktop"] .desktop-main {
+  overflow-y: auto !important;
+  height: 100vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background: var(--sheet) !important;
+  min-width: 0 !important;
+  flex: 1 !important;
+  box-sizing: border-box !important;
 }
 
 body[data-shell="desktop"] .desktop-view-container {
-  flex: 1;
-  overflow-y: auto;
+  flex: 1 !important;
+  overflow-y: auto !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+body[data-shell="desktop"] .view {
+  display: block !important;
+  flex: 1 !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  animation: none !important;
 }
 
 /* Инфо-полоса активной сессии на телефоне */
@@ -5252,17 +5288,22 @@ body[data-shell="desktop"] .liveStrip b {
 
 /* Топбар */
 body[data-shell="desktop"] .topbar {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  background: var(--sheet);
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 13px 28px;
-  min-height: 56px;
-  box-sizing: border-box;
+  position: sticky !important;
+  top: 0 !important;
+  left: auto !important;
+  right: auto !important;
+  width: 100% !important;
+  max-width: none !important;
+  transform: none !important;
+  z-index: 5 !important;
+  background: var(--sheet) !important;
+  border-bottom: 1px solid var(--line) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 13px 28px !important;
+  min-height: 56px !important;
+  box-sizing: border-box !important;
 }
 
 body[data-shell="desktop"] .topbar h1 {
