@@ -9,13 +9,20 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&family=Unbounded:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="desktop.css?v=68">
+  <link rel="stylesheet" href="desktop.css?v=69">
   <script>
     (function() {
       try {
-        var p = JSON.parse(localStorage.getItem("fitness:device:prefs") || "{}");
-        if (p.interface === "mobile" || (p.interface !== "desktop" && window.matchMedia && window.matchMedia("(max-width: 959px)").matches)) {
+        var isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (window.innerWidth < 960);
+        // Phones MUST NOT open desktop.html -> redirect to mobile app
+        if (isMobile) {
           location.replace("./" + location.hash);
+          return;
+        }
+        var p = JSON.parse(localStorage.getItem("fitness:device:prefs") || "{}");
+        if (p.interface === "mobile") {
+          location.replace("./" + location.hash);
+          return;
         }
         var dark = p.theme === "dark" || (p.theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
         document.documentElement.dataset.theme = dark ? "dark" : "light";
@@ -73,6 +80,6 @@
   </div>
   <div id="sheets"></div>
   <div id="toast" class="toast" role="status" hidden></div>
-  <script type="module" src="js/desktopApp.js?v=68"></script>
+  <script type="module" src="js/desktopApp.js?v=69"></script>
 </body>
 </html>
