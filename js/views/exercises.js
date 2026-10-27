@@ -72,22 +72,22 @@ export function openExerciseForm(ex, onSaved) {
   };
 
   let curUnit = e.unit === "lb" ? "lb" : "kg";
-  const name = h("input", { type: "text", value: e.name, placeholder: t("exercises.namePlaceholder"), autocomplete: "off" });
-  const muscle = h("input", { type: "text", value: e.muscleGroup, placeholder: t("exercises.musclePlaceholder"), autocomplete: "off" });
+  const name = h("input", { type: "text", class: "ex-form-input", value: e.name, placeholder: t("exercises.namePlaceholder"), autocomplete: "off" });
+  const muscle = h("input", { type: "text", class: "ex-form-input", value: e.muscleGroup, placeholder: t("exercises.musclePlaceholder"), autocomplete: "off" });
   const sets = h("input", { type: "text", inputmode: "numeric", value: String(e.defaultSets || 3) });
   const rest = h("input", { type: "text", inputmode: "numeric", value: String(e.defaultRestSec ?? 210) });
-  const restBadge = h("strong", { class: "stg-val-badge" }, fmtRest(e.defaultRestSec ?? 210));
+  const restBadge = h("strong", { class: "ex-form-val-badge" }, fmtRest(e.defaultRestSec ?? 210));
   const isBw = h("input", { type: "checkbox", class: "ios-switch", checked: !!e.isBodyweight });
-  const note = h("textarea", { rows: 2, placeholder: t("exercises.notePlaceholder") }, e.note || "");
+  const note = h("textarea", { class: "ex-form-textarea", placeholder: t("exercises.notePlaceholder") }, e.note || "");
   const err = h("p", { class: "error", hidden: true });
 
   let dirty = false;
   [name, muscle, sets, rest, isBw, note].forEach(el => el.addEventListener("input", () => (dirty = true)));
   isBw.addEventListener("change", () => (dirty = true));
 
-  // 1. Чипы быстрого выбора мышечной группы
+  // 1. Quick muscle chips
   const chipBtns = new Map();
-  const chipsWrap = h("div", { class: "ex-muscle-chips" });
+  const chipsWrap = h("div", { class: "ex-form-chips" });
   const syncMuscleChips = () => {
     const val = muscle.value.trim().toLowerCase();
     for (const [m, b] of chipBtns) {
@@ -97,7 +97,7 @@ export function openExerciseForm(ex, onSaved) {
   for (const m of muscleOptions().slice(0, 12)) {
     const b = h("button", {
       type: "button",
-      class: "btn small tag ex-mchip",
+      class: "ex-form-chip",
       onclick: () => {
         muscle.value = m;
         dirty = true;
@@ -121,19 +121,51 @@ export function openExerciseForm(ex, onSaved) {
     class: "seg-btn" + (curUnit === "lb" ? " on" : ""),
     onclick: () => { curUnit = "lb"; dirty = true; unitLbBtn.classList.add("on"); unitKgBtn.classList.remove("on"); }
   }, "lb");
-  const unitSeg = h("div", { class: "seg-control" }, unitKgBtn, unitLbBtn);
+  const unitSeg = h("div", { class: "seg-control ex-form-seg" }, unitKgBtn, unitLbBtn);
 
-  // 3. Степпер количества рабочих подходов
+  // 3. Default sets stepper
   const bumpSets = d => {
     const cur = Math.round(parseNum(sets.value) || 3);
     const next = Math.max(1, Math.min(15, cur + d));
     sets.value = String(next);
     dirty = true;
   };
-  const setsStepper = h("div", { class: "stepper stg-stepper" },
-    h("button", { class: "btn step", type: "button", onclick: () => bumpSets(-1) }, icon("minus", 14)),
+  const setsStepper = h("div", { class: "stepper ex-form-stepper" },
+    h("button", { class: "step", type: "button", onclick: () => bumpSets(-1) }, icon("minus", 14)),
     sets,
-    h("button", { class: "btn step", type: "button", onclick: () => bumpSets(1) }, icon("plus", 14))
+    h("button", { class: "step", type: "button", onclick: () => bumpSets(1) }, icon("plus", 14))
+  );
+
+  // 4. Rest: presets + stepper
+  const restPresetBtns = new Map();
+  const syncRestUI = () => {
+    const v = Math.max(0, Math.round(parseNum(rest.value) ?? 210));
+    restBadge.textContent = fmtRest(v);
+    for (const [sec, b] of restPresetBtns) {
+      b.classList.toggle("on", sec === v);
+    }
+  };
+  rest.addEventListener("input", syncRestUI);
+  const restPresetsWrap = h("div", { class: "ex-form-rest-presets" });
+  for (const sec of [60, 90, 120, 180, 210]) {
+    const b = h("button", {
+      type: "button",
+      class: "ex-form-rest-preset",
+      onclick: () => { rest.value = String(sec); dirty = true; syncRestUI(); }
+    }, fmtRest(sec));
+    restPresetBtns.set(sec, b);
+    restPresetsWrap.append(b);
+  }
+  const bumpRest = d => {
+    const cur = Math.max(0, Math.round(parseNum(rest.value) ?? 210));
+    rest.value = String(Math.max(0, cur + d));
+    dirty = true;
+    syncRestUI();
+  };
+  const restStepper = h("div", { class: "stepper ex-form-stepper" },
+    h("button", { class: "step", type: "button", onclick: () => bumpRest(-15) }, icon("minus", 14)),
+    rest,
+    h("button", { class: "step", type: "button", onclick: () => bumpRest(15) }, icon("plus", 14))
   );
 
   // 4. Отдых: пресеты + степпер
@@ -214,50 +246,68 @@ export function openExerciseForm(ex, onSaved) {
     }
   }
 
-  const form = h("form", { class: "stack stg-wrap", onsubmit: ev => { ev.preventDefault(); save(); } },
-    h("div", { class: "stg-section" },
-      h("span", { class: "stg-sec-title" }, t("exercises.basicGroup")),
-      h("div", { class: "stg-card" },
-        h("label", { class: "field" }, h("span", {}, t("exercises.nameLabel")), name),
-        h("div", { class: "field" },
-          h("span", {}, t("exercises.muscleLabel")),
+  const form = h("form", { class: "stack ex-form-wrap", onsubmit: ev => { ev.preventDefault(); save(); } },
+    h("div", { class: "ex-form-section" },
+      h("span", { class: "ex-form-sec-title" }, t("exercises.basicGroup")),
+      h("div", { class: "ex-form-card" },
+        h("label", { class: "ex-form-field" },
+          h("span", { class: "ex-form-label" }, t("exercises.nameLabel")),
+          name
+        ),
+        h("div", { class: "ex-form-field" },
+          h("span", { class: "ex-form-label" }, t("exercises.muscleLabel")),
           chipsWrap,
-          muscle))
+          muscle
+        )
+      )
     ),
 
-    h("div", { class: "stg-section" },
-      h("span", { class: "stg-sec-title" }, t("exercises.defaultsGroup")),
-      h("div", { class: "stg-card" },
-        h("div", { class: "row gap", style: "align-items:flex-end" },
-          h("div", { class: "field grow" }, h("span", {}, t("exercises.unitsLabel")), unitSeg),
-          h("div", { class: "field grow" }, h("span", {}, t("exercises.defaultSetsLabel")), setsStepper)),
-        h("div", { class: "stg-rest-block" },
-          h("div", { class: "row gap", style: "justify-content:space-between" },
-            h("span", { class: "stg-row-label" }, t("exercises.defaultRestShort")),
-            restBadge),
+    h("div", { class: "ex-form-section" },
+      h("span", { class: "ex-form-sec-title" }, t("exercises.defaultsGroup")),
+      h("div", { class: "ex-form-card" },
+        h("div", { class: "ex-form-grid-2" },
+          h("div", { class: "ex-form-field" },
+            h("span", { class: "ex-form-label" }, t("exercises.unitsLabel")),
+            unitSeg
+          ),
+          h("div", { class: "ex-form-field" },
+            h("span", { class: "ex-form-label" }, t("exercises.defaultSetsLabel")),
+            setsStepper
+          )
+        ),
+        h("div", { class: "ex-form-field", style: "margin-top: 4px;" },
+          h("div", { class: "ex-form-row-header" },
+            h("span", { class: "ex-form-label" }, t("exercises.defaultRestShort")),
+            restBadge
+          ),
           restPresetsWrap,
-          restStepper))
+          restStepper
+        )
+      )
     ),
 
-    h("div", { class: "stg-section" },
-      h("span", { class: "stg-sec-title" }, t("exercises.optionsGroup")),
-      h("div", { class: "stg-card stg-list-card" },
-        h("label", { class: "stg-toggle-row last" },
-          h("span", { class: "stg-toggle-text" },
-            h("span", { class: "stg-toggle-title" }, t("exercises.isBwLabel")),
-            h("small", { class: "muted stg-toggle-sub" }, t("exercises.isBwSub"))),
-          isBw))
+    h("div", { class: "ex-form-section" },
+      h("span", { class: "ex-form-sec-title" }, t("exercises.optionsGroup")),
+      h("div", { class: "ex-form-card" },
+        h("label", { class: "ex-form-toggle-row" },
+          h("div", { class: "ex-form-toggle-text" },
+            h("span", { class: "ex-form-toggle-title" }, t("exercises.isBwLabel")),
+            h("small", { class: "ex-form-toggle-sub" }, t("exercises.isBwSub"))
+          ),
+          isBw
+        )
+      )
     ),
 
-    h("div", { class: "stg-section" },
-      h("span", { class: "stg-sec-title" }, t("exercises.noteLabel")),
-      h("div", { class: "stg-card" }, note)
+    h("div", { class: "ex-form-section" },
+      h("span", { class: "ex-form-sec-title" }, t("exercises.noteLabel")),
+      h("div", { class: "ex-form-card" }, note)
     ),
 
     err,
     !isNew && isExerciseUsed(e.id) ? h("p", { class: "muted small", style: "margin:0 4px" }, t("exercises.cannotDelete")) : null,
     extra.length ? h("div", { class: "row gap" }, extra) : null,
-    h("button", { class: "btn primary block", type: "submit" }, t("common.save"))
+    h("button", { class: "btn primary block", type: "submit", style: "height: 48px; font-weight: 600; margin-top: 4px;" }, t("common.save"))
   );
 
   const sh = sheet(form, {
@@ -497,7 +547,7 @@ export function mount(root) {
 
     for (const [grpName, grpItems] of byGroup) {
       const titleEl = h("strong", { class: "ex-muscle-title" }, grpName);
-      const countEl = h("span", { class: "ex-muscle-chip" }, t("exercises.groupCount", { n: grpItems.length }));
+      const countEl = h("span", { class: "ex-muscle-count" }, t("exercises.groupCount", { n: grpItems.length }));
       const cardEl = h("button", {
         type: "button",
         class: "ex-muscle-card",

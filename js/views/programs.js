@@ -998,12 +998,7 @@ export function openProgramEditor(program) {
     beforeClose: async () => {
       if (!dirty) return true;
       return new Promise((resolve) => {
-        let settled = false;
-        const settle = (val) => {
-          if (settled) return;
-          settled = true;
-          resolve(val);
-        };
+        let userAction = null;
         const confirmSheet = sheet(
           h("div", { class: "stack", style: "gap: 16px; padding: 8px 0;" },
             h("div", { style: "display: flex; flex-direction: column; gap: 6px;" },
@@ -1016,9 +1011,8 @@ export function openProgramEditor(program) {
                 class: "btn primary block",
                 style: "height: 48px; font-weight: 600;",
                 onclick: () => {
+                  userAction = "save";
                   confirmSheet.close();
-                  save(true);
-                  settle(true);
                 }
               }, t("builder.unsavedSave")),
               h("button", {
@@ -1026,9 +1020,8 @@ export function openProgramEditor(program) {
                 class: "btn block",
                 style: "height: 48px; color: #ef4444; border-color: rgba(239, 68, 68, 0.2); background: rgba(239, 68, 68, 0.08);",
                 onclick: () => {
-                  dirty = false;
+                  userAction = "discard";
                   confirmSheet.close();
-                  settle(true);
                 }
               }, t("builder.unsavedDiscard")),
               h("button", {
@@ -1036,15 +1029,26 @@ export function openProgramEditor(program) {
                 class: "btn block",
                 style: "height: 48px;",
                 onclick: () => {
+                  userAction = "stay";
                   confirmSheet.close();
-                  settle(false);
                 }
               }, t("builder.unsavedStay"))
             )
           ),
           {
             title: "",
-            onClose: () => settle(false)
+            onClose: async () => {
+              if (userAction === "save") {
+                await save(true);
+                dirty = false;
+                resolve(true);
+              } else if (userAction === "discard") {
+                dirty = false;
+                resolve(true);
+              } else {
+                resolve(false);
+              }
+            }
           }
         );
       });

@@ -379,11 +379,17 @@ export function enableDragSort(list, onReorder) {
     if (!handle || !list.contains(handle)) return;
     const item = handle.closest("[data-key]");
     if (!item || item.parentNode !== list) return;
+
     e.preventDefault();
+    e.stopPropagation();
     haptic("medium");
-    handle.setPointerCapture(e.pointerId);
+
+    const pointerId = e.pointerId;
     const grabOffset = e.clientY - item.getBoundingClientRect().top;
     item.classList.add("dragging");
+    const prevBodyUserSelect = document.body.style.userSelect;
+    document.body.style.userSelect = "none";
+
     const scroller = list.closest(".sheet-body") || document.scrollingElement;
 
     const place = clientY => {
@@ -391,29 +397,58 @@ export function enableDragSort(list, onReorder) {
       const natural = item.getBoundingClientRect().top;
       item.style.transform = `translateY(${clientY - grabOffset - natural}px)`;
     };
+
     const move = ev => {
+      if (ev.pointerId !== pointerId) return;
+      ev.preventDefault();
       place(ev.clientY);
-      // автопрокрутка у краёв
+
       const sr = scroller.getBoundingClientRect ? scroller.getBoundingClientRect() : { top: 0, bottom: innerHeight };
-      if (ev.clientY < sr.top + 60) scroller.scrollTop -= 12; else if (ev.clientY > sr.bottom - 60) scroller.scrollTop += 12;
+      if (ev.clientY < sr.top + 60) scroller.scrollTop -= 10;
+      else if (ev.clientY > sr.bottom - 60) scroller.scrollTop += 10;
+
       for (let guard = 0; guard < 3; guard++) {
-        const r = item.getBoundingClientRect(), cy = r.top + r.height / 2;
-        const prev = item.previousElementSibling, next = item.nextElementSibling;
-        if (prev) { const pr = prev.getBoundingClientRect(); if (cy < pr.top + pr.height / 2) { list.insertBefore(item, prev); place(ev.clientY); haptic("light"); continue; } }
-        if (next) { const nr = next.getBoundingClientRect(); if (cy > nr.top + nr.height / 2) { list.insertBefore(next, item); place(ev.clientY); haptic("light"); continue; } }
+        const r = item.getBoundingClientRect();
+        const cy = r.top + r.height / 2;
+        const prev = item.previousElementSibling;
+        const next = item.nextElementSibling;
+        if (prev && prev.hasAttribute("data-key")) {
+          const pr = prev.getBoundingClientRect();
+          if (cy < pr.top + pr.height / 2) {
+            list.insertBefore(item, prev);
+            place(ev.clientY);
+            haptic("light");
+            continue;
+          }
+        }
+        if (next && next.hasAttribute("data-key")) {
+          const nr = next.getBoundingClientRect();
+          if (cy > nr.top + nr.height / 2) {
+            list.insertBefore(next, item);
+            place(ev.clientY);
+            haptic("light");
+            continue;
+          }
+        }
         break;
       }
     };
-    const end = () => {
-      handle.removeEventListener("pointermove", move);
-      handle.removeEventListener("pointerup", end);
-      handle.removeEventListener("pointercancel", end);
-      item.classList.remove("dragging"); item.style.transform = "";
+
+    const end = ev => {
+      if (ev && ev.pointerId !== pointerId) return;
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+
+      document.body.style.userSelect = prevBodyUserSelect;
+      item.classList.remove("dragging");
+      item.style.transform = "";
       haptic("light");
-      onReorder([...list.children].map(c => c.dataset.key));
+      onReorder([...list.children].filter(c => c.hasAttribute("data-key")).map(c => c.dataset.key));
     };
-    handle.addEventListener("pointermove", move);
-    handle.addEventListener("pointerup", end);
-    handle.addEventListener("pointercancel", end);
+
+    window.addEventListener("pointermove", move, { passive: false });
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
   });
 }
