@@ -891,7 +891,7 @@ const DICT = {
     "settings.notificationsSub": "Push-уведомление, когда приложение свёрнуто",
     "settings.exportCsvSub": "Таблица для Excel / Google Sheets",
     "settings.exportJsonSub": "Полный слепок всех программ и истории (JSON)",
-    "settings.importJsonSub": "Загрузить ранее сохранённый JSON-файл"
+    "settings.importJsonSub": "Загрузить ранее сохранённый JSON-файл",
 
     "settings.appearanceGroup": "ВНЕШНИЙ ВИД",
     "settings.workoutGroup": "ТРЕНИРОВКА",
@@ -1620,7 +1620,7 @@ const DICT = {
     "settings.notificationsSub": "System notification when app is in background",
     "settings.exportCsvSub": "Spreadsheet for Excel / Google Sheets",
     "settings.exportJsonSub": "Full snapshot of programs & workout history (JSON)",
-    "settings.importJsonSub": "Restore from a previously saved JSON backup"
+    "settings.importJsonSub": "Restore from a previously saved JSON backup",
 
     "settings.appearanceGroup": "APPEARANCE",
     "settings.workoutGroup": "WORKOUT",
