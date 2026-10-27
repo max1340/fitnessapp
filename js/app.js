@@ -64,7 +64,7 @@ function route({ force = false } = {}) {
 
   if (isDesktop()) {
     if (rawId === "workout" || !rawId) {
-      history.replaceState(null, "", "#/programs");
+      window.history.replaceState(null, "", "#/programs");
     }
     const deskId = (rawId === "workout" || !rawId) ? "programs" : rawId;
     const validIds = ["programs", "exercises", "progress", "history", "settings"];
@@ -93,17 +93,20 @@ function route({ force = false } = {}) {
 
     const deskContainer = getDesktopViewContainer();
     if (deskContainer) {
-      if (targetId === "programs") renderDesktopPrograms(deskContainer);
-      else if (targetId === "exercises") renderDesktopExercises(deskContainer);
-      else if (targetId === "progress") renderDesktopProgress(deskContainer);
-      else if (targetId === "history") renderDesktopHistory(deskContainer);
-      else if (targetId === "settings") renderDesktopSettings(deskContainer);
+      clear(deskContainer);
+      let node = null;
+      if (targetId === "programs") node = renderDesktopPrograms();
+      else if (targetId === "exercises") node = renderDesktopExercises();
+      else if (targetId === "progress") node = renderDesktopProgress();
+      else if (targetId === "history") node = renderDesktopHistory();
+      else if (targetId === "settings") node = renderDesktopSettings();
+      if (node) deskContainer.append(node);
     }
     return;
   }
 
   if (rawId === "settings") {
-    history.replaceState(null, "", "#/workout");
+    window.history.replaceState(null, "", "#/workout");
     setTimeout(() => openSettings(), 50);
   }
   const id = (rawId === "settings" ? "workout" : rawId);
