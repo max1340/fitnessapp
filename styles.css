@@ -1,4 +1,4 @@
-/* Монохромная дизайн-система с красным акцентом. Wave 2 токены */
+﻿/* Монохромная дизайн-система с красным акцентом. Wave 2 токены */
 :root {
   --ink: #F4F4F6;
   --ink-2: #A1A1A6;
@@ -4432,7 +4432,7 @@ input[type="checkbox"].ios-switch:checked::after {
 }
 
 /* Десктоп-режим (>= 1024px) */
-@media (min-width: 1024px) {
+@media (min-width: 1024px) and (max-width: 0px) { /* disabled in favor of desktop shell */
   #app {
     max-width: 1200px;
     padding-left: 96px;
@@ -4970,4 +4970,1516 @@ input[type="checkbox"].ios-switch:checked::after {
 }
 .ex-form-textarea:focus {
   border-color: var(--ink);
+}
+
+
+/* ==========================================================================
+   DESKTOP MODE STYLES (≥1024px) — SCOPE: body[data-shell="desktop"]
+   Визуальный эталон 1:1 по Qwen_html_20261027_6yq6p52r9.html
+   ========================================================================== */
+
+body[data-shell="desktop"] {
+  /* Токены светлой темы (дефолт концепта) */
+  --page: #EDEDEF;
+  --sheet: #FCFCFD;
+  --tile: #F1F1F4;
+  --line: #E3E3E7;
+  --line2: #EFEFF2;
+  --ink: #0A0A0B;
+  --ink2: #5C5C61;
+  --ink3: #8E8E93;
+  --base: #E4E4E9;
+  --field: #FFFFFF;
+  --danger: #C6282C;
+  --ok: #1E8E3E;
+  --warn: #9A6200;
+
+  margin: 0;
+  font-family: 'Golos Text', system-ui, -apple-system, sans-serif;
+  color: var(--ink);
+  background: var(--sheet);
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Паритет тёмной темы на десктопе */
+html[data-theme="dark"] body[data-shell="desktop"],
+:root:not([data-theme="light"]) body[data-shell="desktop"] {
+  --page: #0A0A0B;
+  --sheet: #121214;
+  --tile: #1B1B1E;
+  --line: #26262A;
+  --line2: #1E1E22;
+  --ink: #F4F4F6;
+  --ink2: #9E9EA4;
+  --ink3: #6C6C72;
+  --base: #28282D;
+  --field: #161618;
+  --danger: #EF4444;
+  --ok: #22C55E;
+  --warn: #F59E0B;
+
+  color: var(--ink);
+  background: var(--sheet);
+}
+
+body[data-shell="desktop"] #app {
+  display: none !important;
+}
+
+body[data-shell="desktop"] .desktop-shell {
+  display: contents;
+}
+
+/* Тонкие скроллбары */
+body[data-shell="desktop"] *::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+body[data-shell="desktop"] *::-webkit-scrollbar-track {
+  background: transparent;
+}
+body[data-shell="desktop"] *::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 4px;
+}
+body[data-shell="desktop"] *::-webkit-scrollbar-thumb:hover {
+  background: var(--ink3);
+}
+body[data-shell="desktop"] * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+/* Рельса (Sidebar 232px) */
+body[data-shell="desktop"] .rail {
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  padding: 18px 14px;
+  gap: 2px;
+  background: var(--sheet);
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+body[data-shell="desktop"] .railLogo {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 4px 10px 20px;
+}
+
+body[data-shell="desktop"] .logo {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--ink);
+  color: var(--sheet);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+body[data-shell="desktop"] .wordmark {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  color: var(--ink);
+}
+
+body[data-shell="desktop"] .railNav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+body[data-shell="desktop"] .navBtn {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink2);
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background 0.15s, color 0.15s;
+}
+
+body[data-shell="desktop"] .navBtn:hover {
+  background: var(--tile);
+  color: var(--ink);
+}
+
+body[data-shell="desktop"] .navBtn.on {
+  background: var(--tile);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+body[data-shell="desktop"] .navBtn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+body[data-shell="desktop"] .railFoot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+body[data-shell="desktop"] .syncPill {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12.5px;
+  color: var(--ink2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: var(--field);
+  cursor: pointer;
+}
+
+body[data-shell="desktop"] .syncPill i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ok);
+  flex: none;
+}
+
+body[data-shell="desktop"] .interfaceSwitchBtn {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 8px;
+  text-align: center;
+  border: 1px solid var(--line);
+  background: var(--field);
+  color: var(--ink2);
+  cursor: pointer;
+}
+body[data-shell="desktop"] .interfaceSwitchBtn:hover {
+  background: var(--tile);
+  color: var(--ink);
+}
+
+body[data-shell="desktop"] .userChip {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 12px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+body[data-shell="desktop"] .userChip:hover {
+  background: var(--tile);
+}
+
+body[data-shell="desktop"] .ava {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: var(--ink);
+  color: var(--sheet);
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 800;
+  flex: none;
+}
+
+/* Главная область */
+body[data-shell="desktop"] .main.desktop-main {
+  overflow-y: auto;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--sheet);
+}
+
+body[data-shell="desktop"] .desktop-view-container {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Инфо-полоса активной сессии на телефоне */
+body[data-shell="desktop"] .liveStrip {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 28px;
+  background: var(--tile);
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--ink2);
+  flex: none;
+}
+
+body[data-shell="desktop"] .liveStrip i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warn);
+  animation: pulse 2s infinite;
+  flex: none;
+}
+
+@keyframes pulse {
+  50% { opacity: .35; }
+}
+
+body[data-shell="desktop"] .liveStrip b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Топбар */
+body[data-shell="desktop"] .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--sheet);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 28px;
+  min-height: 56px;
+  box-sizing: border-box;
+}
+
+body[data-shell="desktop"] .topbar h1 {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0;
+  color: var(--ink);
+}
+
+body[data-shell="desktop"] .sub {
+  font-size: 13px;
+  color: var(--ink3);
+}
+
+body[data-shell="desktop"] .spacer {
+  flex: 1;
+}
+
+/* Общие десктопные кнопки */
+body[data-shell="desktop"] .btnP {
+  background: var(--ink);
+  color: var(--sheet);
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-weight: 700;
+  font-size: 14px;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  border: 0;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+body[data-shell="desktop"] .btnP:hover {
+  opacity: 0.9;
+}
+
+body[data-shell="desktop"] .btnP:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+body[data-shell="desktop"] .btnGhost {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 9px 14px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink2);
+  background: var(--field);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+body[data-shell="desktop"] .btnGhost:hover {
+  background: var(--tile);
+  color: var(--ink);
+}
+
+body[data-shell="desktop"] .quiet {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 13px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink2);
+  background: var(--field);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+body[data-shell="desktop"] .quiet:hover {
+  background: var(--tile);
+  color: var(--ink);
+}
+
+body[data-shell="desktop"] .icBtn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: var(--ink3);
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+body[data-shell="desktop"] .icBtn:hover {
+  background: var(--base);
+  color: var(--ink);
+}
+
+body[data-shell="desktop"] .icBtn.danger {
+  color: var(--danger);
+}
+body[data-shell="desktop"] .icBtn.danger:hover {
+  background: rgba(198, 40, 44, 0.12);
+}
+
+body[data-shell="desktop"] .seg {
+  display: flex;
+  background: var(--tile);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+
+body[data-shell="desktop"] .seg button {
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink2);
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+body[data-shell="desktop"] .seg button.on {
+  background: var(--ink);
+  color: var(--sheet);
+}
+
+body[data-shell="desktop"] .card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--sheet);
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+body[data-shell="desktop"] .card h4 {
+  margin: 0 0 10px;
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink3);
+  font-weight: 600;
+}
+
+body[data-shell="desktop"] .tag {
+  background: var(--tile);
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink2);
+}
+
+body[data-shell="desktop"] .addBtn {
+  width: 100%;
+  padding: 13px;
+  border: 1.5px dashed var(--line);
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink2);
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  background: none;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+body[data-shell="desktop"] .addBtn:hover {
+  background: var(--tile);
+  border-color: var(--ink3);
+  color: var(--ink);
+}
+
+/* ── 1. ПРОГРАММЫ / КОНСТРУКТОР ── */
+body[data-shell="desktop"] .colsProg {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  gap: 24px;
+  padding: 24px 28px;
+  align-items: start;
+}
+
+body[data-shell="desktop"] .pList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+body[data-shell="desktop"] .pCard {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--sheet);
+  padding: 14px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  transition: box-shadow 0.15s, background 0.15s;
+}
+
+body[data-shell="desktop"] .pCard:hover {
+  background: var(--tile);
+}
+
+body[data-shell="desktop"] .pCard.sel {
+  box-shadow: 0 0 0 1.5px var(--ink);
+}
+
+body[data-shell="desktop"] .pCard b {
+  font-size: 15px;
+  display: block;
+}
+
+body[data-shell="desktop"] .pCard span {
+  display: block;
+  font-size: 12.5px;
+  color: var(--ink3);
+  margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+body[data-shell="desktop"] .editor {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--sheet);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+body[data-shell="desktop"] .edHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 18px 0;
+}
+
+body[data-shell="desktop"] .edHead h2 {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0;
+  color: var(--ink);
+}
+
+body[data-shell="desktop"] .status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink2);
+  background: var(--tile);
+  border-radius: 999px;
+  padding: 5px 10px;
+}
+
+body[data-shell="desktop"] .status i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warn);
+}
+
+body[data-shell="desktop"] .edMeta {
+  padding: 6px 18px 12px;
+  font-size: 13px;
+  color: var(--ink2);
+  font-variant-numeric: tabular-nums;
+}
+
+body[data-shell="desktop"] .edTabs {
+  margin: 0 18px 14px;
+}
+
+body[data-shell="desktop"] .edPanel {
+  display: none;
+  padding: 0 18px;
+}
+
+body[data-shell="desktop"] .edPanel.on {
+  display: block;
+}
+
+body[data-shell="desktop"] .exRow {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+body[data-shell="desktop"] .exHead {
+  display: grid;
+  grid-template-columns: 16px 26px 1fr auto 28px;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 14px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  border: 0;
+  background: none;
+  color: inherit;
+  transition: background 0.15s;
+}
+
+body[data-shell="desktop"] .exHead:hover {
+  background: var(--tile);
+}
+
+body[data-shell="desktop"] .drag {
+  color: var(--ink3);
+}
+
+body[data-shell="desktop"] .idx {
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  background: var(--tile);
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink2);
+}
+
+body[data-shell="desktop"] .exName b {
+  display: block;
+  font-size: 14.5px;
+}
+
+body[data-shell="desktop"] .exName span {
+  font-size: 10.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink3);
+  font-weight: 600;
+}
+
+body[data-shell="desktop"] .exSum {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink2);
+  font-variant-numeric: tabular-nums;
+}
+
+body[data-shell="desktop"] .chev {
+  color: var(--ink3);
+  transition: transform .25s;
+}
+
+body[data-shell="desktop"] .exRow.open .chev {
+  transform: rotate(180deg);
+}
+
+body[data-shell="desktop"] .exBody {
+  display: none;
+  border-top: 1px solid var(--line2);
+  padding: 14px;
+  background: var(--tile);
+}
+
+body[data-shell="desktop"] .exRow.open .exBody {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 20px;
+}
+
+body[data-shell="desktop"] .fLab {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink2);
+  margin-bottom: 7px;
+  display: block;
+}
+
+body[data-shell="desktop"] .stepD {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--field);
+  max-width: 200px;
+}
+
+body[data-shell="desktop"] .stepD button {
+  width: 36px;
+  height: 34px;
+  font-size: 16px;
+  color: var(--ink2);
+  background: var(--tile);
+  border: 0;
+  cursor: pointer;
+}
+
+body[data-shell="desktop"] .stepD b {
+  flex: 1;
+  text-align: center;
+  font-size: 14.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+body[data-shell="desktop"] .segS {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  background: var(--tile);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+
+body[data-shell="desktop"] .segS button {
+  border-radius: 8px;
+  padding: 7px 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink2);
+  font-variant-numeric: tabular-nums;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+body[data-shell="desktop"] .segS button.on {
+  background: var(--ink);
+  color: var(--sheet);
+}
+
+body[data-shell="desktop"] .hint {
+  font-size: 12px;
+  color: var(--ink3);
+  margin-top: 6px;
+}
+
+body[data-shell="desktop"] .chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+body[data-shell="desktop"] .chip {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink2);
+  background: var(--field);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+body[data-shell="desktop"] .chip.on {
+  background: var(--ink);
+  color: var(--sheet);
+  border-color: var(--ink);
+}
+
+body[data-shell="desktop"] .noteIn {
+  grid-column: 1 / -1;
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: inherit;
+  width: 100%;
+}
+
+body[data-shell="desktop"] .exActs {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+}
+
+body[data-shell="desktop"] .act {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink2);
+  background: var(--field);
+  cursor: pointer;
+}
+
+body[data-shell="desktop"] .act.danger {
+  color: var(--danger);
+}
+
+body[data-shell="desktop"] .edFoot {
+  display: flex;
+  gap: 10px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--line);
+  margin-top: 14px;
+}
+
+body[data-shell="desktop"] .bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+body[data-shell="desktop"] .barTop {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--ink2);
+  margin-bottom: 5px;
+}
+
+body[data-shell="desktop"] .barTop b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+body[data-shell="desktop"] .track {
+  height: 7px;
+  border-radius: 4px;
+  background: var(--base);
+  overflow: hidden;
+}
+
+body[data-shell="desktop"] .fill {
+  height: 100%;
+  border-radius: 4px;
+  background: #B6B6BC;
+  transition: width 0.3s ease;
+}
+
+body[data-shell="desktop"] .fill.top {
+  background: var(--ink);
+}
+
+body[data-shell="desktop"] .find {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line2);
+  font-size: 13.5px;
+  color: var(--ink2);
+  line-height: 1.45;
+}
+
+body[data-shell="desktop"] .find i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex: none;
+}
+
+body[data-shell="desktop"] .find.ok i { background: var(--ok); }
+body[data-shell="desktop"] .find.warn i { background: var(--warn); }
+
+body[data-shell="desktop"] .opt {
+  display: flex;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--field);
+  padding: 13px;
+  margin-bottom: 10px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+body[data-shell="desktop"] .opt.sel {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 1px var(--ink);
+}
+
+body[data-shell="desktop"] .radio {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #C4C4CA;
+  margin-top: 2px;
+  position: relative;
+  flex: none;
+}
+
+body[data-shell="desktop"] .opt.sel .radio {
+  border-color: var(--ink);
+}
+
+body[data-shell="desktop"] .opt.sel .radio::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+body[data-shell="desktop"] .opt b {
+  font-size: 14.5px;
+  display: block;
+}
+
+body[data-shell="desktop"] .opt span {
+  font-size: 12.5px;
+  color: var(--ink3);
+}
+
+/* ── 2. ПРОГРЕСС — 12-КОЛОНОЧНЫЙ ГРИД ── */
+body[data-shell="desktop"] .dash {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 16px;
+  padding: 24px 28px;
+}
+
+body[data-shell="desktop"] .sp3 { grid-column: span 3; }
+body[data-shell="desktop"] .sp4 { grid-column: span 4; }
+body[data-shell="desktop"] .sp6 { grid-column: span 6; }
+body[data-shell="desktop"] .sp8 { grid-column: span 8; }
+body[data-shell="desktop"] .sp12 { grid-column: span 12; }
+
+body[data-shell="desktop"] .kpi .lab {
+  font-size: 12.5px;
+  color: var(--ink2);
+  margin-bottom: 6px;
+}
+
+body[data-shell="desktop"] .kpi .val {
+  font-size: 27px;
+  font-weight: 800;
+  letter-spacing: -.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+body[data-shell="desktop"] .kpi .val i {
+  font-style: normal;
+  font-size: 14px;
+  color: var(--ink2);
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+body[data-shell="desktop"] .kpi .foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--ink3);
+}
+
+body[data-shell="desktop"] .tblRow {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 14px;
+  padding: 9px 0;
+  border-top: 1px solid var(--line2);
+  font-size: 13.5px;
+  color: var(--ink2);
+  align-items: center;
+}
+
+body[data-shell="desktop"] .tblRow:first-of-type {
+  border-top: 0;
+}
+
+body[data-shell="desktop"] .tblRow b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+body[data-shell="desktop"] .heat {
+  display: grid;
+  grid-template-rows: repeat(7, 1fr);
+  grid-auto-flow: column;
+  gap: 4px;
+  height: 118px;
+  margin-top: 6px;
+}
+
+body[data-shell="desktop"] .heat i {
+  border-radius: 3px;
+  background: var(--base);
+}
+
+body[data-shell="desktop"] .heat i.l1 { background: #C9C9CE; }
+body[data-shell="desktop"] .heat i.l2 { background: #8A8A90; }
+body[data-shell="desktop"] .heat i.l3 { background: var(--ink); }
+
+body[data-shell="desktop"] .heatLeg {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--ink3);
+  margin-top: 8px;
+}
+
+body[data-shell="desktop"] .heatLeg i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+/* ── 3. ИСТОРИЯ ── */
+body[data-shell="desktop"] .colsHist {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  gap: 24px;
+  padding: 24px 28px;
+  align-items: start;
+}
+
+body[data-shell="desktop"] .hRow {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--sheet);
+  padding: 13px 14px;
+  margin-bottom: 10px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  transition: box-shadow 0.15s, background 0.15s;
+}
+
+body[data-shell="desktop"] .hRow:hover {
+  background: var(--tile);
+}
+
+body[data-shell="desktop"] .hRow.sel {
+  box-shadow: 0 0 0 1.5px var(--ink);
+}
+
+body[data-shell="desktop"] .hRow .d { flex: 1; }
+body[data-shell="desktop"] .hRow b { font-size: 14.5px; display: block; }
+body[data-shell="desktop"] .hRow span { font-size: 12.5px; color: var(--ink3); display: block; margin-top: 2px; }
+body[data-shell="desktop"] .hRow .m { text-align: right; font-size: 13.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+body[data-shell="desktop"] .hRow .m span { font-weight: 500; font-size: 12px; color: var(--ink3); display: block; }
+
+body[data-shell="desktop"] .miniKpi {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin: 12px 0;
+}
+
+body[data-shell="desktop"] .miniKpi div {
+  background: var(--tile);
+  border-radius: 12px;
+  padding: 11px 13px;
+}
+
+body[data-shell="desktop"] .miniKpi span {
+  font-size: 11.5px;
+  color: var(--ink2);
+  display: block;
+  margin-bottom: 4px;
+}
+
+body[data-shell="desktop"] .miniKpi b {
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+body[data-shell="desktop"] .setName {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 12px 0 6px;
+  font-size: 14.5px;
+}
+
+body[data-shell="desktop"] .setName span {
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink3);
+  font-weight: 600;
+}
+
+body[data-shell="desktop"] .setName b.best {
+  margin-left: auto;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+body[data-shell="desktop"] .setTxt {
+  display: grid;
+  grid-template-columns: 30px 1fr 1fr 30px;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line2);
+  font-size: 13.5px;
+  color: var(--ink2);
+  font-variant-numeric: tabular-nums;
+  align-items: center;
+}
+
+body[data-shell="desktop"] .setTxt .ok {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* ── 4. УПРАЖНЕНИЯ ── */
+body[data-shell="desktop"] .colsEx {
+  display: grid;
+  grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+  gap: 24px;
+  padding: 24px 28px;
+  align-items: start;
+}
+
+body[data-shell="desktop"] .gGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+body[data-shell="desktop"] .gCard {
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--sheet);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  transition: box-shadow 0.15s, background 0.15s;
+}
+
+body[data-shell="desktop"] .gCard:hover {
+  background: var(--tile);
+}
+
+body[data-shell="desktop"] .gCard.sel {
+  box-shadow: 0 0 0 1.5px var(--ink);
+}
+
+body[data-shell="desktop"] .gCard b {
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+body[data-shell="desktop"] .gCard span {
+  font-size: 12.5px;
+  color: var(--ink3);
+  font-variant-numeric: tabular-nums;
+}
+
+body[data-shell="desktop"] .searchIn {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 9px 14px;
+  font-size: 14px;
+  background: var(--field);
+  width: 260px;
+  color: inherit;
+}
+
+/* ── 5. НАСТРОЙКИ ── */
+body[data-shell="desktop"] .colsSet {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 720px);
+  gap: 24px;
+  padding: 24px 28px;
+  align-items: start;
+}
+
+body[data-shell="desktop"] .anchorNav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: sticky;
+  top: 76px;
+}
+
+body[data-shell="desktop"] .anchorNav button {
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink2);
+  text-align: left;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+body[data-shell="desktop"] .anchorNav button.on {
+  background: var(--tile);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+body[data-shell="desktop"] .grp {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--sheet);
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+body[data-shell="desktop"] .row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  color: inherit;
+}
+
+body[data-shell="desktop"] .row + .row {
+  border-top: 1px solid var(--line2);
+}
+
+body[data-shell="desktop"] .row .lab {
+  flex: 1;
+}
+
+body[data-shell="desktop"] .row .lab b {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+body[data-shell="desktop"] .row .lab span {
+  display: block;
+  font-size: 12.5px;
+  color: var(--ink3);
+  margin-top: 2px;
+}
+
+body[data-shell="desktop"] .sw {
+  width: 44px;
+  height: 26px;
+  border-radius: 999px;
+  background: #D9D9DE;
+  position: relative;
+  flex: none;
+  transition: background .18s;
+  border: 0;
+  cursor: pointer;
+}
+
+body[data-shell="desktop"] .sw::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.25);
+  transition: transform .18s;
+}
+
+body[data-shell="desktop"] .sw.on {
+  background: var(--ink);
+}
+
+body[data-shell="desktop"] .sw.on::after {
+  transform: translateX(18px);
+}
+
+/* ── ДЕСКТОПНЫЙ DRAWER 480px И ЦЕНТРАЛЬНЫЕ МОДАЛКИ ── */
+body[data-shell="desktop"] .sheet {
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: auto !important;
+  width: 480px !important;
+  max-width: 90vw !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  border-radius: 16px 0 0 16px !important;
+  transform: translateX(0) !important;
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.28) !important;
+  background: var(--sheet) !important;
+  z-index: 50 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+body[data-shell="desktop"] .sheet-grab {
+  display: none !important;
+}
+
+body[data-shell="desktop"] .sheet-head {
+  padding: 16px 20px !important;
+  border-bottom: 1px solid var(--line) !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+body[data-shell="desktop"] .sheet-body {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  padding: 20px !important;
+}
+
+/* Command Palette Backdrop & Modal */
+.cmd-palette-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.cmd-modal {
+  width: 640px;
+  max-width: 90vw;
+  background: var(--sheet, #FCFCFD);
+  border-radius: 16px;
+  border: 1px solid var(--line, #E3E3E7);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.cmd-input {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line, #E3E3E7);
+  padding: 16px 20px;
+  font-size: 16px;
+  background: transparent;
+  color: var(--ink, #0A0A0B);
+  outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.cmd-results {
+  max-height: 380px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.cmd-group-title {
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink3, #8E8E93);
+  font-weight: 700;
+  padding: 8px 12px 4px;
+}
+
+.cmd-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+  box-sizing: border-box;
+}
+
+.cmd-item:hover, .cmd-item.on {
+  background: var(--tile, #F1F1F4);
+}
+
+.cmd-item-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.cmd-item-title {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink, #0A0A0B);
+}
+
+.cmd-item-sub {
+  display: block;
+  font-size: 12px;
+  color: var(--ink3, #8E8E93);
+  margin-top: 2px;
+}
+
+.cmd-item-cat {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink3, #8E8E93);
+  background: var(--tile, #F1F1F4);
+  padding: 4px 8px;
+  border-radius: 6px;
+  flex: none;
+}
+
+.cmd-footer {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 10px 18px;
+  border-top: 1px solid var(--line, #E3E3E7);
+  font-size: 12px;
+  color: var(--ink3, #8E8E93);
+  background: var(--tile, #F1F1F4);
+}
+
+.cmd-footer kbd {
+  background: var(--sheet, #FCFCFD);
+  border: 1px solid var(--line, #E3E3E7);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 700;
+}
+
+.cmd-empty {
+  padding: 28px 20px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--ink3, #8E8E93);
+}
+
+/* Центральные модалки (Hotkeys и подтверждения) */
+.center-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.center-modal {
+  width: 480px;
+  max-width: 90vw;
+  background: var(--sheet, #FCFCFD);
+  border-radius: 16px;
+  border: 1px solid var(--line, #E3E3E7);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+  padding: 20px;
+}
+
+.hotkeys-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.hotkeys-head h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--ink, #0A0A0B);
+}
+
+.hotkey-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-top: 1px solid var(--line2, #EFEFF2);
+  font-size: 13.5px;
+}
+
+.hotkey-kbd {
+  background: var(--tile, #F1F1F4);
+  border: 1px solid var(--line, #E3E3E7);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--ink, #0A0A0B);
+}
+
+.hotkey-desc {
+  color: var(--ink2, #5C5C61);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  body[data-shell="desktop"] .liveStrip i {
+    animation: none;
+  }
+  body[data-shell="desktop"] * {
+    transition: none !important;
+  }
 }

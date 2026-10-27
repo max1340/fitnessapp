@@ -1,4 +1,4 @@
-// Хранилище состояния в памяти поверх Firebase Realtime Database + локального офлайн-кэша.
+﻿// Хранилище состояния в памяти поверх Firebase Realtime Database + локального офлайн-кэша.
 // Аккаунт = пользователь Firebase Auth; все данные и локальные ключи привязаны к uid.
 import {
   watchCollection, saveDoc, removeDoc, bulkSave, bulkRemove,
@@ -28,7 +28,7 @@ function readDevicePrefs() {
   } catch { return {}; }
 }
 function writeDevicePrefs(s) {
-  try { localStorage.setItem(LS_DEVICE_PREFS, JSON.stringify({ lang: s.lang, theme: s.theme })); } catch { /* ignore */ }
+  try { localStorage.setItem(LS_DEVICE_PREFS, JSON.stringify({ lang: s.lang, theme: s.theme, interface: s.interface })); } catch { /* ignore */ }
 }
 function normalizeDoc(coll, d) {
   if (!d || typeof d !== "object") return d;

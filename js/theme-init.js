@@ -1,4 +1,4 @@
-// Применяем тему и язык до первой отрисовки, чтобы не было вспышки.
+﻿// Применяем тему и язык до первой отрисовки, чтобы не было вспышки.
 // Читаются только нечувствительные настройки внешнего вида устройства (не привязаны к аккаунту).
 try {
   ["gesturestart", "gesturechange", "gestureend"].forEach(function (ev) {
@@ -10,6 +10,11 @@ try {
   document.addEventListener("touchstart", function (e) {
     if (e.touches && e.touches.length > 1) e.preventDefault();
   }, { passive: false });
+  var iface = st.interface || "auto";
+  var isDesk = iface === "desktop" || (iface === "auto" && window.matchMedia && window.matchMedia("(min-width: 1024px)").matches);
+  document.addEventListener("DOMContentLoaded", function() {
+    document.body.setAttribute("data-shell", isDesk ? "desktop" : "mobile");
+  });
 } catch (e) {}
 
 try {
