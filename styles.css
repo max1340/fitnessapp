@@ -1911,6 +1911,141 @@ body.auth-open #app { visibility: hidden; pointer-events: none; }
   font-weight: 600;
 }
 
+/* ---------- PWA Install Banner & Guide ---------- */
+.pwa-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--s1);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  margin-bottom: 2px;
+  animation: pwa-banner-in 0.25s ease-out;
+}
+@keyframes pwa-banner-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.pwa-banner-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.pwa-banner-ico {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 10px;
+  background: var(--fg);
+  color: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.pwa-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.pwa-banner-text strong {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.pwa-banner-text small {
+  font-size: 12px;
+  line-height: 1.25;
+}
+.pwa-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.pwa-banner-close {
+  width: 32px;
+  min-height: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--mut);
+}
+.pwa-banner-close:hover {
+  color: var(--fg);
+}
+
+.auth-pwa-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 14px;
+  background: var(--s2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  margin-top: 14px;
+}
+.auth-pwa-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.auth-pwa-text strong {
+  font-size: 13px;
+  font-weight: 700;
+}
+.auth-pwa-text small {
+  font-size: 11px;
+}
+
+.pwa-guide-stack {
+  gap: 12px;
+  padding: 4px 0;
+}
+.pwa-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--s2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+.pwa-step-num {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 50%;
+  background: var(--fg);
+  color: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.pwa-step-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.pwa-step-content strong {
+  font-size: 14px;
+  line-height: 1.25;
+}
+.pwa-step-content small {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 /* ---------- Современные настройки (Settings Sheet) ---------- */
 .stg-wrap { gap: 18px; padding-bottom: 12px; }
 .stg-section { display: flex; flex-direction: column; gap: 8px; }

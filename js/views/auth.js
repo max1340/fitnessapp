@@ -7,6 +7,7 @@ import {
 import { authErrorMessage, MIN_PASSWORD_LEN } from "../auth.js";
 import { t, getLang } from "../i18n.js";
 import { applyTheme } from "./settings.js";
+import { isStandalone, promptPwaInstall } from "../pwa.js";
 
 export function openAuthScreen(onSuccess) {
   let el = document.getElementById("auth-screen");
@@ -447,7 +448,19 @@ export function openAuthScreen(onSuccess) {
       }
     }
 
-    el.append(h("div", { class: "auth-card" }, header, tabs, body));
+    const pwaBar = !isStandalone() ? h("div", { class: "auth-pwa-banner" },
+      h("div", { class: "auth-pwa-text" },
+        h("strong", {}, t("pwa.installBannerTitle")),
+        h("small", { class: "muted" }, t("pwa.installBannerSub"))
+      ),
+      h("button", {
+        class: "btn small primary",
+        type: "button",
+        onclick: () => promptPwaInstall()
+      }, icon("download", 14), t("pwa.installAction"))
+    ) : null;
+
+    el.append(h("div", { class: "auth-card" }, header, tabs, body, pwaBar));
   }
 
   render();

@@ -6,6 +6,7 @@ import { pickExercise } from "./exercises.js";
 import { startRest, stopRest, pauseRest, resumeRest } from "../timer.js";
 import { renderBodyMap, ZONES, mapMuscleToZones } from "../bodyMap.js";
 import { t, tMuscle, isEn } from "../i18n.js";
+import { isStandalone, promptPwaInstall } from "../pwa.js";
 
 /* ---------- Screen Wake Lock ---------- */
 let wakeLock = null, wantLock = false;
@@ -1229,6 +1230,36 @@ export function mount(root) {
         )
       );
       view.append(resumeBanner);
+    }
+
+    if (!isStandalone() && !sessionStorage.getItem("pwa_home_dismissed")) {
+      const banner = h("div", { class: "pwa-banner" },
+        h("div", { class: "pwa-banner-main" },
+          h("div", { class: "pwa-banner-ico" }, icon("download", 18)),
+          h("div", { class: "pwa-banner-text" },
+            h("strong", {}, t("pwa.installBannerTitle")),
+            h("small", { class: "muted" }, t("pwa.installBannerSub"))
+          )
+        ),
+        h("div", { class: "pwa-banner-actions" },
+          h("button", {
+            class: "btn small primary",
+            type: "button",
+            onclick: () => promptPwaInstall()
+          }, icon("download", 14), t("pwa.installAction")),
+          h("button", {
+            class: "btn icon small pwa-banner-close",
+            type: "button",
+            "aria-label": t("common.close"),
+            title: t("common.close"),
+            onclick: () => {
+              sessionStorage.setItem("pwa_home_dismissed", "1");
+              banner.remove();
+            }
+          }, icon("x", 16))
+        )
+      );
+      view.append(banner);
     }
 
     view.append(

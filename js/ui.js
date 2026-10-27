@@ -140,7 +140,8 @@ const ICONS = {
   share: "M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7M16 6l-4-4-4 4M12 2v13",
   search: "M11 18a7 7 0 100-14 7 7 0 000 14zM21 21l-5-5",
   more: "M12 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM12 13.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM12 21a1.5 1.5 0 100-3 1.5 1.5 0 000 3z",
-  pencil: "M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"
+  pencil: "M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z",
+  smartphone: "M7 2h10a2 2 0 012 2v16a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2zm5 16h.01"
 };
 export function icon(name, size = 22) {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");

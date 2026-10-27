@@ -2,6 +2,7 @@ import { h, clear, sheet, toast, confirmDialog, parseNum, fmtNum, fmtRest, icon,
 import { state, updateSettings, exportData, importData, downloadCsv, unitLabel, logoutProfile, doneSessions, pendingCount, waitForSync, deleteAccount } from "../store.js";
 import { authErrorMessage } from "../auth.js";
 import { t, getLang } from "../i18n.js";
+import { isStandalone, promptPwaInstall } from "../pwa.js";
 
 export function applyTheme() {
   const tMode = state.settings.theme;
@@ -263,6 +264,19 @@ export function openSettings() {
           actionRow("plus", t("settings.importJsonBtn"), t("settings.importJsonSub"), () => file.click()),
           file,
           actionRow("trash", t("settings.deleteAccount"), t("settings.deleteAccountSub"), () => openDeleteAccount(), true)
+        )
+      ),
+
+      h("div", { class: "stg-section" },
+        h("span", { class: "stg-sec-title" }, t("pwa.settingsGroup")),
+        h("div", { class: "stg-card stg-list-card" },
+          !isStandalone()
+            ? actionRow("download", t("pwa.settingsTitle"), t("pwa.settingsSub"), () => promptPwaInstall(), true)
+            : h("div", { class: "stg-action-row last", style: "cursor:default" },
+                h("span", { class: "stg-action-ico", style: "color:var(--ok, #4caf50)" }, icon("check", 18)),
+                h("span", { class: "stg-action-text" },
+                  h("span", { class: "stg-action-title" }, t("pwa.installedBadge")),
+                  h("small", { class: "muted" }, t("pwa.installedSub"))))
         )
       )
     );
